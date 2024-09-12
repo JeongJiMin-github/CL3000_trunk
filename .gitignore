@@ -1,0 +1,10 @@
+cl5200j/
+cl5500/
+data/
+*.json
+data_rom/
+exe/
+font/
+gen_rom/
+revision_history/
+zint-2.5.1/
