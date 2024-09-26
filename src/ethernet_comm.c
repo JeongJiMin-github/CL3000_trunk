@@ -361,7 +361,11 @@ void network_scalecheck_send(void)
 		if (network_timeout_check(network_status.time_trans3,NETWORK_TIMEOUT_SEND_CHECK))	       	
 		{
 #ifdef USE_PROHIBIT_AUTO_SERVER_CHECK
-			remote_connection = ON;						// 자동연결 체크 기능 해제 시 별도의 통신 체크 기능 동작X 러시아 KST, SPAR 마트 요청사항
+			/* 물리적으로 네트워크가 끊기고 다시 연결되면 전송되지 못한 데이터 전송 */
+			if (ETH_LED_LINK)
+				remote_connection = ON;
+			else
+				remote_connection = OFF;
 #else
 			remote_connection = NetCheckMasterConnection();
 #endif
