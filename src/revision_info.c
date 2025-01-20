@@ -15,5 +15,5 @@
 // 현재 Revision 가져오기
 INT32U GetRevision(void)
 {
-	return 3297;
+	return 3305;
 }

@@ -10,6 +10,7 @@
 ****************************************************************************/
 
 #include "globals.h"
+#include "revision_info.h"
 
 ////////////////////////////////////////////////////////
 //Version String Description
@@ -40,17 +41,31 @@
 
 	//RUSSIA는 부팅시 버전 표시 고정. initial.c 에서 변경. 
 //	                                   012345678901234
+
+#define VER1	"3"
+#define VER2	"05"
+#define VER3	"04"
+
+#ifdef USE_AUTO_FIND_VERSION
+#define FINDING_START 	"_veRsIon"
+#define FINDING_END		"_eNd"
+#endif
+
+#define VER4	"3"
+#define VER5	"02"
+#define VER6	"09"
+
 #ifdef USE_PIC32MZ_EFG
 	#ifdef CL3000_PROJECT
-		ROMDATA  char VERSION_STRING[] = {"CA2102EU0P04305"}; //CL3000-P
+		ROMDATA  char VERSION_STRING[] = {"CA2102EU0P"VER3 VER1 VER2}; //CL3000-P
 	#else
-		ROMDATA  char VERSION_STRING[] = {"C52102EU0P04305"}; //CL5200J-P
+		ROMDATA  char VERSION_STRING[] = {"C52102EU0P"VER3 VER1 VER2}; //CL5200J-P
 	#endif
 #else
 	#ifdef CL3000_PROJECT
-		ROMDATA  char VERSION_STRING[] = {"CA2006EU0P09302"}; //CL3000-P
+		ROMDATA  char VERSION_STRING[] = {"CA2006EU0P"VER6 VER4 VER5}; //CL3000-P
 	#else
-		ROMDATA  char VERSION_STRING[] = {"C52006EU0P09302"}; //CL5200J-P
+		ROMDATA  char VERSION_STRING[] = {"C52006EU0P"VER6 VER4 VER5}; //CL5200J-P
 	#endif
 #endif
 				//16 chars include NULL
@@ -64,7 +79,9 @@
 
 ROMDATA  char VERSION_STRING2[4] = {DEALER_VER_STRING};	// "(R)"
 ROMDATA  char VERSION_COUNTRY[3] = {COUNTRY_STR};	// "AU"
-
+#ifdef USE_AUTO_FIND_VERSION
+ROMDATA  char GET_VERSION_NAME_GEN[] = FINDING_START "_" MODEL_NAME "_" COUNTRY_STR "_" "V"VER1 VER2 VER3 "_" DEALER_VER_STRING "_" LOAD_REVISION FINDING_END;
+#endif
 void version_get(FW_VERSION *fw)
 {
 	INT16S i;
