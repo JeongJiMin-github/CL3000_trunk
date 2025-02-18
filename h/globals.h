@@ -54,7 +54,7 @@
 ********************************************************************************
 */
 //------- 영공 펌웨어 사용 -------//
-//#define USE_STANDARD        					// 영공
+#define USE_STANDARD        					// 영공
 
 //------- 기타 추가적인 국가 확인 필요한 펌웨어 -------//
 //#define USE_ARAB							// (A) 아랍 (폰트)
@@ -171,6 +171,7 @@
     #define USE_DSP_USB_FW_UPDATE_VERSION	// USB FW 업데이트 시 문구 및 버전 표시
     #define USE_DSP_MESSAGE_FOR_MEM_CLEAR	// Memory clear 동안 메세지 표시
    	#define CONTINEOUS_PRT_TEST				// M1864"Chess Printer Test" 시 연속 발행 테스트 기능 추가
+	#define USE_AUTO_FIND_VERSION					// 버전 정보 자동으로 찾아오는 기능
 #endif
 /********************************************************************************/
 
@@ -194,6 +195,8 @@
     							  			// 러시아를 제외한 국가에 해당 기능 적용되었으며, 디폴트로 적용하기로 결정하여 해당디파인에 의해 묶인 부분 삭제
     #define USE_ONLY_1EA_PRT_RENDERING_BUF 	// printer buffer 1EA만 사용 (메모리 확보)
     #define CONTINEOUS_PRT_TEST				// M1864"Chess Printer Test" 시 연속 발행 테스트 기능 추가
+	#define USE_AUTO_FIND_VERSION					// 버전 정보 자동으로 찾아오는 기능
+    #define USE_DSP_USB_FW_UPDATE_VERSION	// USB FW 업데이트 시 문구 및 버전 표시
 #endif
 /********************************************************************************/
 

@@ -27,6 +27,7 @@
  #define USE_FONT_ID4_Arial				        // Font ID 4 Arial font 사용
  //#define USE_BEARER_BAR_ONE_LINE			    // 바코드 상단 하단 옵션사항인 테두리 바를 상단의 하나로만 출력(미국 요청)
  #define USE_CANADA_ZERO_MARK_SETTING	    // 캐나다 인증 법규 미국에도 적용 CAL8170에서 Gross Zero Mark[N] / Net Zero Mark[Y], Menu에서 변경 불가
+ #define USE_CONTINUOUS_LABEL_WITH_INGREDIENT
 //----------   국가 전용 라벨 설정  ----------//
  // USA/CANADA 전용 라벨 사용
  #define USE_USA_LABELFORMAT

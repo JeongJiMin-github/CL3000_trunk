@@ -1236,10 +1236,23 @@ SYS_FS_FSTAT dataRomStat;
 #define DATA_ROM_UPDATE_FILE_CL5200J_PREFIX				"CL52J-*.rom"
 #define DATA_ROM_UPDATE_FILE_CL3000_PREFIX				"CL30-*.rom"
 #define DATA_ROM_UPDATE_INI_FILE_PREFIX         "romconfig.ini"
-#define FW_UPDATE_FILE_CL3000N_PREFIX_UPPER		"CL3000N_*.hex"
-#define FW_UPDATE_FILE_CL3000N_PREFIX_LOWER		"cl3000n_*.hex"
-#define FW_UPDATE_FILE_CL3000_PREFIX_UPPER		"CL3000_*.hex"
-#define FW_UPDATE_FILE_CL3000_PREFIX_LOWER		"cl3000_*.hex"
+#ifdef USE_PIC32MZ_EFG
+  #ifdef CL3000_BP
+	#define FW_UPDATE_FILE_PREFIX_UPPER		"CL3000N_*.hex"
+	#define FW_UPDATE_FILE_PREFIX_LOWER		"cl3000n_*.hex"
+  #else
+	#define FW_UPDATE_FILE_PREFIX_UPPER		"CL5200JN_*.hex"
+	#define FW_UPDATE_FILE_PREFIX_LOWER		"cl5200jn_*.hex"
+  #endif
+#else
+  #ifdef CL3000_BP
+	#define FW_UPDATE_FILE_PREFIX_UPPER		"CL3000_*.hex"
+	#define FW_UPDATE_FILE_PREFIX_LOWER		"cl3000_*.hex"
+  #else
+	#define FW_UPDATE_FILE_PREFIX_UPPER		"CL5200j_*.hex"
+	#define FW_UPDATE_FILE_PREFIX_LOWER		"cl5200j_*.hex"
+  #endif
+#endif
 
 #define INI_KEY_NAME_INDEX     "index"
 #define INI_KEY_NAME_DOWNLOAD  "download"
@@ -1569,80 +1582,49 @@ int get_firmware_name(char* name, const char *prefix)
 }
 
 #ifdef USE_DSP_USB_FW_UPDATE_VERSION
-int get_firmware_version(char* versionBuf)
+int get_firmware_version(char* versionBuf, INT32U version_buf_size)
 {
     char fwfile_name[FAT_FS_MAX_LFN];
     char tempBuf[70];
-    INT8U i = 0;
-    INT8U j = 0;
-    INT8U startLen = 0;
-    INT8U fileNameLen = 0;
-#ifdef USE_PIC32MZ_EFG
-    char verStart[] = "3.";
-#else
-	char verStart[] = "2.";
-#endif
-#ifdef USE_PIC32MZ_EFG
-    if(get_firmware_name(fwfile_name, FW_UPDATE_FILE_CL3000N_PREFIX_UPPER) < 0) // check CL3000N Firmware file
+	char *tok;
+	INT32U tok_cnt = 1;
+	INT32S buf_idx = 0;
+	int ret = -1;
+
+    if(get_firmware_name(fwfile_name, FW_UPDATE_FILE_PREFIX_UPPER) < 0) // check CL3000N Firmware file
     {
-    	if(get_firmware_name(fwfile_name, FW_UPDATE_FILE_CL3000N_PREFIX_LOWER) < 0) // check CL3000N Firmware file
+    	if(get_firmware_name(fwfile_name, FW_UPDATE_FILE_PREFIX_LOWER) < 0) // check CL3000N Firmware file
     	{
     		return -1; // file read faile
     	}
     }
-#else
-	if(get_firmware_name(fwfile_name, FW_UPDATE_FILE_CL3000_PREFIX_UPPER) < 0) // check CL3000 Firmware file
-    {
-    	if(get_firmware_name(fwfile_name, FW_UPDATE_FILE_CL3000_PREFIX_LOWER) < 0) // check CL3000 Firmware file
-    	{
-        	return -1; // file read faile
-    	}
-    }
-#endif
     strncpy(tempBuf, fwfile_name, sizeof(tempBuf));
 
-#ifdef USE_PIC32MZ_EFG
-    if(strncmp(tempBuf, "CL3000N_", 8) == 0 || strncmp(tempBuf, "cl3000n_", 8) == 0)// CL3000N firmware
-    {
-        startLen = VERSION_INFO_START_POS; //15
-    }
-#else
-    if(strncmp(tempBuf, "CL3000_", 7) == 0 || strncmp(tempBuf, "cl3000_", 7) == 0)// CL3000 firmware
-    {
-        startLen = VERSION_INFO_START_POS; //14
-    }
-#endif
-    else // File name rule broken or No Firmware file
-        return -1;
+	tok = strtok(fwfile_name, "_");
 
-    fileNameLen = strlen(tempBuf) - 4; // trim a filename extension '.hex' 
-    if(startLen >= fileNameLen)//File name rule broken 
-        return 0;
+	memset(tempBuf, 0, sizeof(tempBuf));
+	while (tok != NULL) {
+		if (tok_cnt > 2) { // 모델명, 날짜 스킵
+			INT32U tok_len = strlen(tok);
+			INT32U check_buf_idx = buf_idx+tok_len+1;
 
-// Convert Version name
-    for(i = startLen; i < fileNameLen; i++)
-    {
-        if((tempBuf[i] == 'r') && (tempBuf[i+1] >= '0' && tempBuf[i+1] <= '9')) // 'r' ???? ???? ???? ??????????? o?? 
-            break;
+			if (check_buf_idx >= version_buf_size-1 || check_buf_idx >= sizeof(tempBuf)-1)
+				break;
 
-        if(tempBuf[i] == '_')
-        {
-            if(tempBuf[i+1] == 'V') //
-                versionBuf[j] = ' ';
-            else
-                versionBuf[j] = '.'; //
-        }
-		else if(tempBuf[i] == '(' || tempBuf[i] == ')')
-			continue;
-        else
-            versionBuf[j] = tempBuf[i];
-        j++;
-    }
-    versionBuf[--j] = NULL;
-// Check Version name
-    if(strstr(versionBuf, verStart) == NULL) //'3.' or '2.' 
-       memset(versionBuf, 0, strlen(versionBuf));//
-    return 0;
+			if (tok_cnt >= 4 && tok_len >= 2 && tok[0] == 'r' && tok[1] >= '0' && tok[1] <= '9') {
+				strncpy(versionBuf, tempBuf, strlen(tempBuf)-1); // 마지막 '.'은 복사 x
+				ret = 0;
+				break;
+			}
+
+			strncat(tempBuf, tok, tok_len);
+			strcat(tempBuf, ".");
+			buf_idx += tok_len+1;
+		}
+		tok = strtok(NULL, "_");
+		tok_cnt++;
+	}
+	return ret;
 }
 
 void get_datarom_scaleType(INT32U scaleType, char* typestr)
@@ -2001,7 +1983,7 @@ INT8U data_rom_usb_update(void) // USB Memory -> Scale
 
 #ifdef USE_DSP_USB_FW_UPDATE_VERSION        
         memset(version, 0, strlen(version));
-        readversion = get_firmware_version(version);
+        readversion = get_firmware_version(version, sizeof(version));
         if (setVal.download[8] == 'Y')
             scaleType = setVal.scaleType;
         else 
@@ -2023,9 +2005,9 @@ INT8U data_rom_usb_update(void) // USB Memory -> Scale
 				if(readversion >= 0)
 				{
 					get_datarom_scaleType(scaleType, scaleTypeStr);
-					sprintf((char*)string_buf, "TYPE %s", scaleTypeStr);
-					display_string(DISPLAY_UNITPRICE, (INT8U*)string_buf);
-					display_string_pos(DISPLAY_START_POS_PRICE, (INT8U*)version);
+					sprintf((char*)string_buf, "TYPE.%s", scaleTypeStr);
+					display_string(DISPLAY_WEIGHT, (INT8U*)string_buf);
+					display_string_pos(DISPLAY_START_POS_UNITPICE, (INT8U*)version);
 					VFD7_Diffuse();
 				}
 #endif
