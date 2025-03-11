@@ -9839,7 +9839,10 @@ INT8U Prt_PrintLabel(INT8U label_mode, INT8U linked)
 	INT16U	directingredNo[DIRECT_INGREDIENT_BLOCK_NUM];	
 	INT8U	ret_ingredient;
 	INT8U	ingredient_string_buf[2101];
+	INT8U	prtpapertype;
 	INT16U ingredient_str_len;
+
+	prtpapertype = get_global_bparam(GLOBAL_PAPER_TYPE);
 #endif
 #ifdef USE_REALTIME_DATA_EVROOPT
 	PrintUseFlag = ON;
@@ -9859,6 +9862,8 @@ INT8U Prt_PrintLabel(INT8U label_mode, INT8U linked)
 		if(PrtFirstLabel) {
 			if(!prt_load_labelform(label_mode, linked)) return OFF;
 #ifdef USE_CONTINUOUS_LABEL_WITH_INGREDIENT
+			if(prtpapertype == 2)	// Continuous Label Mode 일 때만 Ingredient 길이에 따른 라벨 가변 기능 적용
+			{
 			// Load Label Form
 			// Interpreting Label form & find Ingredient field			
 			ret_ingredient = label_load_form(status_scale.cur_labelid);
@@ -9876,6 +9881,7 @@ INT8U Prt_PrintLabel(INT8U label_mode, INT8U linked)
 				}
 			// label xy adjust
 			label_adjust_form(status_scale.cur_labelid,ret_ingredient);
+			}
 #endif
 			prtfield_generate_common();
 			prtfield_generate_common_item();
