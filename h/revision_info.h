@@ -13,5 +13,5 @@
 INT32U GetRevision(void);
 
 
-#define GET_REVISION	3306
-#define LOAD_REVISION   "r3306"
+#define GET_REVISION	3323
+#define LOAD_REVISION   "r3323"

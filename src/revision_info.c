@@ -11,9 +11,9 @@
 
 #include "revision_info.h"
 
-// URL : https://10.10.1.210/svn/CL5200J/Firmware/Scale/Trunk
-// í˜„ìž¬ Revision ê°€ì ¸ì˜¤ê¸°
+// URL : https://10.10.1.210/svn/CN1/Firmware/Scale/Trunk
+// ÇöÀç Revision °¡Á®¿À±â
 INT32U GetRevision(void)
 {
-	return 3305;
+	return GET_REVISION;
 }
