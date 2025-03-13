@@ -3,6 +3,11 @@
 |*  Version		:	0.1
 |*  Modified		:	2004/08/20
 ****************************************************************************/
+// Printer Mode(Menu 1731)
+#define PRINT_MODE_LABEL				0
+#define PRINT_MODE_TICKET				1
+#define PRINT_MODE_CONTINUOUS_LABEL		2
+
 
 extern void PrintListWaitEnd(void);
 extern void printer_hardware_setting(void);

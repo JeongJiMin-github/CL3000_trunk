@@ -112,8 +112,8 @@
 /** @brief Normal mode*/
 #define HT162X_NORMAL	0xe3
 
-#define LCD_WR_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)
-#define LCD_WR_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)
+#define LCD_SCL_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)
+#define LCD_SCL_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)
 #define LCD_DATA_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_3)
 #define LCD_DATA_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_3)
 
@@ -350,14 +350,14 @@ void __attribute__((optimize("-O0"))) Ht1625Wr_Cmd(INT8U Dat,INT8U num)
 	
 	for (i=0;i<num;i++)
 	{
-		LCD_WR_L;
+		LCD_SCL_L;
 		delay();
 		
 		if(Dat&0x80) LCD_DATA_H;
 		else LCD_DATA_L;
 		delay();
 		
-		LCD_WR_H;
+		LCD_SCL_H;
 		delay();
 		
 		Dat=Dat << 1;
@@ -369,14 +369,14 @@ void __attribute__((optimize("-O0"))) Ht1625Wr_Data(INT8U Dat, INT8U num)
 	
 	for (i = 0; i < num; i++)
 	{
-		LCD_WR_L;
+		LCD_SCL_L;
 		delay();
 		
 		if(Dat&0x01) LCD_DATA_H;
 		else LCD_DATA_L;
 		delay();
 		
-		LCD_WR_H;
+		LCD_SCL_H;
 		delay();
 		
 		Dat >>= 1;

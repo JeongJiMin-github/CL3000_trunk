@@ -44,7 +44,7 @@
 
 #define VER1	"3"
 #define VER2	"05"
-#define VER3	"06"
+#define VER3	"07"
 
 #ifdef USE_AUTO_FIND_VERSION
 #define FINDING_START 	"_veRsIon"

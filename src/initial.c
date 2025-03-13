@@ -1103,6 +1103,33 @@ INT8U IsCalState(void)
 	return 0;
 }
 
+/**
+********************************************************************************
+* @brief	Main CPU Module VER CHK1(RK2) 포트의 Pull-up, douwn 저항을 체크한다.
+*			플로팅(Floating)현상 방지를 위해 GND 연결시 참으로 판단.
+*	 	    Pull-up : 신규 DISP IC(RW1087)와 매칭되는 CPU Module
+*		    Pull-down : 기존 DISP IC(ST7522)와 매칭되는 CPU Module
+* @return	반환값 또는 에러값 설명
+*			1 : 신규 DISP IC
+*			0 : 기존 DISP IC
+* @remark	각 IC Instruction Table이 다르므로 해당 변수(disp_ver_chk_port)값 유의해서 연결할 것
+********************************************************************************
+*/
+INT8U Is_Disp_Ic_Ver_Chk1_State(void)
+{
+	INT8U disp_ver_chk1_port;
+
+	disp_ver_chk1_port = DISP_IC_VER_CHK1_PORT;
+	if (!disp_ver_chk1_port)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 #ifdef USE_CTS_FUNCTION
 void CtsAlarm(INT8U key_mode)
 {

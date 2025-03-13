@@ -551,7 +551,12 @@ void history_flash2ram(HUGEDATA INT8U *buf)
 	Flash_sread(addr, ram, 1);
 
 	ram += 1;
-#endif	
+#endif
+	// Set DISP Control Method(FLASH_GLOBAL_AREA의 499번지 1byte)
+	addr = base_addr + FLASH_GLOBAL_AREA + GLOBAL_TARE_SETITING;
+	Flash_sread(addr, ram, 1);
+
+	ram += 1;
 
 	//flash erase 중 꺼지는 경우를 방어하기 위해 Backup
 	External_Interrupt_Disable(); // Power off Pending
@@ -649,7 +654,12 @@ void history_ram2flash(HUGEDATA INT8U *buf)
 
  	ram += 1;
  #endif	
- 
+	// Set DISP Control Method(FLASH_GLOBAL_AREA의 499번지 1byte)
+	addr = base_addr + FLASH_GLOBAL_AREA + GLOBAL_TARE_SETITING;
+	Flash_swrite(addr, ram, 1);
+
+	ram += 1;
+
 	// Backup이 완료되었으므로 flag 초기화
 	// Sector Erase 생략
 	flag = NVRAM_BACKUP_FLAG_HISTORY_INIT;

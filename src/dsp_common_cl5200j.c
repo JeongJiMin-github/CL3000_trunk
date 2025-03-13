@@ -28,10 +28,11 @@
 #include "initial_glb.h"
 #include "dsp_vfd7.h"
 
-
 INT8U DSP_MENU_FONT_ID;
 INT8U DSP_PLU_FONT_ID;
 INT8U DSP_SYSTEM_FONT_ID;
+
+INT8U Disp_control_ic_select;
 
 NEARDATA DSP_STRUCT DspStruct;
 HUGEDATA DSP_FONT1_STRUCT DspFont1Struct[MAX_DSP_FONT1_NUM];
@@ -41,7 +42,6 @@ HUGEDATA DSP_FONT2_STRUCT DspFont2Struct[MAX_DSP_FONT2_NUM];
 HUGEDATA INT8U DSP_SYSFONT[16*256];	// 8*256  +
 void Bit_RotateMCW(INT8U *src,INT16S src_x,INT16S src_y,INT8U *dst,INT16S *dest_x,INT16S *dest_y);
 #endif
-
 
 void wait_sleep(long period)
 {
@@ -61,6 +61,35 @@ POINT point(INT16S y, INT16S x)
 
 void Dsp_InitHardware(void)
 {
+	INT16U flag_lcd_ver;
+	INT8U chk_use_lcd_ver_with_flag;
+
+	/* 
+	*  P981값 저장 후 값에 의한 DISP IC 제어 방식 선택
+	*   - 0 : PCB 저항 풀업, 풀다운 체크(PCB 납땜시 ST7522, RW1087 사용가능)
+	*   - 1 : ST7522 전용 사용
+	*   - 2 : RW1087 전용 사용
+	*/
+	flag_lcd_ver = get_global_bparam(GLOBAL_TARE_SETITING);
+	chk_use_lcd_ver_with_flag = ((flag_lcd_ver >> 6) & 0x03);
+
+	if(chk_use_lcd_ver_with_flag == 0)
+	{
+		Disp_control_ic_select = DISP_IC_VER_CHK1;
+	}
+	else if(chk_use_lcd_ver_with_flag == 1)
+	{
+		Disp_control_ic_select = USE_ST7522_DISP_IC;
+	}
+	else if(chk_use_lcd_ver_with_flag == 2)
+	{
+		Disp_control_ic_select = USE_RW1087_DISP_IC;
+	}
+#ifdef CL5200J_BP
+	// 해당 변수는 CL3000 LCD Control 전용 변수이므로 CL5200J에서는 0으로 초기화
+	Disp_control_ic_select = 0;
+#endif // CL5200J_BP
+	//////////////////////////////////////////////////////////////////////
 	VFD7_Init();  	//first init LCD-7 for prevent display garbage
 	LCD_Init();
 	Dsp_Fill_Buffer(0x55);

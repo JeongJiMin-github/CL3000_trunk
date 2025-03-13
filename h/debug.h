@@ -93,7 +93,9 @@
 #define DBG_CMD_TR	2018
 
 #define DBG_CMD_VF	2206
-
+#ifdef USE_CL3000N_NEW_DISP_IC
+	#define DBG_CMD_DC	2210
+#endif // USE_CL3000N_NEW_DISP_IC
 #endif
 
 #ifndef _DEBUG_H_TYPE_1

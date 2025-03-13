@@ -77,6 +77,7 @@ INT8U Cal_flagAdmBackup;
 extern WLAN_CARD_STRUCT EthCardStruct;
 extern char	gmsg[];
 INT8U cal_mode_plu_init;
+extern INT8U Disp_control_ic_select;
 extern INT8U adm_save_tarelimit(INT32U val, INT8U wunit);
 
 void CalRun_CalErr_Dislay(INT16U cap_code, INT8U error)
@@ -2575,112 +2576,201 @@ void CalRun_DisplayTest(void)
 	INT8U num, one_time;
 	INT8U disp_on;
 	INT8U i, temp;
-	INT8U bright,bright_backup;
+	INT8U bright, bright_backup;
 	INT8U cc;
 	char temp_buf[12];
 	POINT disp_p;
 
-	//HYP 20041007
-	//Insert current bright value (in flash)
-	bright = get_global_bparam(GLOBAL_DISPLAY_BRIGHT);
-	if ((bright < 1) || (bright > 9)) bright = 5;
-	//
-	bright_backup=bright;
+	// RW1087(신규 DISP IC)와 연결되는 PCB Chk Flag 변수
+	if (Disp_control_ic_select)
+	{
+		// RW1087은 ST7522(기존 DISP IC)와 달리 휘도 조절 기능이 없음
+	}
+	else
+	{	// ST7522 전용 휘도 조절 기능
+		// Insert current bright value (in flash)
+		bright = get_global_bparam(GLOBAL_DISPLAY_BRIGHT);
+		if ((bright < 1) || (bright > 9))
+		{
+			bright = 5;
+		}
+		bright_backup = bright;
+	}
 	one_time = 1;
 	num = 0;
 	disp_on = 1;
 	cc = 0xff;
-	disp_p = point(0,0);
-	memset((INT8U *)temp_buf, 0x20, sizeof(temp_buf));
-	sprintf(temp_buf,"CONTRAST:%d", bright);
-	DisplayMsg(temp_buf);
-	Delay_100ms(10);
+	disp_p = point(0, 0);
+	// RW1087(신규 DISP IC)와 연결되는 PCB Chk Flag 변수
+	if (Disp_control_ic_select)
+	{
+		// RW1087은 ST7522(기존 DISP IC)와 달리 휘도 조절 기능이 없음
+	}
+	else
+	{	// ST7522 전용 휘도 조절 기능
+		memset((INT8U *)temp_buf, 0x20, sizeof(temp_buf));
+		sprintf(temp_buf, "CONTRAST:%d", bright);
+		DisplayMsg(temp_buf);
+		Delay_100ms(10);
+	}
 	DisableSignInPgmMode = ON; // 프로그램모드에서 sign(LINK,USBMEM) 표시 안되도록 함
-	while(1) {
-		if(!(SysTimer100ms%5) && disp_on) {
-			if(one_time) {
+	while (1)
+	{
+		if (!(SysTimer100ms % 5) && disp_on)
+		{
+			if (one_time)
+			{
 				one_time = 0;
 				display_alloff_primary_indication();
-				if(num < 5) {
+				if (num < 5)
+				{
 					display_allon_primary_indication();
-				} else if(num < 10) {
-					temp = (num-5)%5;
-					for (i=0; i<DSP_MAX_DIGIT/5; i++) {
-						VFD7_display_char(temp+i*5,'8');
-						VFD7_display_char(temp+i*5,',');
-						VFD7_display_triangle(temp+i*5, 1);
+				}
+				else if (num < 10)
+				{
+					temp = (num - 5) % 5;
+					for (i = 0; i < DSP_MAX_DIGIT / 5; i++)
+					{
+						VFD7_display_char(temp + i * 5, '8');
+						VFD7_display_char(temp + i * 5, ',');
+						VFD7_display_triangle(temp + i * 5, 1);
 					}
-				} else {
-					for (i=0; i<DSP_MAX_DIGIT; i++) {
-						VFD7_display_char(i,num-10+'0');
-						if ((num-10)%2) {
-							VFD7_display_char(i,',');
+				}
+				else
+				{
+					for (i = 0; i < DSP_MAX_DIGIT; i++)
+					{
+						VFD7_display_char(i, num - 10 + '0');
+						if ((num - 10) % 2)
+						{
+							VFD7_display_char(i, ',');
 						}
 					}
-					VFD7_display_triangle_all(num%2);
+					VFD7_display_triangle_all(num % 2);
 				}
-				if(!(num%5)) {
+				if (!(num % 5))
+				{
 					Dsp_Fill_Buffer(cc);
 					cc ^= 0xff;
-				} else {
+				}
+				else
+				{
 				}
 				VFD7_Diffuse();
 				num++;
 				num %= 20;
 			}
-		} else {
+		}
+		else
+		{
 			one_time = 1;
 		}
-		if(KEY_Read()) {
-			if(KeyDrv.CnvCode == KP_ESC) {
-				VFD7_display_bright(bright_backup);
+		if (KEY_Read())
+		{
+			if (KeyDrv.CnvCode == KP_ESC)
+			{
+				// RW1087(신규 DISP IC)와 연결되는 PCB Chk Flag 변수
+				if (Disp_control_ic_select)
+				{
+					// RW1087은 ST7522(기존 DISP IC)와 달리 휘도 조절 기능이 없음
+				}
+				else
+				{	// ST7522 전용 휘도 조절 기능
+					VFD7_display_bright(bright_backup);
+				}
 				BuzOn(1);
 				break;
-			} else if ((KeyDrv.CnvCode >= KEY_NUM_0) && (KeyDrv.CnvCode <= KEY_NUM_9)) {
+			}
+			else if ((KeyDrv.CnvCode >= KEY_NUM_0) && (KeyDrv.CnvCode <= KEY_NUM_9))
+			{
 				BuzOn(1);
 				num = KeyDrv.CnvCode - KEY_NUM_0 + 8;
-			} else if ((KeyDrv.CnvCode >= KP_ASC_A) && (KeyDrv.CnvCode <= KP_ASC_H)) {
+			}
+			else if ((KeyDrv.CnvCode >= KP_ASC_A) && (KeyDrv.CnvCode <= KP_ASC_H))
+			{
 				BuzOn(1);
 				num = KeyDrv.CnvCode - KP_ASC_A;
-			} else if ((KeyDrv.CnvCode >= KP_ASC_A_L) && (KeyDrv.CnvCode <= KP_ASC_H_L)) {
+			}
+			else if ((KeyDrv.CnvCode >= KP_ASC_A_L) && (KeyDrv.CnvCode <= KP_ASC_H_L))
+			{
 				BuzOn(1);
 				num = KeyDrv.CnvCode - KP_ASC_A_L;
-			} else if (KeyDrv.CnvCode == KP_ENTER || KeyDrv.CnvCode == KP_SAVE) {
-				//HYP 20041007
-				//Insert save bright value (in flash)
-				set_global_bparam(GLOBAL_DISPLAY_BRIGHT,bright);
-				//
+			}
+			else if (KeyDrv.CnvCode == KP_ENTER || KeyDrv.CnvCode == KP_SAVE)
+			{
+				// RW1087(신규 DISP IC)와 연결되는 PCB Chk Flag 변수
+				if (Disp_control_ic_select)
+				{
+					// RW1087은 ST7522(기존 DISP IC)와 달리 휘도 조절 기능이 없음
+				}
+				else
+				{	// ST7522 전용 휘도 조절 기능
+					// Insert save bright value (in flash)
+					set_global_bparam(GLOBAL_DISPLAY_BRIGHT, bright);
+				}
 				BuzOn(1);
 				break;
-			} else if(KeyDrv.CnvCode == KP_ARROW_UP) {
-				bright++;
-				if(bright > 9) {
+			}
+			else if (KeyDrv.CnvCode == KP_ARROW_UP)
+			{
+				// RW1087(신규 DISP IC)와 연결되는 PCB Chk Flag 변수
+				if (Disp_control_ic_select)
+				{
+					// RW1087은 ST7522(기존 DISP IC)와 달리 휘도 조절 기능이 없음
 					BuzOn(2);
-					bright = 9;
-				} else {
-					BuzOn(1);	
 				}
-				VFD7_display_bright(bright);
-				display_lcd_clear();
-				sprintf(temp_buf,"CONTRAST:%d", bright);
-				DisplayMsg(temp_buf);
-			} else if(KeyDrv.CnvCode == KP_ARROW_DN) {
-				bright--;
-				if(bright < 1) {
+				else
+				{	// ST7522 전용 휘도 조절 기능
+					bright++;
+					if (bright > 9)
+					{
+						BuzOn(2);
+						bright = 9;
+					}
+					else
+					{
+						BuzOn(1);
+					}
+					VFD7_display_bright(bright);
+					display_lcd_clear();
+					sprintf(temp_buf, "CONTRAST:%d", bright);
+					DisplayMsg(temp_buf);
+				}
+			}
+			else if (KeyDrv.CnvCode == KP_ARROW_DN)
+			{
+				// RW1087(신규 DISP IC)와 연결되는 PCB Chk Flag 변수
+				if (Disp_control_ic_select)
+				{
+					// RW1087은 ST7522(기존 DISP IC)와 달리 휘도 조절 기능이 없음
 					BuzOn(2);
-					bright = 1;
-				} else {
-					BuzOn(1);
 				}
-				VFD7_display_bright(bright);
-				display_lcd_clear();
-				sprintf(temp_buf,"CONTRAST:%d", bright);
-				DisplayMsg(temp_buf);
-			} else if(KeyDrv.CnvCode == KP_CLEAR) {
+				else
+				{	// ST7522 전용 휘도 조절 기능
+					bright--;
+					if (bright < 1)
+					{
+						BuzOn(2);
+						bright = 1;
+					}
+					else
+					{
+						BuzOn(1);
+					}
+					VFD7_display_bright(bright);
+					display_lcd_clear();
+					sprintf(temp_buf, "CONTRAST:%d", bright);
+					DisplayMsg(temp_buf);
+				}
+			}
+			else if (KeyDrv.CnvCode == KP_CLEAR)
+			{
 				BuzOn(1);
 				disp_on ^= 1;
-			} else {
-				BuzOn(2);				
+			}
+			else
+			{
+				BuzOn(2);
 			}
 		}
 	}
@@ -2688,7 +2778,6 @@ void CalRun_DisplayTest(void)
 	Dsp_Fill_Buffer(0);
 	Dsp_Diffuse();
 }
-
 
 void CalRun_CashDrawerTest(void)
 {

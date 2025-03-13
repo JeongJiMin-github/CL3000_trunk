@@ -1,10 +1,8 @@
 /**
- * @file dsp_lcd7_26d_16x96.c
- * @attention (c) 2008 CAS
- * @version 0.1
- * @author 이동원
- * @date 2017/02/01
- * @brief LCD CL3000 Char LCD Version을 구동시키는 드라이버
+ * @file 	dsp_lcd7_26d_16x96.c
+ * @version	0.2
+ * @date 	2025/02/24
+ * @brief 	LCD CL3000 Char LCD Version을 구동시키는 드라이버
  */
 
 #include <stdio.h>
@@ -16,8 +14,6 @@
 #include "initial.h"
 
 #ifdef _USE_LCD_7_26d_16x96_
-
-#define USE_DISP_8PIN_CON // LCD Connector 6pin(Old Version)
 
 #define MINUS_SEG             0x40
 #define SPACE_SEG             0x08
@@ -37,46 +33,47 @@
 #define LCD_IC2		2
 
 #define LCD_SIGN_MAX            36 //S1~S26
-#define LCD_PAGE_MAX		2 // page 0,1
-#define LCD_COLUMN_MAX		96
+#define LCD_PAGE_MAX		    2 // page 0,1
+#define LCD_COLUMN_MAX		    96
 #define LCD_SEG_AREA_SIZE		24
 #define LCD_CHAR_AREA_SIZE		96
 
-// ST7522 INSTRUCTIONS //
+#define RW1087_CS1_GRAPHIC_SIZE		64
+#define RW1087_CS2_SEG_START_ADDR	0x20
+
+// 기존 DISP IC(ST7522) INSTRUCTIONS(25년 2월 기준) //
 /** @brief Display on*/
-#define ST7522_DISPLAY_ON	0xAF
+#define ST7522_DISPLAY_ON	        0xAF
 /** @brief Display off*/
-#define ST7522_DISPLAY_OFF	0xAE
+#define ST7522_DISPLAY_OFF	        0xAE
 /** @brief Set display page address*/
-#define ST7522_PAGE_ADDR_SET	0xB0
+#define ST7522_PAGE_ADDR_SET	    0xB0
 /** @brief Set MSB 4 bits of column address*/
-#define ST7522_ADDR_SET_HIGH	0x10
+#define ST7522_ADDR_SET_HIGH	    0x10
 /** @brief Set LSB 4 bits of column address*/
-#define ST7522_ADDR_SET_LOW		0x00
-///** @brief Write display data*/
-//#define ST7522_DATA_WRITE
+#define ST7522_ADDR_SET_LOW		    0x00
 /** @brief Determines the RAM display line for COM 0*/
-#define ST7522_START_LINE_SET	0x40
+#define ST7522_START_LINE_SET	    0x40
 /** @brief Display RAM and Segment output correspondence*/
-#define ST7522_ADC_SELECT		0xA0
+#define ST7522_ADC_SELECT		    0xA0
 /** @brief Set LCD display reverse*/
-#define ST7522_DISP_NORMAL		0xA6
+#define ST7522_DISP_NORMAL		    0xA6
 /** @brief Set LCD display reverse*/
-#define ST7522_DISP_REVERSE		0xA7
+#define ST7522_DISP_REVERSE		    0xA7
 /** @brief Set display all point on*/
-#define ST7522_DISP_ALL_ON		0xA5
+#define ST7522_DISP_ALL_ON		    0xA5
 /** @brief Set display all point off*/
-#define ST7522_DISP_ALL_OFF		0xA4
+#define ST7522_DISP_ALL_OFF		    0xA4
 /** @brief Select LCD duty*/
-#define ST7522_DUTY_SELECT		0xA8
+#define ST7522_DUTY_SELECT		    0xA8
 /** @brief Select LCD bias voltage*/
-#define ST7522_BIAS_SET		0xA2
+#define ST7522_BIAS_SET		        0xA2
 /** @brief Internal reset*/
-#define ST7522_RESET		0xE2
+#define ST7522_RESET		        0xE2
 /** @brief Power control*/
-#define ST7522_POWER_CONTROL	0x28
+#define ST7522_POWER_CONTROL	    0x28
 /** @brief Set contrast by 64 level (V5 fine adjust)*/
-#define ST7522_CONTRAST_SET		0x81
+#define ST7522_CONTRAST_SET		    0x81
 /** @brief Internal OSC frequency adjust*/
 #define ST7522_OSC_FREQUENCY_SET	0xF1
 /** @brief V5 follower input voltage select(V5 coarse adjust)*/
@@ -85,26 +82,50 @@
 #define ST7522_AMPLIFIED_RATIO		0x20
 /** @brief Booster input voltage select*/
 #define ST7522_BOOSTER_VOLT_SET		0xF0
+///////////////////////////////////////////////////////////////////////////
 
-#define LCD_WR_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)		// SCLK
-#define LCD_WR_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)
-#define LCD_DATA_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_3)	// Data
-#define LCD_DATA_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_3)
-#ifdef USE_DISP_8PIN_CON
-#define LCD_A0_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_B, PORTS_BIT_POS_1)		// Data Write
-#define LCD_A0_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_B, PORTS_BIT_POS_1)	// Command
-#define LCD_CS1_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_2)	// IC1 (7 Seg)
-#define LCD_CS1_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_2)
-#define LCD_CS2_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_12)	// IC2 on(Graphic LCD)
-#define LCD_CS2_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_12)
-#else
-#define LCD_A0_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_2)		// Data Write
-#define LCD_A0_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_2)	// Command
-#define LCD_CS1_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_12)	// IC2 (7 Seg)
-#define LCD_CS1_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_12) // IC1 (Graphic LCD)
-#define LCD_CS2_H   
-#define LCD_CS2_L    
-#endif
+// 신규 DISP IC(RW1087) INSTRUCTIONS(25년 2월 기준) //
+/** @brief Set EXT Value*/
+#define RW1087_MODE_SET				0X0C
+/** @brief Display on*/
+#define RW1087_DISPLAY_ON	        0x3F
+/** @brief Display off*/
+#define RW1087_DISPLAY_OFF	        0x3E
+/** @brief Set display page address*/
+#define RW1087_PAGE_ADDR_SET	    0xB8
+/** @brief Set MSB 4 bits of column address*/
+#define RW1087_ADDR_SET_HIGH	    0x40
+/** @brief Set LSB 4 bits of column address*/
+#define RW1087_ADDR_SET_LOW		    0x00
+/** @brief Determines the RAM display line for COM 0*/
+#define RW1087_START_LINE_SET	    0xC0
+/** @brief Set LCD display Command*/
+#define RW1087_DISP_COMMAND		    0x05
+/** @brief Select LCD duty*/
+#define RW1087_DUTY_SELECT		    0x06
+/** @brief Internal OSC frequency adjust*/
+#define RW1087_OSC_FREQUENCY_SET	0x07
+/** @brief Set Power save mode*/
+#define RW1087_POWER_MODE_SET		0x02
+//////////////////////////////////////////////
+
+/////// SCL //////////////////////
+#define LCD_SCL_H   	PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)		// DISP IC(ST7522, RW1087) SCLK "H"
+#define LCD_SCL_L    PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1)		// DISP IC(ST7522, RW1087) SCLK "L"
+
+/////// SDA //////////////////////
+#define LCD_DATA_H	PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_3)		// DISP IC(ST7522, RW1087) SDA "H"
+#define LCD_DATA_L  PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_3)	// DISP IC(ST7522, RW1087) SDA "L"
+
+/////// A0(RS) //////////////////////
+#define LCD_A0_H	PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_B, PORTS_BIT_POS_1)		// DISP IC(ST7522, RW1087) A0 "H" : "Data Mode"
+#define LCD_A0_L	PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_B, PORTS_BIT_POS_1)	// DISP IC(ST7522, RW1087) A0 "L" : "Command Mode"
+
+/////// CS(1, 2) //////////////////////
+#define LCD_CS1_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_2)		// IC1 : GLCD Control (0 ~ 63 Size)
+#define LCD_CS1_L   PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_2)
+#define LCD_CS2_H   PLIB_PORTS_PinSet( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_12)	// IC2 : GLCD Control (64 ~ 96 Size) + 7-Seg (All)
+#define LCD_CS2_L   PLIB_PORTS_PinClear( PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_12)    
 
 INT8U DSP_Memory[DSP_MAX_PAGE][240]; // (96*2) + (24*2) = (graphic) + (7-seg)
 POINT DSP_Memory_SegPos[DSP_MAX_DIGIT];
@@ -112,6 +133,7 @@ POINT DSP_Memory_DotPos[DSP_MAX_DIGIT];
 POINT DSP_Memory_ComPos[DSP_MAX_DIGIT];
 INT8U DSP_Memory_backup[240];
 INT8U ContrastLevel;
+extern INT8U Disp_control_ic_select;
 
 POINT DSP_Memory_SegPos[DSP_MAX_DIGIT] = 
 {
@@ -409,22 +431,315 @@ ROMDATA  SIGN signTable[LCD_SIGN_MAX] ={
 
 /**
  ********************************************************************************
- * @brief    St7522 IC에 command 전송 함수
+ * @brief    St7522(기존 DISP IC)에 command 전송 함수
+ * @param    datcom : command\n
+ * @return   none
+ * @remark   
+ ********************************************************************************
+ */
+static void st7522wr_send(INT8U Dat);
+static void st7522_writecommand(INT8U datcom);
+static void st7522_writedata(INT8U datcom);
+static void st7522_clear(void);
+static void st7522_seg_diffuse(void);
+static void st7522_glcd_diffuse(void);
+static void st7522_vfd7_init(void);
+static void st7522_vfd7_reset(INT8U flag);
+static INT8U rev_data(INT8U data);
+
+/**
+ ********************************************************************************
+ * @brief    RW1087(신규 DISP IC)에 command 전송 함수
+ * @param    datcom : command\n
+ * @return   none
+ * @remark   
+ ********************************************************************************
+ */
+static void rw1087wr_send(char Dat);
+static void rw1087_writecommand(char datcom);
+static void rw1087_writedata(char datcom);
+static void rw1087_seg_diffuse(void);
+static void rw1087_glcd_diffuse(void);
+static void rw1087_vfd7_init(void);
+static void rw1087_vfd7_reset(INT8U flag);
+////* 테스트용 함수 실제 사용 X *////
+static void rw1087_full_display(char all);
+static void rw1087_seg_test_display(void);
+static void rw1087_delay_time(int time);
+///////////////////////////////////
+
+ /**
+ ********************************************************************************
+ * @brief    DISP IC에 공통 함수
  * @param    datcom : command\n
  * @return   none
  * @remark   
  ********************************************************************************
  */
 void delay(void);
-void St7522Wr_Send(INT8U Dat);
-void St7522_WriteCommand(INT8U datcom);
-void St7522_WriteData(INT8U datcom);
-void St7522_clear(void);
 void DSP_LCD7_diffuse(void);
-INT8U Rev_Data(INT8U data);
 
+//////////////////////////* Rw1087 전용 제어 함수 모음 *//////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+static void __attribute__((optimize("-O0"))) rw1087wr_send(char Dat)
+{
+	INT8U i;
+	
+	for (i = 0; i < 8 ; i++)
+	{
+		LCD_SCL_L;
+		delay();
+		
+		if (Dat & 0x80)
+		{
+			LCD_DATA_H;
+		}
+		else
+		{
+			LCD_DATA_L;
+		}
+		delay();
+		
+		LCD_SCL_H;
+		delay();
 
-void __attribute__((optimize("-O0"))) St7522_clear(void)
+		
+
+		Dat = Dat << 1;
+	}
+}
+
+static void __attribute__((optimize("-O0"))) rw1087_writedata(char datcom)
+{
+	LCD_A0_H;
+	delay();
+	
+	rw1087wr_send(datcom);
+}
+
+static void __attribute__((optimize("-O0"))) rw1087_writecommand(char datcom)
+{
+	LCD_A0_L;
+	delay();
+	
+	rw1087wr_send(datcom);
+}
+
+/* Segment 영역만을 제어 */
+static void rw1087_seg_diffuse(void)
+{
+	int i ,current_page;
+	char seg_offset, column_address;
+	INT8U cmd;
+
+	/* CS2 Control */
+	LCD_CS1_H;
+	LCD_CS2_L; 
+
+	// 7-Segment Control
+	for (current_page = 0; current_page < LCD_PAGE_MAX; current_page++) // Page 0, 1 Diffuse
+	{
+		seg_offset = current_page * LCD_SEG_AREA_SIZE;
+
+		for (i = seg_offset; i < (seg_offset + LCD_SEG_AREA_SIZE); i++)
+		{
+			rw1087_writecommand(RW1087_ADDR_SET_HIGH); // High column set
+			column_address = RW1087_CS2_SEG_START_ADDR + (i - seg_offset);
+			rw1087_writecommand(column_address);
+			rw1087_writecommand(RW1087_START_LINE_SET);
+			cmd = RW1087_PAGE_ADDR_SET | current_page;
+			rw1087_writecommand(cmd);
+			rw1087_writedata(DSP_Memory[DspStruct.Page][i]);
+		}	
+	}
+	LCD_CS1_H;
+	LCD_CS2_H;
+}
+
+/* Grpic LCD 영역만을 제어 */
+static void rw1087_glcd_diffuse(void)
+{
+	INT8U i, current_page, cmd;
+
+	for (current_page = 0; current_page < LCD_PAGE_MAX; current_page++) // Page 0, 1 Diffuse
+	{
+		/* CS1 Control */
+		LCD_CS1_L;
+		LCD_CS2_H;
+
+		rw1087_writecommand(RW1087_ADDR_SET_HIGH); 	// High column set
+		rw1087_writecommand(RW1087_ADDR_SET_LOW); 	// Low column set
+
+		rw1087_writecommand(RW1087_START_LINE_SET);
+		cmd = (RW1087_PAGE_ADDR_SET | current_page);
+		rw1087_writecommand(cmd);
+
+		for (i = 0; i < (RW1087_CS1_GRAPHIC_SIZE); i++)	// CS1 : 0번지부터 63까지의 Graphic Lcd 영역(64size)
+		{
+			rw1087_writedata(DspBuf[DspStruct.Page][(i * 2) + current_page]);
+		}
+
+		/* CS2 Control */
+		LCD_CS1_H;
+		LCD_CS2_L;
+
+		rw1087_writecommand(RW1087_ADDR_SET_HIGH); 	// High column set
+		rw1087_writecommand(RW1087_ADDR_SET_LOW); 	// Low column set
+		
+		rw1087_writecommand(RW1087_START_LINE_SET);
+		cmd = (RW1087_PAGE_ADDR_SET | current_page);
+		rw1087_writecommand(cmd);
+
+		for (i = RW1087_CS1_GRAPHIC_SIZE; i < (LCD_CHAR_AREA_SIZE); i++)	// CS2 : 64번지부터 95까지 Graphic Lcd 영역(32size)
+		{
+			rw1087_writedata(DspBuf[DspStruct.Page][(i * 2) + current_page]);
+		}
+	}
+	LCD_CS1_H;
+	LCD_CS2_H;
+}
+
+/* Initialization */
+static void rw1087_vfd7_init(void)
+{
+	int i;
+	
+	LCD_CS1_H;
+	LCD_CS2_H;
+	LCD_SCL_H;
+	delay();
+	
+	// IC1, IC2 Initial
+	LCD_CS1_L;
+	LCD_CS2_L;
+	
+	rw1087_writecommand(RW1087_MODE_SET | 0x01); 		// EXT = 1 Mode Set
+	/* Start Double Command */
+	rw1087_writecommand(RW1087_DISP_COMMAND); 			// Display Command
+	rw1087_writecommand(0x00); 							// SHLA, REV, ALLON, FRSEL (Default 사용)
+	rw1087_writecommand(RW1087_DUTY_SELECT); 			// Duty Select
+	rw1087_writecommand(0X05);							// USE 16Duty
+	rw1087_writecommand(RW1087_OSC_FREQUENCY_SET); 		// Frequency Select
+	rw1087_writecommand(0X0C); 							// USE 147HZ
+	/* End Double Command */
+	rw1087_writecommand(RW1087_POWER_MODE_SET | 0x00); 	// Normal Mode Power Set
+	rw1087_writecommand(RW1087_MODE_SET | 0x00); 		// EXT = 0 Mode Set
+	rw1087_writecommand(RW1087_START_LINE_SET); 		// Start Lin Set
+	
+	// 200ms
+	for (i = 0; i < 350000; i++)
+	{
+		delay();
+	}
+	rw1087_writecommand(RW1087_DISPLAY_ON); 			// display on
+
+	LCD_CS1_H;
+	LCD_CS2_H;
+
+	DSP_LCD7_diffuse();
+}
+
+/* DISP Reset */
+static void rw1087_vfd7_reset(INT8U flag)
+{
+	int i;
+	
+	LCD_CS1_H;
+	LCD_CS2_H;
+	LCD_SCL_H;
+	delay();
+	
+	// IC1, IC2 Initial
+	LCD_CS1_L;
+	LCD_CS2_L;
+	
+	rw1087_writecommand(RW1087_MODE_SET | 0x01); 		// EXT = 1 Mode Set
+	/* Start Double Command */
+	rw1087_writecommand(RW1087_DISP_COMMAND); 			// Display Command
+	rw1087_writecommand(0x00); 							// SHLA, REV, ALLON, FRSEL (Default 사용)
+	rw1087_writecommand(RW1087_DUTY_SELECT); 			// Duty Select
+	rw1087_writecommand(0X05);							// USE 16Duty
+	rw1087_writecommand(RW1087_OSC_FREQUENCY_SET); 		// Frequency Select
+	rw1087_writecommand(0X0C); 							// USE 147HZ
+	/* End Double Command */
+	rw1087_writecommand(RW1087_POWER_MODE_SET | 0x00); 	// Normal Mode Power Set
+	rw1087_writecommand(RW1087_MODE_SET | 0x00); 		// EXT = 0 Mode Set
+	rw1087_writecommand(RW1087_START_LINE_SET); 		// Start Lin Set
+	
+	// 200ms
+	switch(flag)
+	{
+		case 1: // 0ms
+			break;
+		case 2: // 25ms
+			for (i = 0; i < 43750; i++)
+			{
+				delay();
+			}
+			break;
+		case 3: // 200ms  
+			for (i = 0; i < 350000; i++)
+			{
+				delay();
+			}
+			break;
+		default:
+			break;
+	}
+	rw1087_writecommand(RW1087_DISPLAY_ON); 			// display on
+	LCD_CS1_H;
+	LCD_CS2_H;
+
+	DSP_LCD7_diffuse();
+}
+//////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////* ST7522 전용 제어 함수 모음 *//////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+static void __attribute__((optimize("-O0"))) st7522wr_send(INT8U Dat)
+{
+	INT8U i;
+	
+	for (i = 0; i < 8 ; i++)
+	{
+		LCD_SCL_L;
+		delay();
+		
+		if (Dat & 0x80)
+		{
+			LCD_DATA_H;
+		}
+		else
+		{
+			LCD_DATA_L;
+		}
+		delay();
+		
+		LCD_SCL_H;
+		delay();
+		
+		Dat = Dat << 1;
+	}
+}
+
+static void __attribute__((optimize("-O0"))) st7522_writedata(INT8U datcom)
+{
+	LCD_A0_H;
+	delay();
+	
+	st7522wr_send(datcom);
+}
+
+static void __attribute__((optimize("-O0"))) st7522_writecommand(INT8U datcom)
+{
+	LCD_A0_L;
+	delay();
+	
+	st7522wr_send(datcom);
+}
+
+static void __attribute__((optimize("-O0"))) st7522_clear(void)
 {
 	int i, j;
 	INT8U cmd;
@@ -433,131 +748,19 @@ void __attribute__((optimize("-O0"))) St7522_clear(void)
 	for (j = 0; j < LCD_PAGE_MAX; j++)
 	{
 		cmd = ST7522_PAGE_ADDR_SET | j;
-		St7522_WriteCommand(cmd);
-		St7522_WriteCommand(ST7522_ADDR_SET_LOW); // Low column 0 set
-		St7522_WriteCommand(ST7522_ADDR_SET_HIGH); // High column 0 set
+		st7522_writecommand(cmd);
+		st7522_writecommand(ST7522_ADDR_SET_LOW); 	// Low column 0 set
+		st7522_writecommand(ST7522_ADDR_SET_HIGH); 	// High column 0 set
 
 		for (i = 0; i < LCD_CHAR_AREA_SIZE; i++)
 		{
-			St7522_WriteData(0x00); // 0으로 초기화
+			st7522_writedata(0x00); // 0으로 초기화
 		}
 	}
 }
 
-void __attribute__((optimize("-O0"))) St7522_WriteCommand(INT8U datcom)
-{
-	LCD_A0_L;
-	delay();
-	
-	St7522Wr_Send(datcom);
-}
-
-void __attribute__((optimize("-O0"))) St7522_WriteData(INT8U datcom)
-{
-	LCD_A0_H;
-	delay();
-	
-	St7522Wr_Send(datcom);
-}
-
-void __attribute__((optimize("-O0"))) delay(void)
-{
-	// Write mode minimum delay => 5V = 1.67 usec. 3V = 3.34 usec
-	INT8U i = 15; // 25.05 usec
-	while(i--);
-}
-
-void __attribute__((optimize("-O0"))) St7522Wr_Send(INT8U Dat)
-{
-	INT8U i;
-	
-	for (i = 0;i < 8 ;i++)
-	{
-		LCD_WR_L;
-		delay();
-		
-		if(Dat&0x80) LCD_DATA_H;
-		else LCD_DATA_L;
-		delay();
-		
-		LCD_WR_H;
-		delay();
-		
-		Dat=Dat << 1;
-	}
-//	delay();
-//	delay();
-}
-
-// LCD 전체 Diffuse
-void DSP_LCD7_diffuse(void)
-{
-	int i ,j, addr;
-	INT8U cmd, data;
-
-	// IC2 Select
-#ifdef USE_DISP_8PIN_CON
-	LCD_CS2_L; 
-#else
-	LCD_CS1_H;
-#endif
-	delay();
-	
-	// 7-Seg 디스플레이
-	for (j = 0; j < LCD_PAGE_MAX; j++) // Page 0, 1 Diffuse
-	{
-		cmd = ST7522_PAGE_ADDR_SET | j;
-		St7522_WriteCommand(cmd); // page 0
-		// addr 0x00 set
-		St7522_WriteCommand(ST7522_ADDR_SET_LOW); // Low column set
-		St7522_WriteCommand(ST7522_ADDR_SET_HIGH); // High column set
-		addr = j * LCD_SEG_AREA_SIZE; // 현재 사용중인 세그먼트 영역 1 page size = 24
-		for (i = addr; i < (addr + LCD_SEG_AREA_SIZE); i++)
-		{
-			St7522_WriteData(DSP_Memory[DspStruct.Page][i]);
-//			delay();
-		}
-	}
-#ifdef USE_DISP_8PIN_CON
-	LCD_CS2_H;
-#endif
-
-	// IC1 Select
-	LCD_CS1_L;
-	delay();
-	
-	// Graphic LCD
-	// pin map이 뒤집어져 있기 때문에 page1에 있는 데이터를 
-	cmd = ST7522_PAGE_ADDR_SET | 0x01;
-	St7522_WriteCommand(cmd); // page 0
-	St7522_WriteCommand(ST7522_ADDR_SET_LOW); // Low column set
-	St7522_WriteCommand(ST7522_ADDR_SET_HIGH); // High column set  // seg8
-	addr = 0;
-
-	for (i = 0; i < (LCD_CHAR_AREA_SIZE); i++)
-	{
-		data = Rev_Data(DspBuf[DspStruct.Page][addr+(i*2)]);
-		St7522_WriteData(data);
-	}
-
-	cmd = ST7522_PAGE_ADDR_SET;
-	St7522_WriteCommand(cmd); // page 0
-	St7522_WriteCommand(ST7522_ADDR_SET_LOW); // Low column set
-	St7522_WriteCommand(ST7522_ADDR_SET_HIGH); // High column set  // seg8
-	addr = 0;
-
-	for (i = 0; i < (LCD_CHAR_AREA_SIZE); i++)
-	{
-		data = Rev_Data(DspBuf[DspStruct.Page][addr+(i*2)+1]);
-		St7522_WriteData(data);
-	}
-#ifdef USE_DISP_8PIN_CON
-	LCD_CS1_H;
-#endif
-}
-
-// pin map이 버퍼와 반대로 되어있어 데이터 반전해주는 함수
-INT8U Rev_Data(INT8U data)
+// pin map이 버퍼와 반대로 되어있어 데이터 반전해주는 함수(ST7522 전용)
+static INT8U rev_data(INT8U data)
 {
 	INT8U fData, rData;
 	int i;
@@ -572,53 +775,84 @@ INT8U Rev_Data(INT8U data)
 	return rData;
 }
 
-// 그래픽 LCD만 출력
-// 핀 맵과 DSP_Memory[] 버퍼는
-void DSP_LCD7_char_diffuse(void)
-{
-	int i , addr;
-	INT8U cmd, data;
-
-	LCD_CS1_L;
-	
-	// 상하반전으로 page1이 위에 출력되어야 한다.
-	cmd = ST7522_PAGE_ADDR_SET | 0x01; // page 1
-	St7522_WriteCommand(cmd);
-	St7522_WriteCommand(ST7522_ADDR_SET_LOW); // Low column set
-	St7522_WriteCommand(ST7522_ADDR_SET_HIGH); // High column set
-	addr = 0;
-
-	for (i = 0; i < (LCD_CHAR_AREA_SIZE); i++)
-	{
-		data = Rev_Data(DspBuf[DspStruct.Page][addr+(i*2)]);
-		St7522_WriteData(data);
-	}
-	
-	cmd = ST7522_PAGE_ADDR_SET; // page 0
-	St7522_WriteCommand(cmd);
-	St7522_WriteCommand(ST7522_ADDR_SET_LOW); // Low column set
-	St7522_WriteCommand(ST7522_ADDR_SET_HIGH); // High column set
-	addr = 0;
-
-	for (i = 0; i < (LCD_CHAR_AREA_SIZE); i++)
-	{
-		data = Rev_Data(DspBuf[DspStruct.Page][addr+(i*2)+1]);
-		St7522_WriteData(data);
-	}
-	
-#ifdef USE_DISP_8PIN_CON
-	LCD_CS1_H;
-#endif
-}
-
+/* ST7522 전용 휘도 조절 함수(신규 DISP IC(RW1087)에는 휘도 조절 기능이 없음) */
 void VFD7_display_bright(INT8U bright)//1~9 level
 {
 	ContrastLevel = bright + 0x10;
 	VFD7_Reset(3);
 }
 
-// 업체에서 준 코드와 contrast를 제외하고 동일
-void VFD7_Init(void)
+/* Segment 영역만을 제어 */
+static void st7522_seg_diffuse(void)
+{
+	int i, j, addr;
+	INT8U cmd;
+
+	/* CS2 Control */
+	LCD_CS1_H;
+	LCD_CS2_L;
+
+	delay();
+	
+	for (j = 0; j < LCD_PAGE_MAX; j++) // Page 0, 1 Diffuse
+	{
+		cmd = ST7522_PAGE_ADDR_SET | j;
+		st7522_writecommand(cmd); // page 0
+		st7522_writecommand(ST7522_ADDR_SET_LOW); // Low column set
+		st7522_writecommand(ST7522_ADDR_SET_HIGH); // High column set
+		addr = j * LCD_SEG_AREA_SIZE; // 현재 사용중인 세그먼트 영역 1 page size = 24
+		for (i = addr; i < (addr + LCD_SEG_AREA_SIZE); i++)
+		{
+			st7522_writedata(DSP_Memory[DspStruct.Page][i]);
+		}
+	}
+	LCD_CS1_H;
+	LCD_CS2_H;
+}
+
+/* Grpic LCD 영역만을 제어 */
+static void st7522_glcd_diffuse(void)
+{
+	int i, addr;
+	INT8U cmd, data;
+
+	/* CS1 Control */
+	LCD_CS1_L;
+	LCD_CS2_H;
+
+	delay();
+	
+	// Graphic LCD
+	// pin map이 뒤집어져 있기 때문에 page1에 있는 데이터를 
+	cmd = ST7522_PAGE_ADDR_SET | 0x01;
+	st7522_writecommand(cmd); // page 0
+	st7522_writecommand(ST7522_ADDR_SET_LOW); // Low column set
+	st7522_writecommand(ST7522_ADDR_SET_HIGH); // High column set  // seg8
+	addr = 0;
+
+	for (i = 0; i < (LCD_CHAR_AREA_SIZE); i++)
+	{
+		data = rev_data(DspBuf[DspStruct.Page][addr + (i * 2)]);
+		st7522_writedata(data);
+	}
+
+	cmd = ST7522_PAGE_ADDR_SET;
+	st7522_writecommand(cmd); // page 0
+	st7522_writecommand(ST7522_ADDR_SET_LOW); // Low column set
+	st7522_writecommand(ST7522_ADDR_SET_HIGH); // High column set  // seg8
+	addr = 0;
+
+	for (i = 0; i < (LCD_CHAR_AREA_SIZE); i++)
+	{
+		data = rev_data(DspBuf[DspStruct.Page][addr + (i * 2) + 1]);
+		st7522_writedata(data);
+	}
+	LCD_CS1_H;
+	LCD_CS2_H;
+}
+
+/* Initialization (업체에서 준 코드와 contrast를 제외하고 동일) */ 
+static void st7522_vfd7_init(void)
 {
 	int i;
 	INT8U cc;
@@ -633,107 +867,62 @@ void VFD7_Init(void)
 	
 	LCD_CS1_H;
 	LCD_CS2_H;
-	LCD_WR_H;
+	LCD_SCL_H;
 	delay();
 	
 	// IC1, IC2 Initial
 	LCD_CS1_L;
 	LCD_CS2_L;
 	
-	St7522_WriteCommand(ST7522_RESET); // Reset
-//	St7522_WriteCommand(0xF1); // OSC frequency set
-//	St7522_WriteCommand(0x0F); // Frame about 80.6Hz/OSC frequency about 2.6KHz
-//	St7522_WriteCommand(0xF8); // Follower input voltage set
-//	St7522_WriteCommand(0x01); // V5 input voltage=3/6*VSS
-	St7522_WriteCommand(0xF8); // Follower input voltage set
-	St7522_WriteCommand(0x02); // V5 input voltage=2/6*VSS
-	St7522_WriteCommand(ST7522_ADC_SELECT | 0x00); // 0: Normal, 1: Reverse
-	St7522_WriteCommand(0xA4);
-	St7522_WriteCommand(ST7522_DUTY_SELECT | 0x00); // 0: 1/17 duty, 1: 1/33 duty
-	St7522_WriteCommand(ST7522_BIAS_SET | 0x01); // 0: 1/6 bias, 1: 1/5 bias
-	St7522_WriteCommand(ST7522_AMPLIFIED_RATIO | 0x04); // V5 amplified ratio = 4
-//	St7522_WriteCommand(0xF0); // Booster input voltage set
-//	St7522_WriteCommand(0x80); // VSS2=3/5 *VSS
-	St7522_WriteCommand(ST7522_CONTRAST_SET); // Contrast set command
-	St7522_WriteCommand(ContrastLevel); // Contrast set, Default 35H // setting deault 0x15
-	St7522_WriteCommand(ST7522_POWER_CONTROL | 0x01); // power control
-//	St7522_WriteCommand(0xaf);
+	st7522_writecommand(ST7522_RESET); 					// Reset
+	st7522_writecommand(0xF8); 							// Follower input voltage set
+	st7522_writecommand(0x02); 							// V5 input voltage=2/6*VSS
+	st7522_writecommand(ST7522_ADC_SELECT | 0x00); 		// 0: Normal, 1: Reverse
+	st7522_writecommand(0xA4);
+	st7522_writecommand(ST7522_DUTY_SELECT | 0x00); 	// 0: 1/17 duty, 1: 1/33 duty
+	st7522_writecommand(ST7522_BIAS_SET | 0x01); 		// 0: 1/6 bias, 1: 1/5 bias
+	st7522_writecommand(ST7522_AMPLIFIED_RATIO | 0x04); // V5 amplified ratio = 4
+	st7522_writecommand(ST7522_CONTRAST_SET); 			// Contrast set command
+	st7522_writecommand(ContrastLevel); 				// Contrast set, Default 35H // setting deault 0x15
+	st7522_writecommand(ST7522_POWER_CONTROL | 0x01); 	// power control
 	
 	// 200ms
 	for (i = 0; i < 350000; i++)
 	{
 		delay();
 	}
-//	St7522_clear();
-	St7522_WriteCommand(ST7522_DISPLAY_ON); // display on
+	st7522_writecommand(ST7522_DISPLAY_ON); // display on
 	LCD_CS1_H;
 	LCD_CS2_H;
-	
-	
-#ifndef USE_DISP_8PIN_CON
-	// IC2 Initial
-	
-	St7522_WriteCommand(ST7522_RESET); // Reset
-//	St7522_WriteCommand(0xF1); // OSC frequency set
-//	St7522_WriteCommand(0x0F); // Frame about 80.6Hz/OSC frequency about 2.6KHz
-//	St7522_WriteCommand(0xF8); // Follower input voltage set
-//	St7522_WriteCommand(0x01); // V5 input voltage=3/6*VSS
-	St7522_WriteCommand(ST7522_ADC_SELECT | 0x00); // 0: Normal, 1: Reverse
-	St7522_WriteCommand(0xA4);
-	St7522_WriteCommand(ST7522_DUTY_SELECT | 0x00); // 0: 1/17 duty, 1: 1/33 duty
-	St7522_WriteCommand(ST7522_BIAS_SET | 0x01); // 0: 1/6 bias, 1: 1/5 bias
-	St7522_WriteCommand(ST7522_AMPLIFIED_RATIO | 0x05); // V5 amplified ratio = 4.5
-//	St7522_WriteCommand(0xF0); // Booster input voltage set
-//	St7522_WriteCommand(0x80); // VSS2=3/5 *VSS
-	St7522_WriteCommand(ST7522_CONTRAST_SET); // Contrast set command
-	St7522_WriteCommand(0x10); // Contrast set, Default 35H
-	St7522_WriteCommand(ST7522_POWER_CONTROL | 0x05); // power control
-//	St7522_WriteCommand(0xaf);
-	
-	// 200ms
-	for (i = 0; i < 400000; i++)
-	{
-		delay();
-	}
-	St7522_clear();
-	St7522_WriteCommand(ST7522_DISPLAY_ON); // display on
-#endif
 
-//	memset(DSP_Memory, 0x00, sizeof(DSP_Memory));
 	DSP_LCD7_diffuse();
 }
 
-void VFD7_Reset(INT8U flag)
+/* Reset */
+static void st7522_vfd7_reset(INT8U flag)
 {
 	int i;
 	
 	LCD_CS1_H;
 	LCD_CS2_H;
-	LCD_WR_H;
+	LCD_SCL_H;
 	delay();
 	
 	// IC1, IC2 Initial
 	LCD_CS1_L;
 	LCD_CS2_L;
 	
-	St7522_WriteCommand(ST7522_RESET); // Reset
-//	St7522_WriteCommand(0xF1); // OSC frequency set
-//	St7522_WriteCommand(0x0F); // Frame about 80.6Hz/OSC frequency about 2.6KHz
-//	St7522_WriteCommand(0xF8); // Follower input voltage set
-//	St7522_WriteCommand(0x01); // V5 input voltage=3/6*VSS
-	St7522_WriteCommand(0xF8); // Follower input voltage set
-	St7522_WriteCommand(0x02); // V5 input voltage=2/6*VSS
-	St7522_WriteCommand(ST7522_ADC_SELECT | 0x00); // 0: Normal, 1: Reverse
-	St7522_WriteCommand(0xA4);
-	St7522_WriteCommand(ST7522_DUTY_SELECT | 0x00); // 0: 1/17 duty, 1: 1/33 duty
-	St7522_WriteCommand(ST7522_BIAS_SET | 0x01); // 0: 1/6 bias, 1: 1/5 bias
-	St7522_WriteCommand(ST7522_AMPLIFIED_RATIO | 0x04); // V5 amplified ratio = 4
-//	St7522_WriteCommand(0xF0); // Booster input voltage set
-//	St7522_WriteCommand(0x80); // VSS2=3/5 *VSS
-	St7522_WriteCommand(ST7522_CONTRAST_SET); // Contrast set command
-	St7522_WriteCommand(ContrastLevel); // Contrast set, Default 0x15
-	St7522_WriteCommand(ST7522_POWER_CONTROL | 0x01); // power control
-//	St7522_WriteCommand(0xaf);
+	st7522_writecommand(ST7522_RESET); 					// Reset
+	st7522_writecommand(0xF8); 							// Follower input voltage set
+	st7522_writecommand(0x02); 							// V5 input voltage=2/6*VSS
+	st7522_writecommand(ST7522_ADC_SELECT | 0x00); 		// 0: Normal, 1: Reverse
+	st7522_writecommand(0xA4);
+	st7522_writecommand(ST7522_DUTY_SELECT | 0x00); 	// 0: 1/17 duty, 1: 1/33 duty
+	st7522_writecommand(ST7522_BIAS_SET | 0x01); 		// 0: 1/6 bias, 1: 1/5 bias
+	st7522_writecommand(ST7522_AMPLIFIED_RATIO | 0x04); // V5 amplified ratio = 4
+	st7522_writecommand(ST7522_CONTRAST_SET); 			// Contrast set command
+	st7522_writecommand(ContrastLevel); 				// Contrast set, Default 0x15
+	st7522_writecommand(ST7522_POWER_CONTROL | 0x01); 	// power control
 	
 	// 200ms
 	switch(flag)
@@ -755,12 +944,168 @@ void VFD7_Reset(INT8U flag)
 		default:
 			break;
 	}
-//	St7522_clear();
-	St7522_WriteCommand(ST7522_DISPLAY_ON); // display on
+	st7522_writecommand(ST7522_DISPLAY_ON); 			// display on
 	LCD_CS1_H;
 	LCD_CS2_H;
 	
 	DSP_LCD7_diffuse();
+}
+//////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////* Command 제어 및 초기화 함수 호출부 모음 *//////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+// LCD 전체 Diffuse
+void DSP_LCD7_diffuse(void)
+{
+	if (Disp_control_ic_select)
+	{
+		rw1087_seg_diffuse();
+		rw1087_glcd_diffuse();
+	}
+	else
+	{
+		st7522_seg_diffuse();
+		st7522_glcd_diffuse();
+	}
+}
+
+// 그래픽 LCD만 출력
+void DSP_LCD7_char_diffuse(void)
+{
+	if (Disp_control_ic_select)
+	{
+		rw1087_glcd_diffuse();
+	}
+	else
+	{
+		st7522_glcd_diffuse();
+	}
+}
+
+// LCD Initialization
+void VFD7_Init(void)
+{
+	if (Disp_control_ic_select)
+	{
+		rw1087_vfd7_init();
+	}
+	else
+	{
+		st7522_vfd7_init();
+	}
+	
+}
+
+// LCD Reset
+void VFD7_Reset(INT8U flag)
+{
+	if(Disp_control_ic_select)
+	{
+		/* 현재 RW1087 DISP IC Reset 동작 함수 따로 없지만 ESD Test등 Reset 동작을 위해 적용 */	
+		rw1087_vfd7_reset(flag);
+	}
+	else
+	{
+		/* Init 함수와 비슷하지만 사용자에게 입력받은 휘도 조절 기능을 위해 필요 */
+		st7522_vfd7_reset(flag);
+	}
+}
+//////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////* Rw1087 테스트용 함수 모음 *//////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+static void rw1087_full_display(char all)
+{
+	unsigned char i, j, k;
+	
+	for (i = 0; i < LCD_PAGE_MAX; i++)
+	{
+	// i = 1;
+		LCD_CS1_L;
+		LCD_CS2_H;
+
+		rw1087_writecommand(RW1087_ADDR_SET_HIGH);
+		rw1087_writecommand(RW1087_ADDR_SET_LOW);
+
+		rw1087_writecommand(RW1087_START_LINE_SET);
+		rw1087_writecommand(RW1087_PAGE_ADDR_SET + i);
+		
+		for(j = 0; j < 64; j++)
+		{
+			/* 
+			*  DISP ALL ON  -> all : 0xff
+			*  DISP ALL OFF -> all : 0x00
+			*/
+			rw1087_writedata(all);
+		}
+
+		LCD_CS1_H;
+		LCD_CS2_L;
+
+		rw1087_writecommand(RW1087_ADDR_SET_HIGH);
+		rw1087_writecommand(RW1087_ADDR_SET_LOW);
+
+		rw1087_writecommand(RW1087_START_LINE_SET);
+		rw1087_writecommand(RW1087_PAGE_ADDR_SET + i);
+		
+		for(k = 0; k < 64; k++)
+		{
+			/* 
+			*  DISP ALL ON  -> all : 0xff
+			*  DISP ALL OFF -> all : 0x00
+			*/
+			rw1087_writedata(all);
+		}
+
+		rw1087_writecommand(RW1087_DISPLAY_ON);
+	}
+	LCD_CS1_H;
+	LCD_CS2_H;
+	delay();
+}
+
+static void rw1087_seg_test_display(void)
+{
+	unsigned char i, j, k;
+	
+	for (i = 0; i < LCD_PAGE_MAX; i++)
+	{
+	// i = 1;
+		LCD_CS1_H;
+		LCD_CS2_L;
+
+		rw1087_writecommand(RW1087_ADDR_SET_HIGH);
+		rw1087_writecommand(RW1087_ADDR_SET_LOW | 0x20);
+
+		rw1087_writecommand(RW1087_START_LINE_SET);
+		rw1087_writecommand(RW1087_PAGE_ADDR_SET + i);
+	
+		if(i == 0)
+			rw1087_writedata(0x0A);
+		else
+			rw1087_writedata(0x00);
+	}
+}
+
+static void rw1087_delay_time(int time)
+{
+	INT8U i, j;
+
+	for(i = 0; i < time; i++)
+	{
+		for(j = 0; j < 125; j++);
+	}
+}
+//////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////* 공통 함수 *//////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+void __attribute__((optimize("-O0"))) delay(void)
+{
+	// Write mode minimum delay => 5V = 1.67 usec. 3V = 3.34 usec
+	INT8U i = 15; // 25.05 usec
+	
+	while(i--);
 }
 
 extern HUGEDATA INT8U *DspFontAddrHpf;

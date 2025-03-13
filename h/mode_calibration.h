@@ -87,7 +87,8 @@ typedef struct
   // ADM INIT COMPLETE = 1
   // Reserved = 5
   // #else
-  // Reserved = 8
+  // Set DISP Control Method = 1
+  // Reserved = 7
   //  TOTAL = 332
 
 #define NVRAM_BACKUP_FLAG_HISTORY_WRITTEN 0x52011234

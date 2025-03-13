@@ -479,6 +479,9 @@ INT16S debug_interprete(HUGEDATA COMM_BUF *CBuf,INT8U r_data)
 #ifdef USE_CHN_CART_SCALE
 			{"cv",DBG_CMD_CV,0,"CHN Vegetable trace : cv"},
 #endif
+#ifdef USE_CL3000N_NEW_DISP_IC
+			{"dc",DBG_CMD_DC,1,"Set DISP Control Method : dc <param0> 0:PCB Chk,1:ST7522,2:RW1087"},
+#endif // USE_CL3000N_NEW_DISP_IC
 			{"\0",0 ,0,"\0"},
 	};
 	INT16S  i,z,ret;
@@ -1416,6 +1419,27 @@ EXEC:
 			vege_trace_test();
 			break;
 #endif
+#ifdef USE_CL3000N_NEW_DISP_IC
+		case DBG_CMD_DC :
+			switch(debug_param[0])
+			{
+				default:
+				case 0:
+					set_global_bparam(GLOBAL_TARE_SETITING, 0);
+					break;
+				case 1:
+					set_global_bparam(GLOBAL_TARE_SETITING, 0x40);
+					break;
+				case 2:
+					set_global_bparam(GLOBAL_TARE_SETITING, 0x80);
+					break;
+			}
+			sprintf(MsgBuf, "Display Setting Changed!.\r\n");
+			commun_out(CBuf,MsgBuf);
+			BuzOn(2);
+			_SOFTWARE_RESET;
+			break;
+#endif // USE_CL3000N_NEW_DISP_IC
 	}
 	goto TERM_START;
 TERM_ERR :

@@ -888,3 +888,16 @@ extern void init_network(void);
 extern void CtsAlarm(INT8U key_mode);
 #endif
 //extern INT8U gen_price(HUGEDATA INT8U *dest,long data,INT8U digit, char decimal_ch);
+
+	/* Main CPU Module 버전 체크*/
+	#define USE_ST7522_DISP_IC		0
+	#define USE_RW1087_DISP_IC		1
+	#define USE_PCB_CKH_TO_DISP_IC	2
+
+	#define DISP_IC_VER_CHK1_PORT PLIB_PORTS_PinGet(PORTS_ID_0, PORT_CHANNEL_K, PORTS_BIT_POS_2)	// PORTAbits.RK2
+	extern INT8U Is_Disp_Ic_Ver_Chk1_State(void);
+	/* 	포트값 체크를 통한 DISP_IC_VER_CHK1 값
+	*	기존 DISP IC(ST7522) : 0
+	*	신규 DISP IC(RW1087) : 1
+	*/
+	#define DISP_IC_VER_CHK1	(Is_Disp_Ic_Ver_Chk1_State() ? USE_ST7522_DISP_IC : USE_RW1087_DISP_IC)

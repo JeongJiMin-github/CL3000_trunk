@@ -171,7 +171,8 @@
     #define USE_DSP_USB_FW_UPDATE_VERSION	// USB FW 업데이트 시 문구 및 버전 표시
     #define USE_DSP_MESSAGE_FOR_MEM_CLEAR	// Memory clear 동안 메세지 표시
    	#define CONTINEOUS_PRT_TEST				// M1864"Chess Printer Test" 시 연속 발행 테스트 기능 추가
-	#define USE_AUTO_FIND_VERSION					// 버전 정보 자동으로 찾아오는 기능
+	#define USE_AUTO_FIND_VERSION			// 버전 정보 자동으로 찾아오는 기능
+	#define USE_CL3000N_NEW_DISP_IC			// 기존 DISP IC(ST7522)단종 이슈로 인하여 신규 DISP IC(RW1087)사용을 위함(r3325기준)
 #endif
 /********************************************************************************/
 

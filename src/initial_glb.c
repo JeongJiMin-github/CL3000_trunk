@@ -650,7 +650,7 @@ ROMDATA COUNTRY_SETTING_TYPE	ParameterCountry[]=
 	{  686, 	 COUNTRY_UN,	0	}, // Print Total price with external tax in barcode
 	{  687,	     COUNTRY_UN,	0   },//Numeric Tare Block Disable[N] (Default 값)
 	{  688,	     COUNTRY_UN,	0   },//Weight Tare Block Disable[N] (Default 값)
-
+	{  689,	     COUNTRY_UN,	0   },// Set DISP Control Method(CL3000 전용)
 	{  690, 	 COUNTRY_UN,	0	},//Print under Min. Weight on prepack mode 
 
 	{  691, 	 COUNTRY_UN,	0	},//Print Decimal Point on Barcode
@@ -842,8 +842,6 @@ ROMDATA COUNTRY_SETTING_TYPE	ParameterCountry[]=
 #endif
 	{  980,	     COUNTRY_US,	1   },
 	{  980,	     COUNTRY_UN,	0   },
-
-
 //MENU SETTING DEFAULT
 #ifdef USE_TRANSFER_MENU_SETTING
 	{ 1810,	     COUNTRY_UN,	1   },	//Show Display info (M1871)
@@ -1412,8 +1410,8 @@ ROMDATA PARAMETER_SETTING_TYPE	ParameterSetting[]=
 	{  685, 	 0x4685,	 GLOBAL_SALE_SETUP_FLAG19,	FLASH_GLOBAL_AREA,	1,			4,		 0, 	   1,	COUNTRY_EMPTY},	
 	{  686, 	 0x4686,	 GLOBAL_SALE_SETUP_FLAG20,	FLASH_GLOBAL_AREA,	1,			4,		 1, 	   1,	COUNTRY_EMPTY},
 	{  687,	     0x4687, 	 GLOBAL_TARE_SETITING,		FLASH_GLOBAL_AREA, 	1,    	    4,	     4,	       1,	COUNTRY_EMPTY},		// Numeric Tare Block 설정	
-	{  688,	     0x4688, 	 GLOBAL_TARE_SETITING,		FLASH_GLOBAL_AREA, 	1,    	    4,	     5,	       1,	COUNTRY_EMPTY},		// Weight Tare Block 설정	
-	
+	{  688,	     0x4688, 	 GLOBAL_TARE_SETITING,		FLASH_GLOBAL_AREA, 	1,    	    4,	     5,	       1,	COUNTRY_EMPTY},		// Weight Tare Block 설정
+	{  689,      0x4689,     GLOBAL_TARE_SETITING,     	FLASH_GLOBAL_AREA, 	2,          4,       7,	       2,       COUNTRY_EMPTY},	// Set DISP Control Method(CL3000 전용)
 	{  690, 	 0x4690,	 GLOBAL_SALE_SETUP_FLAG15, FLASH_GLOBAL_AREA,		1,			4,		 5, 	   1,		COUNTRY_EMPTY},  //   1
 	{  691,  	 0x4691,	 GLOBAL_REPORT_FLAG2,    	FLASH_GLOBAL_AREA,  1,    	    4,	     2,	       3,	COUNTRY_EMPTY},  //   1 
 // CL5500용
@@ -1634,7 +1632,6 @@ ROMDATA PARAMETER_SETTING_TYPE	ParameterSetting[]=
 
 	//SG070712
 	{  980,      0x4980,     GLOBAL_SALE_SETUP_FLAG4,     	FLASH_GLOBAL_AREA, 	1,          4,       3,	       1,       COUNTRY_EMPTY},  //
-
 	// param994 : FW Update over Ethernet
 	//  - Boot Ver 1.05 이상일 때 동작
 	//  - param996과 분리하여 신규 생성. 996을 사용시, 신규BOOT에 구 펌웨어일 경우 이상동작할 수 있음
@@ -2651,9 +2648,17 @@ void DefaultDealerParamSetting(INT8U selCountry, INT8U mode)
 	INT16U	i;
 	
 	VertScrollMsg_Add("2.2 Set Private Code");
-	
 	for(i=0;ParameterCountry[i].funcCode;i++)
 	{
+		/* 파라미터 값 예외처리 단
+		** 값 마스킹 후 초기화 방어하여 입력 값 유지해야 하는 파라미터 추가
+		** 689(Set DISP Control IC)
+		** P***(...)
+		*/
+		if (ParameterCountry[i].funcCode == 689)
+		{
+			continue;
+		}
 #ifdef USE_POLAND_DEFAULT
 		if(mode == DEALER_MODE && (800<ParameterCountry[i].funcCode || ParameterCountry[i].funcCode == 995))// factory
 #else
@@ -3282,6 +3287,7 @@ KI_IN:
 					  }
 					  break;
 				case 731 :
+				case 689 :
 					  if (changed&0x02)	// changed only
 					  {
 						_SOFTWARE_RESET;
@@ -3323,7 +3329,6 @@ KI_IN:
 							set_global_bparam(GLOBAL_PLU_FONTID   	, DSP_PLU_NAME_FONT_ID);
 							set_global_bparam(GLOBAL_LABEL_FONTID 	, 4);
 						}
-
 #endif
 						_SOFTWARE_RESET;
 					}
