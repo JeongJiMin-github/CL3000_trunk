@@ -54,7 +54,7 @@
 ********************************************************************************
 */
 //------- 영공 펌웨어 사용 -------//
-#define USE_STANDARD        					// 영공
+//#define USE_STANDARD        					// 영공
 
 //------- 기타 추가적인 국가 확인 필요한 펌웨어 -------//
 //#define USE_ARAB							// (A) 아랍 (폰트)
@@ -141,7 +141,7 @@
 //#define COUNTRY_SOUTHAFRICA					// 남아공					
 //#define COUNTRY_TUNISIA   					// 튀니지 Heap Size : 64000
 //#define COUNTRY_TURKEY   						// 튀르키예 Heap Size : 64000
-#define COUNTRY_USA							// 미국
+//#define COUNTRY_USA							// 미국
 
 #endif /* USE_STANDARD */
 /********************************************************************************/
