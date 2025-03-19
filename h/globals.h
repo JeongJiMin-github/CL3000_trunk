@@ -141,7 +141,7 @@
 //#define COUNTRY_SOUTHAFRICA					// 남아공					
 //#define COUNTRY_TUNISIA   					// 튀니지 Heap Size : 64000
 //#define COUNTRY_TURKEY   						// 튀르키예 Heap Size : 64000
-//#define COUNTRY_USA							// 미국
+#define COUNTRY_USA							// 미국
 
 #endif /* USE_STANDARD */
 /********************************************************************************/
@@ -154,6 +154,7 @@
 */
 #ifdef CL3000_BP
     #define MODEL_NAME "CL3000"
+	#define MODEL_NAME_SMALL "cl3000"
     #define USE_SINGLE_LINE_GRAPHIC			// Graphic LCD 한 줄 사용
     #define _USE_LCD_7_26d_16x96_    		// CL3000 : 7-seg LCD(26digits)
     #define _USE_LCD26d_16x96_    			// Graphic LCD : graphic part(16x96)
@@ -184,6 +185,7 @@
 */
 #ifdef CL5200J_BP
 	#define MODEL_NAME "CL5200J"
+	#define MODEL_NAME_SMALL "cl5200j"
     #define USE_SINGLE_LINE_GRAPHIC			// Graphic LCD 한 줄 사용
     #define _USE_LCD_7_37D_40DOT_     		// CL5200J : 7-seg LCD(25digits)
     #define _USE_LCD37D_40DOT_     			// CL5200J NAME : 8x5-dot LCD(12digits)

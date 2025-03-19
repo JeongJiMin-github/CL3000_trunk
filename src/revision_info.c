@@ -12,7 +12,7 @@
 #include "revision_info.h"
 
 // URL : https://10.10.1.210/svn/CN1/Firmware/Scale/Trunk
-// í˜„ìž¬ Revision ê°€ì ¸ì˜¤ê¸°
+// ÇöÀç Revision °¡Á®¿À±â
 INT32U GetRevision(void)
 {
 	return GET_REVISION;

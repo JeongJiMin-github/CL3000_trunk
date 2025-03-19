@@ -9840,6 +9840,8 @@ INT8U Prt_PrintLabel(INT8U label_mode, INT8U linked)
 	INT8U	ret_ingredient;
 	INT8U	ingredient_string_buf[2101];
 	INT16U ingredient_str_len;
+	INT8U prt_paper_type;
+	prt_paper_type = get_global_bparam(GLOBAL_PAPER_TYPE);
 
 #endif
 #ifdef USE_REALTIME_DATA_EVROOPT
@@ -9860,9 +9862,6 @@ INT8U Prt_PrintLabel(INT8U label_mode, INT8U linked)
 		if(PrtFirstLabel) {
 			if(!prt_load_labelform(label_mode, linked)) return OFF;
 #ifdef USE_CONTINUOUS_LABEL_WITH_INGREDIENT
-			INT8U prt_paper_type;
-			prt_paper_type = get_global_bparam(GLOBAL_PAPER_TYPE);
-
 			if(prt_paper_type == PRINT_MODE_CONTINUOUS_LABEL)
 			{
 			// Load Label Form
@@ -9941,8 +9940,15 @@ INT8U Prt_PrintLabel(INT8U label_mode, INT8U linked)
 	LabCmd_PrintStart(1);
 	PrintListWaitEndWithoutComm();
 #ifdef USE_CONTINUOUS_LABEL_WITH_INGREDIENT
-	RcptCmd_CharLF(1);
-	PrintListWaitEndWithoutComm(); 
+	if(prt_paper_type == PRINT_MODE_CONTINUOUS_LABEL)
+	{
+		RcptCmd_CharLF(1);
+		PrintListWaitEndWithoutComm(); 
+	}
+	else
+	{
+		PrintListWaitEndWithoutComm();
+	}
 #endif
 #ifdef USE_REALTIME_DATA_EVROOPT
 	PrintUseFlag = OFF;
