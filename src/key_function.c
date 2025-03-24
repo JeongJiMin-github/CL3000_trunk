@@ -3341,322 +3341,279 @@ void start_external_print(INT16U count)
 	
 #ifdef USE_TRACE_STANDALONE
 #ifdef USE_RFID_TAG_READER
-	//extern INT8U slen;
-	extern INT8U RFIDRcvStateStart;
-	extern void commun_send_call_rfid_tag(void);
-	extern INT8U commun_recv_rfid_tag(INT8U *reply_data, INT16U *length, INT8U *res_code);
-	INT8U keyapp_call_individual(INT16U indiv_index, INT8U beep);
-	void keyapp_send_call_tag(void)
+//extern INT8U slen;
+extern INT8U RFIDRcvStateStart;
+extern void commun_send_call_rfid_tag(void);
+extern INT8U commun_recv_rfid_tag(INT8U *reply_data, INT16U *length, INT8U *res_code);
+INT8U keyapp_call_individual(INT16U indiv_index, INT8U beep);
+void keyapp_send_call_tag(void)
+{
+	INT16U len;
+	INT8U ret;
+	INT8U res_code;
+	INT16U ind_idx;
+	INT8U string_buf[50];
+	
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+	
+	old_font = DspStruct.Id1;
+	old_page = DspStruct.Page;
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	FontSizeChange(FONT_MEDIUM);
+	display_lcd_clear_buf();  // Clear buf PLU Name Area
+	
+	disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
+	sprintf((char*)string_buf, "태그를 대주세요.");
+	
+	Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
+	Dsp_Diffuse();
+	display_lcd_diffuse();	// Redraw PLU Name Area
+	
+	commun_send_call_rfid_tag();
+	RFIDRcvStateStart = 1;
+	//slen = 0;
+	network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
+	network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
+	
+	Delay_100ms(2);
+	while(1)
 	{
-		INT16U len;
-		INT8U ret;
-		INT8U res_code;
-		INT16U ind_idx;
-		INT8U string_buf[50];
-		
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-		
-		old_font = DspStruct.Id1;
-		old_page = DspStruct.Page;
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		FontSizeChange(FONT_MEDIUM);
-		display_lcd_clear_buf();  // Clear buf PLU Name Area
-		
-		disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
-		sprintf((char*)string_buf, "태그를 대주세요.");
-		
-		Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
-		Dsp_Diffuse();
-		display_lcd_diffuse();	// Redraw PLU Name Area
-		
-		commun_send_call_rfid_tag();
-		RFIDRcvStateStart = 1;
-		//slen = 0;
-		network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
-		network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
-		
-		Delay_100ms(2);
-		while(1)
+		if (network_timeout_check(10,NETWORK_TIMEOUT_TIMESYNC)) 
 		{
-			if (network_timeout_check(10,NETWORK_TIMEOUT_TIMESYNC)) 
+			if (network_counter_check(2,NETWORK_TIMEOUT_TIMESYNC)) 
 			{
-				if (network_counter_check(2,NETWORK_TIMEOUT_TIMESYNC)) 
-				{
-					commun_send_call_rfid_tag();
-					RFIDRcvStateStart = 1;
-					//slen = 0;
-					//Delay_100ms(2);
-				} 
-				else 
-				{
-					BuzOn(4);
-					sprintf((char*)string_buf, "실패하였습니다.");
-					display_message_page_mid((char*)string_buf);
-					break;
-				}
-			}
-			res_code = 0;
-			len = 0;
-			ret = commun_recv_rfid_tag(CalledTraceStatus.indivStr.individualNO, &len, &res_code);
-			// 빠져나가는 조건
-			if (ret)
+				commun_send_call_rfid_tag();
+				RFIDRcvStateStart = 1;
+				//slen = 0;
+				//Delay_100ms(2);
+			} 
+			else 
 			{
-				//BuzOn(1);
-				if (res_code == 0x01)
-				{
-					BuzOn(2);
-					CalledTraceStatus.indivStr.individualNO[len] = 0;
-					//sprintf(MsgBuf, "%s", CalledTraceStatus.indivStr.individualNO);
-					//PutString(24,0,MsgBuf,2,1,1,strlen(MsgBuf));
-					individual_checkZero(CalledTraceStatus.indivStr.individualNO);
-					ind_idx = individualData_search(CalledTraceStatus.indivStr.individualNO, 0);
-					keyapp_call_individual(ind_idx, OFF);
-					break;
-				}
-			}
-			if(KEY_IsKey()) 
-			{
-				KEY_InKey();
-				BuzOn(1);
-				break;
-			}
-		}
-		Dsp_SetPage(old_page);
-		Dsp_Diffuse();
-		DspLoadFont1(old_font);
-	}
-#endif
-#endif
-	
-	
-	
-#ifdef USE_RFID_TAG_READER_RFID_522_B
-	
-	void keyapp_send_call_tag(void)
-	{
-		INT16U len;
-		INT8U ret;
-		INT8U res_code;
-		INT16U ind_idx;
-		INT8U string_buf[50];
-		INT8U data_buf[16];
-		
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-		COMM_BUF *CBuf;
-		
-		CBuf = &CommBufRFID;
-		
-		old_font = DspStruct.Id1;
-		old_page = DspStruct.Page;
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		FontSizeChange(FONT_MEDIUM);
-		display_lcd_clear_buf();  // Clear buf PLU Name Area
-		
-		disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
-		sprintf((char*)string_buf, "READ RFID TAG");
-		
-		Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
-		Dsp_Diffuse();
-		//display_lcd_diffuse();	// Redraw PLU Name Area
-		
-		commun_send_cmd(CBuf, RFID_CMD_READ_DATA, NULL);
-		
-		network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
-		network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
-		
-		//Delay_100ms(2);
-		//debug_tic(0);
-		while(1)
-		{
-			if (network_timeout_check(10,NETWORK_TIMEOUT_TIMESYNC)) 
-			{
-				if (network_counter_check(0,NETWORK_TIMEOUT_TIMESYNC)) 
-				{
-					commun_send_cmd(CBuf, RFID_CMD_READ_DATA, NULL);
-				} 
-				else 
-				{
-					BuzOn(2);
-					sprintf((char*)string_buf, "FAIL(TIMEOUT)");
-					display_message_page_mid((char*)string_buf);
-					break;
-				}
-			}
-			ret = rfid_interpreter(CBuf);
-			// 빠져나가는 조건
-			if (ret == RCV_OK && RFID_RcvResult)
-			{
-				if (RFID_RcvCmd == RFID_CMD_READ_DATA)
-				{
-					//debug_tic('A');
-					BuzOn(1);
-					// ex)수신된 데이터의 마지막 byte를 증가시켜 writing함
-					memcpy(data_buf, RFID_RcvBuffer, 16);
-					data_buf[15]++;
-					for (int i = 0; i < 8; i++)
-					{
-						sprintf((char*)&string_buf[i*2], "%02X", data_buf[i+8]);
-					}
-					commun_send_cmd(CBuf, RFID_CMD_WRITE_DATA, data_buf);
-					display_message_page_mid((char*)string_buf);
-					network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
-					network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
-					//break;
-				}
-				else if (RFID_RcvCmd == RFID_CMD_WRITE_DATA)
-				{
-					//debug_tic('B');
-					BuzOn(1);
-					break;
-				}
-			}
-			else if (ret)	//error
-			{
-				//debug_tic('C');
-				BuzOn(2);
-				sprintf((char*)string_buf, "FAIL(%02X)..", ret);
+				BuzOn(4);
+				sprintf((char*)string_buf, "실패하였습니다.");
 				display_message_page_mid((char*)string_buf);
 				break;
 			}
-			
-			if(KEY_IsKey()) 
+		}
+		res_code = 0;
+		len = 0;
+		ret = commun_recv_rfid_tag(CalledTraceStatus.indivStr.individualNO, &len, &res_code);
+		// 빠져나가는 조건
+		if (ret)
+		{
+			//BuzOn(1);
+			if (res_code == 0x01)
 			{
-				KEY_InKey();
+				BuzOn(2);
+				CalledTraceStatus.indivStr.individualNO[len] = 0;
+				//sprintf(MsgBuf, "%s", CalledTraceStatus.indivStr.individualNO);
+				//PutString(24,0,MsgBuf,2,1,1,strlen(MsgBuf));
+				individual_checkZero(CalledTraceStatus.indivStr.individualNO);
+				ind_idx = individualData_search(CalledTraceStatus.indivStr.individualNO, 0);
+				keyapp_call_individual(ind_idx, OFF);
+				break;
+			}
+		}
+		if(KEY_IsKey()) 
+		{
+			KEY_InKey();
+			BuzOn(1);
+			break;
+		}
+	}
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+}
+#endif
+#endif
+
+
+
+#ifdef USE_RFID_TAG_READER_RFID_522_B
+
+void keyapp_send_call_tag(void)
+{
+	INT16U len;
+	INT8U ret;
+	INT8U res_code;
+	INT16U ind_idx;
+	INT8U string_buf[50];
+	INT8U data_buf[16];
+	
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+	COMM_BUF *CBuf;
+	
+	CBuf = &CommBufRFID;
+	
+	old_font = DspStruct.Id1;
+	old_page = DspStruct.Page;
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	FontSizeChange(FONT_MEDIUM);
+	display_lcd_clear_buf();  // Clear buf PLU Name Area
+	
+	disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
+	sprintf((char*)string_buf, "READ RFID TAG");
+	
+	Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
+	Dsp_Diffuse();
+	//display_lcd_diffuse();	// Redraw PLU Name Area
+	
+	commun_send_cmd(CBuf, RFID_CMD_READ_DATA, NULL);
+	
+	network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
+	network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
+	
+	//Delay_100ms(2);
+	//debug_tic(0);
+	while(1)
+	{
+		if (network_timeout_check(10,NETWORK_TIMEOUT_TIMESYNC)) 
+		{
+			if (network_counter_check(0,NETWORK_TIMEOUT_TIMESYNC)) 
+			{
+				commun_send_cmd(CBuf, RFID_CMD_READ_DATA, NULL);
+			} 
+			else 
+			{
+				BuzOn(2);
+				sprintf((char*)string_buf, "FAIL(TIMEOUT)");
+				display_message_page_mid((char*)string_buf);
+				break;
+			}
+		}
+		ret = rfid_interpreter(CBuf);
+		// 빠져나가는 조건
+		if (ret == RCV_OK && RFID_RcvResult)
+		{
+			if (RFID_RcvCmd == RFID_CMD_READ_DATA)
+			{
+				//debug_tic('A');
+				BuzOn(1);
+				// ex)수신된 데이터의 마지막 byte를 증가시켜 writing함
+				memcpy(data_buf, RFID_RcvBuffer, 16);
+				data_buf[15]++;
+				for (int i = 0; i < 8; i++)
+				{
+					sprintf((char*)&string_buf[i*2], "%02X", data_buf[i+8]);
+				}
+				commun_send_cmd(CBuf, RFID_CMD_WRITE_DATA, data_buf);
+				display_message_page_mid((char*)string_buf);
+				network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
+				network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
+				//break;
+			}
+			else if (RFID_RcvCmd == RFID_CMD_WRITE_DATA)
+			{
+				//debug_tic('B');
 				BuzOn(1);
 				break;
 			}
 		}
-		Dsp_SetPage(old_page);
-		Dsp_Diffuse();
-		DspLoadFont1(old_font);
+		else if (ret)	//error
+		{
+			//debug_tic('C');
+			BuzOn(2);
+			sprintf((char*)string_buf, "FAIL(%02X)..", ret);
+			display_message_page_mid((char*)string_buf);
+			break;
+		}
+		
+		if(KEY_IsKey()) 
+		{
+			KEY_InKey();
+			BuzOn(1);
+			break;
+		}
 	}
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+}
 #endif //#ifdef USE_RFID_TAG_READER_RFID_522_B
 	
 	
 	//SG060720
 #ifdef USE_TRACE_STANDALONE
+
+extern INT16U IndividualDisplayTime;
+extern INT8U  IndividualDisplayTimeFlag;
+TRACE_STATUS_STRUCT  CurTraceStatus;
+extern SCANNER_DATA_STR  Scanner;
+extern INT8U SaveTraceabilityNo;		//Default 값이 "상품개체"
+INT8U keyapp_call_individual(INT16U indiv_index, INT8U beep)
+{
+	INT16U strSize;
+	INT32U addr;
+	TRACE_INDIVIDUAL_IDENTITY  indivStr;
+	static INT16U old_index = 0;
+	long indivWeight;
+	INT8U string_buf[32];   
+	INT16U temp_index;    
+	INT8U temp_param;   
 	
-	extern INT16U IndividualDisplayTime;
-	extern INT8U  IndividualDisplayTimeFlag;
-	TRACE_STATUS_STRUCT  CurTraceStatus;
-	extern SCANNER_DATA_STR  Scanner;
-	extern INT8U SaveTraceabilityNo;		//Default 값이 "상품개체"
-	INT8U keyapp_call_individual(INT16U indiv_index, INT8U beep)
+	memset(&CurTraceStatus.indivStr, 0, sizeof(CurTraceStatus.indivStr));
+	if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때만 개체를 통한 등급 호출이 가능함
 	{
-		INT16U strSize;
-		INT32U addr;
-		TRACE_INDIVIDUAL_IDENTITY  indivStr;
-		static INT16U old_index = 0;
-		long indivWeight;
-		INT8U string_buf[32];   
-		INT16U temp_index;    
-		INT8U temp_param;   
-		
-		memset(&CurTraceStatus.indivStr, 0, sizeof(CurTraceStatus.indivStr));
-		if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때만 개체를 통한 등급 호출이 가능함
+		memset(&CurTraceStatus.curGradeText, 0, sizeof(CurTraceStatus.curGradeText));
+	}
+	if (indiv_index > 0 && indiv_index <= MAX_INDIVIDUAL_NO) //1~MAX_INDIVIDUAL_NO
+	{ 
+		if (indiv_index == MAX_INDIVIDUAL_NO) // 개체코드 100:MAX_INDIVIDUAL_NOanner or 입력기능키
 		{
-			memset(&CurTraceStatus.curGradeText, 0, sizeof(CurTraceStatus.curGradeText));
-		}
-		if (indiv_index > 0 && indiv_index <= MAX_INDIVIDUAL_NO) //1~MAX_INDIVIDUAL_NO
-		{ 
-			if (indiv_index == MAX_INDIVIDUAL_NO) // 개체코드 100:MAX_INDIVIDUAL_NOanner or 입력기능키
+			CurTraceStatus.indivStr.index = indiv_index;
+			memcpy(CurTraceStatus.indivStr.individualNO, CalledTraceStatus.indivStr.individualNO, sizeof(CurTraceStatus.indivStr.individualNO));
+			//#ifdef USE_EMART_PIG_TRACE
+			//			if(strlen(CalledTraceStatus.indivStr.individualNO) == 24)
+			//			{
+			//				CurTraceStatus.indivStr.individualNO[24] = 0; //20141111
+			//			}
+			//			else
+			//			{
+			//				CurTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
+			//			}
+			//#else
+			CurTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
+			//#endif
+			CurTraceStatus.indivStr.lotFlag = CalledTraceStatus.indivStr.lotFlag;
+			
+			if (!CurTraceStatus.indivStr.individualNO[0])
 			{
-				CurTraceStatus.indivStr.index = indiv_index;
-				memcpy(CurTraceStatus.indivStr.individualNO, CalledTraceStatus.indivStr.individualNO, sizeof(CurTraceStatus.indivStr.individualNO));
-				//#ifdef USE_EMART_PIG_TRACE
-				//			if(strlen(CalledTraceStatus.indivStr.individualNO) == 24)
-				//			{
-				//				CurTraceStatus.indivStr.individualNO[24] = 0; //20141111
-				//			}
-				//			else
-				//			{
-				//				CurTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
-				//			}
-				//#else
-				CurTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
-				//#endif
-				CurTraceStatus.indivStr.lotFlag = CalledTraceStatus.indivStr.lotFlag;
-				
-				if (!CurTraceStatus.indivStr.individualNO[0])
-				{
-					sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
-				}
-				else
-				{
-					sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
-					if (GlbOper.UseSendTraceInformation) trace_information_send(&(CommBufEthData[0]), NULL);
-				}
+				sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
 			}
 			else
 			{
-				strSize = TRACE_INDIVIDUAL_IDENTITY_SIZE;
-				addr = (INT32U)(indiv_index-1) * strSize ;
-				addr += FLASH_TRACE_STANDALONE_AREA;
-				addr += DFLASH_BASE;
-				Flash_sread(addr, (HUGEDATA INT8U *)&indivStr, strSize );
-				indivWeight = get_nvram_lparam(NVRAM_TRACE_STANDALONE_WEIGHT+((INT32U)indiv_index-1)*4);
-				//sprintf(MsgBuf, "id=%d, harm=%d, no=%s\r\n", indivStr.index, indivStr.harmfulness, indivStr.individualNO);
-				//MsgOut(MsgBuf);
-				if(indivStr.index==indiv_index)
-				{
+				sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
+				if (GlbOper.UseSendTraceInformation) trace_information_send(&(CommBufEthData[0]), NULL);
+			}
+		}
+		else
+		{
+			strSize = TRACE_INDIVIDUAL_IDENTITY_SIZE;
+			addr = (INT32U)(indiv_index-1) * strSize ;
+			addr += FLASH_TRACE_STANDALONE_AREA;
+			addr += DFLASH_BASE;
+			Flash_sread(addr, (HUGEDATA INT8U *)&indivStr, strSize );
+			indivWeight = get_nvram_lparam(NVRAM_TRACE_STANDALONE_WEIGHT+((INT32U)indiv_index-1)*4);
+			//sprintf(MsgBuf, "id=%d, harm=%d, no=%s\r\n", indivStr.index, indivStr.harmfulness, indivStr.individualNO);
+			//MsgOut(MsgBuf);
+			if(indivStr.index==indiv_index)
+			{
 #ifdef USE_CHECKING_HARMFUL_MEAT
-					// 위해리스트 재 검사
-					temp_param = get_global_bparam(GLOBAL_SALE_SETUP_FLAG13); //위해 기능 사용 유무 
-					if(temp_param != 0)// 위해 개체 사용
+				// 위해리스트 재 검사
+				temp_param = get_global_bparam(GLOBAL_SALE_SETUP_FLAG13); //위해 기능 사용 유무 
+				if(temp_param != 0)// 위해 개체 사용
+				{
+					temp_index = individualData_search(indivStr.individualNO, 2);	// 위해리스트 영역만 검색, 존재안할 경우 MAX_INDIVIDUAL_NO return                    
+					
+					if (indivStr.index < MaxIndividualNo && temp_index == MAX_INDIVIDUAL_NO)	// 개체리스트 영역에 있고, 위해리스트에는 없을 경우
 					{
-						temp_index = individualData_search(indivStr.individualNO, 2);	// 위해리스트 영역만 검색, 존재안할 경우 MAX_INDIVIDUAL_NO return                    
 						
-						if (indivStr.index < MaxIndividualNo && temp_index == MAX_INDIVIDUAL_NO)	// 개체리스트 영역에 있고, 위해리스트에는 없을 경우
-						{
-							
-							
-							memcpy(&CurTraceStatus.indivStr, &indivStr, strSize);
-#ifdef USE_TRACE_MEATGRADE
-							if (plu_check_inhibit_ptype(PTYPE_GROUP_NO)) // PLU 등급을 사용하지 않을 때만 등급 호출 가능
-							{
-								CurTraceStatus.gradeNo = CurTraceStatus.indivStr.gradeNo;
-								trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
-							}
-#else
-							strcpy((char *)CurTraceStatus.curGradeText, (char *)CurTraceStatus.indivStr.grade);
-#endif
-							CurTraceStatus.indivWeight = indivWeight;
-							
-							if (GlbOper.TraceabilityCallType == 0)
-							{
-								if (!old_index) old_index = indivStr.index; 
-								else
-								{
-									if (old_index != indivStr.index) 
-									{
-										old_index = indivStr.index;
-										CurTraceStatus.slPlace = 0;
-									}							 
-								}
-							}
-							sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
-							if (GlbOper.UseSendTraceInformation) trace_information_send(&(CommBufEthData[0]), NULL);
-							
-							
-							
-						}
-						else
-						{
-							BuzOn(2);
-							sprintf((char*)string_buf, "담당자 확인 필요 상품");
-							//sprintf(string_buf, "위해 쇠고기입니다");
-							display_message_page_mid((char*)string_buf);
-							sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
-							sale_display_update(UPDATE_TITLE);	// CJK070705
-							return OFF;
-						}
-					}
-					else // 위해 개체 사용안함 
-					{
+						
 						memcpy(&CurTraceStatus.indivStr, &indivStr, strSize);
 #ifdef USE_TRACE_MEATGRADE
 						if (plu_check_inhibit_ptype(PTYPE_GROUP_NO)) // PLU 등급을 사용하지 않을 때만 등급 호출 가능
@@ -3683,17 +3640,26 @@ void start_external_print(INT16U count)
 						}
 						sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
 						if (GlbOper.UseSendTraceInformation) trace_information_send(&(CommBufEthData[0]), NULL);
+						
+						
+						
 					}
-#else
+					else
+					{
+						BuzOn(2);
+						sprintf((char*)string_buf, "담당자 확인 필요 상품");
+						//sprintf(string_buf, "위해 쇠고기입니다");
+						display_message_page_mid((char*)string_buf);
+						sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
+						sale_display_update(UPDATE_TITLE);	// CJK070705
+						return OFF;
+					}
+				}
+				else // 위해 개체 사용안함 
+				{
 					memcpy(&CurTraceStatus.indivStr, &indivStr, strSize);
-					//#ifdef USE_KOR_TRACE_999
-					//	if (!CurTraceStatus.indivStr.lotFlag)
-					//	{
-					//		strcpy((char *)CurTraceStatus.curGradeText, (char *)CurTraceStatus.indivStr.grade);
-					//	}
-					//#else
 #ifdef USE_TRACE_MEATGRADE
-					if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때만 등급 호출 가능
+					if (plu_check_inhibit_ptype(PTYPE_GROUP_NO)) // PLU 등급을 사용하지 않을 때만 등급 호출 가능
 					{
 						CurTraceStatus.gradeNo = CurTraceStatus.indivStr.gradeNo;
 						trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
@@ -3701,7 +3667,6 @@ void start_external_print(INT16U count)
 #else
 					strcpy((char *)CurTraceStatus.curGradeText, (char *)CurTraceStatus.indivStr.grade);
 #endif
-					//#endif
 					CurTraceStatus.indivWeight = indivWeight;
 					
 					if (GlbOper.TraceabilityCallType == 0)
@@ -3718,145 +3683,15 @@ void start_external_print(INT16U count)
 					}
 					sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
 					if (GlbOper.UseSendTraceInformation) trace_information_send(&(CommBufEthData[0]), NULL);
-#endif
 				}
-				else
-				{
-					sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
-					if(beep) BuzOn(2);
-					sale_display_update(UPDATE_TITLE);	// CJK070705
-					return OFF;
-				}
-			}		
-		}
-		else
-		{ 
-			sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
-		}
-		sale_display_update(UPDATE_TITLE);	// CJK070705
-		return ON;
-	}
-	
-	extern char IndivMsg_NonTrace[];
-	extern char IndivMsg_SameTraceNo[];
-	INT8U individual_call(INT16U indiv_id)
-	{
-		INT8U string_buf[25];
-		INT8U ret;
-		if (!plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
-		{
-			if (status_scale.cur_pluid)
-			{
-#ifdef USE_TRACE_FLAG_0_CHECK
-				if (!status_scale.Plu.trace_flag)
-				{
-					BuzOn(2);		
-					//sprintf((char*)string_buf, "개체이력대상이 아닙니다");
-					sprintf((char*)string_buf, IndivMsg_NonTrace);
-					display_message_page_mid((char *)string_buf);
-					return OFF;
-				}
-#endif
-			}
-			else 
-			{
-				BuzOn(2);
-				return OFF;
-			}
-		}
-		
-		if(status_scale.cur_pluid)
-		{
-			//		if( !checkGradeEquality( individual_index ) )
-			//		{
-			//			BuzOn(3);
-			//			return;
-			//		}
-		}
-		else
-		{
-			IndividualDisplayTime = SysTimer100ms;
-			IndividualDisplayTimeFlag = ON;
-		}
-		
-		//BuzOn(1);
-		
-		//Clear Individual Display area
-		//sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
-		//sale_display_individual();
-		//sale_display_update(UPDATE_TITLE);	// CJK070705
-		ret = keyapp_call_individual(indiv_id, ON);
-		if(!ret) return OFF;
-		
-		return ON;
-	}
-#ifdef USE_NHMART_SAFE_MEAT
-	TRACE_INDIVIDUAL_IDENTITY indivInfo;	//저장되기 전 임시 개체 정보.
-	extern PLU_ADDR plu_table_addr[];
-	extern INT8U command_request_indiv_info(HUGEDATA COMM_BUF *CBuf);
-	void keyapp_call_indivInfo(void)
-	{
-		HUGEDATA COMM_BUF *CBufIndiv;
-		INT8U checkedIndiv = 0xff;
-		INT16U idx;
-		INT8U string_buf[20];
-		if(!status_scale.cur_pluid) {
-			BuzOn(2);
-			return;	//PLU CALL 후에 입력되어야 함. 
-		}
-		if(checkMtrace)
-		{
-			CBufIndiv = &CommBufEthData[0];
-			checkedIndiv = command_request_indiv_info(CBufIndiv);	//개체 정보 요청. 
-			if(checkedIndiv)
-			{
-				BuzOn(2);
-				switch(checkedIndiv)
-				{
-					case 1:
-						sprintf(string_buf, "POS동작 오류");
-						break;
-					case 2:
-						sprintf(string_buf, "이력번호 오류");
-						break;
-					case 3:
-						sprintf(string_buf, "상품번호 오류");
-						break;
-					case 4:
-						sprintf(string_buf, "조회개체정보 없음");
-						break;
-					case 5:
-						sprintf(string_buf, "개체관리상품이 아님");
-						plu_table_search(status_scale.departmentid, status_scale.cur_pluid,&idx, 1);
-						TNT_DelTraceNoTable(0, 0, plu_table_addr[idx].addr);
-						sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
-						sale_display_update(UPDATE_TITLE);
-						break;
-					case 6:
-						sprintf(string_buf, "유통기한 오류");
-						break;
-					case 7:
-						sprintf(string_buf, "등급 오류");
-						break;
-					case 8:
-						sprintf(string_buf, "개체중량 오류");
-						break;
-					case 9:
-						sprintf(string_buf, "DB연결 오류");
-						break;
-					case 10:
-						sprintf(string_buf, "프로토콜 오류");
-						break;
-					default:
-						sprintf(string_buf, "통신 오류");
-						break;				
-				}
-				display_message_page_mid_delay((char *)string_buf, 20);
-				return;
-			}
-			else	//개체정보 정상으로 받은 경우 CurTrace에 저장.		
-			{
-				memcpy(&CurTraceStatus.indivStr, &indivInfo, sizeof(CurTraceStatus.indivStr));
+#else
+				memcpy(&CurTraceStatus.indivStr, &indivStr, strSize);
+				//#ifdef USE_KOR_TRACE_999
+				//	if (!CurTraceStatus.indivStr.lotFlag)
+				//	{
+				//		strcpy((char *)CurTraceStatus.curGradeText, (char *)CurTraceStatus.indivStr.grade);
+				//	}
+				//#else
 #ifdef USE_TRACE_MEATGRADE
 				if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때만 등급 호출 가능
 				{
@@ -3866,1205 +3701,56 @@ void start_external_print(INT16U count)
 #else
 				strcpy((char *)CurTraceStatus.curGradeText, (char *)CurTraceStatus.indivStr.grade);
 #endif
+				//#endif
+				CurTraceStatus.indivWeight = indivWeight;
+				
+				if (GlbOper.TraceabilityCallType == 0)
+				{
+					if (!old_index) old_index = indivStr.index; 
+					else
+					{
+						if (old_index != indivStr.index) 
+						{
+							old_index = indivStr.index;
+							CurTraceStatus.slPlace = 0;
+						}							 
+					}
+				}
 				sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
-				sale_display_update(UPDATE_TITLE);
-			}
-		}
-		else 
-		{
-			sprintf(string_buf, "오프라인 모드입니다");
-			display_message_page_mid_delay((char *)string_buf, 20);
-			BuzOn(2);
-		}
-	}
-	void keyapp_switch_offline(void)
-	{
-		INT8U string_buf[20];
-		INT8U temp;
-		BuzOn(1);
-		if(checkMtrace)	//key 를 누를 때 토글
-		{
-			checkMtrace = OFF;
-			sprintf((char *)string_buf, "오프라인 모드");
-		}
-		else
-		{
-			checkMtrace = ON;
-			sprintf((char *)string_buf, "온라인 모드");
-		}
-		display_message_page_mid_delay(string_buf, 20);
-		
-		set_bit_on_byte(&temp, checkMtrace, 7);
-		set_global_bparam(GLOBAL_PRINT_OPER_FLAG2, temp);
-		sale_display_update(UPDATE_MODE);
-	}
+				if (GlbOper.UseSendTraceInformation) trace_information_send(&(CommBufEthData[0]), NULL);
 #endif
-	
-	
-	void keyapp_direct_individual(INT16U skeyIndivID)
-	{
-		INT16U keyIndivID;
-		INT32U key_addr;
-		INT8U  individual_index;
-		INT8U  ret = 0;
-		//#ifdef USE_NHMART_SAFE_MEAT
-		//	if(checkMtrace)	{
-		//		BuzOn(2);		
-		//		return;	//온라인 모드시 사용 불가. 
-		//	}
-		//#endif
-		keyIndivID = skeyIndivID - KS_INDIVIDUAL_01;
-		
-		//sprintf(temp,"[keyIndivID=%d],[skeyIndivID=%d],[KS_INDIV=%d]\r\n",keyIndivID,skeyIndivID,KS_INDIVIDUAL_01);
-		//MsgOut((HUGEDATA char *)temp);
-		
-		//	if ((get_global_bparam(GLOBAL_SCANNER_FLAG1)&0x07) != 3)
-		//	{
-		if (keyIndivID > 16) {
-			BuzOn(2);		
-			return;
-		}
-		//	}
-		
-		key_addr  = FLASH_TRACE_STANDALONE_KEY_AREA + DFLASH_BASE;
-		key_addr += keyIndivID;
-		individual_index  = Flash_bread(key_addr);
-		BuzOn(1);
-		individual_call(individual_index);
-		/*
-		 if(status_scale.cur_pluid)
-		 {
-		 //		if( !checkGradeEquality( individual_index ) )
-		 //		{
-		 //			BuzOn(3);
-		 //			return;
-		 //		}
-		 }
-		 else
-		 {
-		 IndividualDisplayTime = SysTimer100ms;
-		 IndividualDisplayTimeFlag = ON;
-		 }
-		 
-		 BuzOn(1);
-		 
-		 
-		 //sprintf(temp,"[keyIndivID=%d],[keyIndex=%d],[indiv_index=%d]\r\n",keyIndivID,keyIndex,individual_index);
-		 //MsgOut((HUGEDATA char *)temp);
-		 
-		 //Clear Individual Display area
-		 sale_display_indivFlag_set(OFF);
-		 //sale_display_individual();
-		 sale_display_update(UPDATE_TITLE);	// CJK070705
-		 
-		 if (skeyIndivID == 99)	//Modified by JJANG 20081212 바코드로 개체번호 스캔할 때 무조건 99번으로 할당
-		 {
-		 keyapp_call_individual(skeyIndivID, ON);
-		 }
-		 else keyapp_call_individual(individual_index, ON);
-		 */
-		return;
-	}
-	/*
-	 void keyapp_direct_individual(INT16U skeyIndivID)
-	 {
-	 //	char temp[50];
-	 INT16U keyIndivID;
-	 INT32U key_addr;
-	 INT16U keyIndex;
-	 //CJK	INT16U deptNo;
-	 //CJK	INT32U pluNo;
-	 INT8U  individual_index;
-	 INT8U  ret = 0;
-	 
-	 // 개체키를 누르면, 
-	 // PLU 와 개체 인덱스와의 일대일 mapping
-	 
-	 keyIndivID = skeyIndivID - KS_INDIVIDUAL_01;
-	 if (keyIndivID > 16) {
-	 BuzOn(2);
-	 return;
-	 }
-	 BuzOn(1);
-	 
-	 if(!status_scale.cur_pluid){
-	 IndividualDisplayTime = SysTimer100ms;
-	 IndividualDisplayTimeFlag = ON;
-	 }
-	 
-	 //CJK	deptNo = status_scale.departmentid;
-	 //CJK	pluNo = status_scale.cur_pluid;
-	 
-	 key_addr  = FLASH_TRACE_STANDALONE_KEY_AREA + DFLASH_BASE;
-	 key_addr += keyIndivID;
-	 individual_index  = Flash_bread(key_addr);
-	 
-	 //CJK	ret = plu_table_search(deptNo,pluNo,&keyIndex,0);
-	 //CJK	if( ret )
-	 //CJK	{
-	 //CJK		//plu_table_individual[keyIndex] = individual_index;
-	 //CJK		SetIndividualTable(keyIndex-1, individual_index);
-	 //CJK	}
-	 
-	 //sprintf(temp,"[keyIndivID=%d],[keyIndex=%d],[indiv_index=%d]\r\n",keyIndivID,keyIndex,individual_index);
-	 //MsgOut((HUGEDATA char *)temp);
-	 
-	 //Clear Individual Display area
-	 sale_display_indivFlag_set(OFF);
-	 sale_display_individual();
-	 
-	 keyapp_call_individual(individual_index, ON);
-	 
-	 return;
-	 }
-	 */
-	
-	/*
-	 void keyapp_get_individual(void)
-	 {
-	 //INT16U keyIndivID;
-	 //INT32U key_addr;
-	 INT16U keyIndex;
-	 INT16U deptNo;
-	 INT32U pluNo;
-	 INT8U  individual_index;
-	 INT8U  ret = 0;
-	 
-	 deptNo = status_scale.departmentid;
-	 pluNo = status_scale.cur_pluid;
-	 ret = plu_table_search(deptNo,pluNo,&keyIndex,0);
-	 if( ret )
-	 {
-	 if( (keyIndex > 0) && (keyIndex < 10000)) //MAX_PLU_ADDRESS=10000
-	 {
-	 //individual_index = plu_table_individual[keyIndex];
-	 individual_index = GetIndividualTable(keyIndex-1);
-	 }
-	 }						  	
-	 
-	 keyapp_call_individual(individual_index, OFF);
-	 
-	 return;
-	 }
-	 */
-	
-	void keyapp_check_trace(void)
-	{
-		INT8U buf[10];
-		INT8U tempparam;
-		
-		if (GlbOper.TraceabilityCallType == 1)
-		{
-			BuzOn(1);
-			
-			//개체이력 저장기능
-			// 0 = 일반개체: 개체정보 저장하지 않음
-			// 1  = 상품개체: 상품별로 개체정보 저장
-			// 2 = 전체개체: 최종판매 개체정보 저장
-			SaveTraceabilityNo++;
-			SaveTraceabilityNo %= 3;	
-			
-			switch(SaveTraceabilityNo)
-			{
-				case 0: 
-					sprintf((char *)buf, "일반개체");
-					display_message_page_mid((char *)buf);
-					break;
-				case 1: 
-					sprintf((char *)buf, "상품개체"); 
-					display_message_page_mid((char *)buf);
-					break;
-				case 2:
-					sprintf((char *)buf, "전체개체"); 
-					display_message_page_mid((char *)buf);
-					break;
-				default : break;
-			}
-			tempparam = get_global_bparam(GLOBAL_SALE_SETUP_FLAG15);
-			tempparam = (tempparam | (SaveTraceabilityNo & 0x03));
-			set_global_bparam(GLOBAL_SALE_SETUP_FLAG15, tempparam);
-		}
-		else
-		{
-			BuzOn(2);
-		}
-	}
-	
-#endif
-	
-	
-	INT8U check_unitweightchange(INT16S uid) // Added by CJK 20060403
-	{
-		//INT32U ret;
-		INT32U NewUnitWeight;
-		INT32U tempUnitPrice;
-		
-		if(Operation.useMultipleUnits == 2) {	// 1회 conversion 가능
-			return OFF;
-		}
-		//ret=uid;
-		if (ADM_GetData.CurUnit == WEIGHT_UNIT_LB) {
-			if(!GlbOper.EnableMultiLbKey) return OFF;
-			if(uid > 3) return OFF;
-		} else {
-			if(!GlbOper.EnableMultiKgKey) return OFF;
-#ifdef USE_WEIGHT_UNIT_500G
-		if(uid > 3) return OFF; //500g 단가 추가
-#else
-		if(uid > 2) return OFF;
-#endif
-		}
-		NewUnitWeight = get_unitweight(uid, ADM_GetData.CurUnit);
-		
-		if(PluType() == 1)//by weight
-		{
-			if(status_scale.cur_weightunit == NewUnitWeight) return OFF;
-			if (ADM_GetData.CurUnit == WEIGHT_UNIT_LB)
-			{
-				tempUnitPrice = (status_scale.cur_unitprice * status_scale.cur_weightunit)/NewUnitWeight;
-				
-				if(tempUnitPrice >= Operation.MaxUnitPrice) return OFF;
-				status_scale.cur_unitprice = tempUnitPrice;
-				Operation.useMultipleUnits = 2;	// 1회 Conversion 가능
-				status_scale.cur_weightunit = NewUnitWeight;
-				return ON;
-			}
-			else	// CJK080214
-			{
-				//tempUnitPrice = (status_scale.cur_unitprice * status_scale.cur_weightunit)/NewUnitWeight;
-				
-				//if(tempUnitPrice >= Operation.MaxUnitPrice) return OFF;
-				//status_scale.cur_unitprice = tempUnitPrice;
-				Operation.useMultipleUnits = 0;	// 계속 Conversion 가능
-				status_scale.cur_weightunit = NewUnitWeight;
-				return ON;
-			}
-		}
-		return OFF;
-		/*
-		 if(PluType() == 1)//by weight
-		 {
-		 if(status_scale.cur_weightunit == NewUnitWeight) return OFF;
-		 tempUnitPrice = (status_scale.cur_unitprice * status_scale.cur_weightunit)/NewUnitWeight;
-		 if(tempUnitPrice >= Operation.MaxUnitPrice) {
-		 return OFF;
-		 }
-		 Operation.useMultipleUnits = 2;	// 1회 Conversion
-		 status_scale.cur_unitprice = tempUnitPrice;
-		 status_scale.cur_weightunit = NewUnitWeight;
-		 return ON;
-		 }
-		 */
-	}
-	
-#ifdef USE_CANADA_100GToggle		
-	INT16S keyapp_toggle_checkunit(INT16S uid) // for 100g/kg toggle
-	{
-		if (ADM_GetData.CurUnit != WEIGHT_UNIT_LB)
-		{
-			if(status_scale.cur_weightunit == 1000) return 2;
-			if(status_scale.cur_weightunit == 100) return 1;		
-		}
-		return uid;
-	}
-#endif
-	void keyapp_unitchange(INT16S uid) // Modified by CJK 20060403
-	{
-		CAPTION_STRUCT cap;
-		char str[40];
-		INT8U ret;
-		INT16U capcode;
-		
-		if(status_scale.cur_pluid) {
-#ifdef USE_CANADA_100GToggle		
-			uid = keyapp_toggle_checkunit(uid);
-#endif
-			ret = check_unitweightchange(uid);
-		} else {
-			ret = OFF;
-		}
-		if(!ret) {
-			BuzOn(2);
-			caption_split_by_code(0xc814,&cap,0);//"Check UnitWeight"
-			strcpy(str, cap.form);
-		} else {
-			caption_split_by_code(0xc815,&cap,0);//"CNV"
-			sprintf(str, "%s", cap.form);
-			capcode = 0xc731;
-			capcode += (uid-1);
-			if(ADM_GetData.CurUnit == WEIGHT_UNIT_LB) capcode += 2;	// lb
-			caption_split_by_code(capcode, &cap,0);
-			strcat(str, cap.form);
-		}
-		DisplayMsg(str);
-		sale_display_update(UPDATE_STATUS|UPDATE_MODE);
-	}
-	
-	void keyapp_toggle_weightunit(void)
-	{
-		INT8U unit;
-		
-		if(!GlbOper.EnableKgLb || status_scale.cur_pluid || status_scale.Tare ) {
-			BuzOn(2);
-			DisplayMsg(global_message[MSG_NOT_ALLOW_KGLB]);//"kg<->lb Not Allowed"
-			return;
-		}
-		
-		unit = ad_get_kglb();
-		if(unit == WEIGHT_UNIT_LB) {
-			unit = WEIGHT_UNIT_KG;
-			if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G) unit = WEIGHT_UNIT_G;
-		} else {
-			unit = WEIGHT_UNIT_LB;
-		}
-		adm_set_unit_cur(unit);
-		LoadWeighingInfo();
-		sale_display_update(UPDATE_STATUS|UPDATE_MODE);
-	}
-	
-	void keyapp_datetime(void)
-	{
-		//BuzOn(1);
-		display_date_change(OFF,OFF);
-	}
-	
-	void	LoadWeighingInfo(void)
-	{
-		CAPTION_STRUCT cap;
-		long interval;
-		interval = (long)ad_get_interval(0);
-		interval = ad_cnv_adm2main(interval);
-		
-		//status_scale.auto_maxcount  = get_global_bparam(GLOBAL_SALE_AUTO_COUNT);
-		status_scale.weight_min     = get_global_lparam(GLOBAL_SALE_MINIMUMWEIGHT);
-		status_scale.weight_delta   = get_global_lparam(GLOBAL_SALE_AUTO_DELTAWEIGHT);
-		status_scale.display_dummydigit  = OnOff(get_global_bparam(GLOBAL_SALE_SETUP_FLAG5)&0x40);
-		
-		caption_split_by_code(0x4861,&cap,0); 
-		if (status_scale.weight_delta<cap.input_min ) status_scale.weight_delta=cap.input_min;
-		if (status_scale.weight_delta>cap.input_max ) status_scale.weight_delta=cap.input_min;
-		if (GlbOper.PrintUnderMinWeightOnPrepack || GlbOper.PrintUnderMinWeightOnAUTO)	status_scale.weight_delta=10;
-		// Parameter 690 or 783 [Y]일 때 최소무게 10d로 사용
-
-		caption_split_by_code(0x4862,&cap,0);
-		if (status_scale.weight_min  <cap.input_min ) status_scale.weight_min  =cap.input_min;
-		if (status_scale.weight_min  >cap.input_max ) status_scale.weight_min  =cap.input_min;
-		
-		status_scale.weight_min     *= interval;
-		status_scale.weight_delta   *= interval;
-		
-		status_scale.auto_count     = 0;
-		status_scale.weight_stable  = 0;
-	}
-	
-	INT16S	CheckCanadianTareAction(void)
-	{
-		if(TareOper.canadianTare && status_scale.Tare && status_scale.cur_pluid && PluType()==PLU_BY_WEIGHT)
-			return ON;
-		
-		return OFF;
-	}
-	
-	INT16S CheckPrepackAutoLogin(void)
-	{
-		//new
-		if(Operation.operationMode == MODE_SELF)	return ON;
-		//	if(Operation.operationClerk != OPER_NORMAL && !status_scale.clerkid)
-		if(PrtStruct.Mode == RECEIPT)//new
-		{
-			caption_split_by_code(0xC80C,&cap,0);//"Select label mode"
-			DisplayMsg(cap.form);
-			return OFF;
-		}
-		if(Operation.operationClerk != OPER_NORMAL && !status_scale.clerkid)
-		{
-			//		if(PrtStruct.Mode == RECEIPT)//new
-			//		{
-			//			caption_split_by_code(0xC80C,&cap,0);//"Select label mode"
-			//			DisplayMsg(cap.form);
-			//			return OFF;
-			//		}
-			caption_split_by_code(0xC80D,&cap,0);
-			DisplayMsg(cap.form);//"Log in clerk"
-			Key_DelaySec(5,0);
-			sale_pluclear(OFF);
-			sale_display_update(0x0fff);//061128
-			return OFF;
-		}
-		return ON;
-	}
-	
-	void keyapp_auto(void)
-	{
-		if (Operation.wAuto && CheckCanadianTareAction()) {
-			MsgCanadianTare();
-			return;
-		}
-		if(!CheckPrepackAutoLogin())	return;
-		Operation.wPrepack = 0;//OFF;
-		if(!Operation.wAuto)
-		{
-			Operation.wAuto = ON;
-			LoadWeighingInfo();
-		}
-		else
-		{
-			Operation.wAuto = OFF;
-			if(!Operation.wSave && status_scale.cur_pluid)
-				Operation.salePluClearWait = ON;
-			
-		}
-		sale_display_update(UPDATE_STATUS|UPDATE_MODE);
-	}
-	
-	extern ROMDATA INT16U normal_self_key_numeric_code_set_un[];
-	extern ROMDATA INT16U normal_self_key_code_set_un[];
-	void keyapp_self(INT16S Flag)	//Made by JJANG 20070801(Use Numeric key)
-	{
-		INT16S i;
-		INT16U normal_key_code_set[128];
-		INT16U normal_key_code_set_shifted[128];
-		
-		if(Flag == ON)
-		{
-			for (i = 0; i < KEY_MAX_TABLE_SIZE / 2; i++) 
-			{
-				normal_key_code_set[i] = normal_self_key_numeric_code_set_un[i];
-				normal_key_code_set_shifted[i] = normal_self_key_numeric_code_set_un[i];
-			}
-		}
-		else 
-		{
-			for (i = 0; i < KEY_MAX_TABLE_SIZE / 2; i++) 
-			{
-				normal_key_code_set[i] = normal_self_key_code_set_un[i];
-				normal_key_code_set_shifted[i] = normal_self_key_code_set_un[i];
-			}
-			
-		}
-		Flash_swrite(DFLASH_BASE+FLASH_KEY_AREA           , (HUGEDATA INT8U *)normal_key_code_set        , KEY_MAX_TABLE_SIZE);
-		Flash_swrite(DFLASH_BASE+FLASH_KEY_SHIFT_AREA     , (HUGEDATA INT8U *)normal_key_code_set_shifted, KEY_MAX_TABLE_SIZE);
-		
-		//sale_display_update(UPDATE_STATUS|UPDATE_MODE);
-	}
-	
-	void keyapp_save(void)
-	{
-		//BuzOn(1);
-		
-		if(Operation.wSave && CheckCanadianTareAction())
-		{
-			MsgCanadianTare();
-			return;
-		}
-		
-		Operation.wPrepack = OFF;
-		if(!Operation.wSave)
-		{
-			Operation.wSave=ON;
-		}
-		else
-		{
-			Operation.wSave=OFF;
-			if(status_scale.cur_pluid)
-				Operation.salePluClearWait = ON;
-		}
-		//	Operation.woldMode = Operation.wSave;
-#ifdef USE_CL5200_DISPLAY_DEFAULT
-		sale_display_update(UPDATE_STATUS|UPDATE_TARE|UPDATE_MODE);
-#else
-		sale_display_update(UPDATE_STATUS|UPDATE_MODE);
-#endif
-	}
-	
-	void prepack_onoff(INT8U mode)	// mode=0:Toggle, mode=1:ON, mode=2:Off
-	{
-		if (mode) goto PP_START;
-		if(Operation.wPrepack && CheckCanadianTareAction())
-		{
-			MsgCanadianTare();
-			return;
-		}
-		PP_START:
-					Operation.wAuto = OFF;
-		if (mode==2) goto PP_OFF;
-		if (mode==1) goto PP_ON;
-		if(!Operation.wPrepack)
-		{
-			PP_ON:		if(!CheckPrepackAutoLogin())	return;
-			Operation.wPrepack=ON;
-			//Operation.wSave = ON;
-			LoadWeighingInfo();
-		}
-		else
-		{
-			PP_OFF:		Operation.wPrepack=OFF;
-			//		if(status_scale.cur_pluid)  //SG061129
-			//			Operation.salePluClearWait = ON;
-			//		if (Operation.woldMode==ON) {
-			//			keyapp_save();
-			//		}
-			if(Operation.operationClerk!=OPER_STD_CLERK && Operation.addStandatdClerk)	// add 를 동작하지 않고 total sum에 대한 계산 flag를 설정한다
-			{
-				Operation.addStandatdClerk = OFF;
-				//if(Operation.addStandatdClerk) {
-				//	caption_split_by_code(0xc040,&cap,0);
-				//} else {
-				caption_split_by_code(0xc041,&cap,0);
-				//}
-				DisplayMsg(cap.form);
-				return;
-			}
-		}
-	}
-	
-	void keyapp_prepack(void)
-	{
-		//	INT32U pnt;
-		//	INT16U err;
-		
-		//BuzOn(1);
-		prepack_onoff(0);
-		//sale_prepack_check();
-		sale_display_update(UPDATE_STATUS|UPDATE_MODE);
-	}
-	
-	void keyapp_shift(void)
-	{
-		//BuzOn(1);
-		KEY_Set_Shift(3);// 3 = auto change
-	}
-	
-	extern DISC_SALE_TYPE		DiscSale;
-	void ClearPluAux(void)
-	{
-		status_scale.Plu.dc_id = 0;
-		status_scale.Plu.fixed_weight = 0;
-#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
-		status_scale.Plu.refer_dept = 0;
-		status_scale.Plu.refer_plu = 0;
-		status_scale.linked_count = 0;
-		status_scale.linked_plu[0] = 0;
-		status_scale.linked_plu[1] = 0;
-#endif
-		status_scale.Plu.special_price = 0;
-		status_scale.Plu.member_price = 0;
-		status_scale.Plu.packing_price = 0;
-		status_scale.Plu.tax_id = 0;
-		DiscSale.saleIndexOk = 0;
-		DiscSale.saleDiscountType = DISCOUNT_NO;
-		DiscSale.saleDiscFSP = 0;
-		status_scale.Plu.tare_limit = 0;
-		status_scale.Plu.tare_percent = 0;
-		Operation.fixedPrice = 0;
-		Operation.fixedAction=0;
-	}
-	
-	void keyapp_for(void)
-	{
-		INT32U  keyBackup;
-		
-		InputQuickPluState = OFF;	// Count PLU일 때, [PLU_NUM] + [FOR] + Qty 허용
-		status_scale.cur_quickplu = 0;
-		
-		// qty, pcs, unitprice 편집시 blink. FOR 키를 누를 때 마다 값이 표시되도록 함
-		Set7BlinkPrevTime = SysTimer100ms;
-		Seg7BlinkOn = 0;
-		
-		if(Startup.country == COUNTRY_US)	//JJANG 20090316 임시수정, 미국일 때 For key로 타입변경 가능 By Weight --> By Count
-		{
-			if (PluType() == PLU_BY_WEIGHT)
-			{
-				ChangePluType(PLU_BY_PCS);
-				keyapp_override();
-				status_scale.cur_ride = 0;
-			}
-		}
-		
-		if (GlbPrint.directNonfood && !status_scale.cur_pluid && 0 < status_scale.cur_keyvalue )
-		{
-			keyBackup = status_scale.cur_keyvalue;
-			keyapp_misc_bycount();
-			status_scale.cur_ride = 1;
-			status_scale.cur_qty = 1;
-			status_scale.cur_unitprice = keyBackup;     
-			return;
-		}
-		if (!status_scale.ride_max) {BuzOn(2); return;}	// Weight PLU & Not Override
-		if (!Operation.override) {BuzOn(2); return;}
-		status_scale.cur_ride++;
-		if (status_scale.ride_max > 3) status_scale.ride_max = 1;
-		status_scale.cur_ride %= (status_scale.ride_max+1);
-		if (!status_scale.cur_ride) status_scale.cur_ride = 1;
-		sale_display_update(UPDATE_TITLE|UPDATE_RIDE);
-	}
-	
-	void keyapp_non_function(void)
-	{
-		BuzOn(2);
-		sale_display_update_error(0xE00A,0,0);
-	}
-	
-#ifdef USE_TAX_RATE
-	extern INT16S GetTaxData(PRICE_TYPE *pPrice,INT8U taxNumber,INT8U misc_flag);
-#endif
-	void keyapp_misc_byweight(INT16S beep)
-	{
-		if(beep)
-		{
-			BuzOn(1);
-		}
-		
-		Operation.transactionOK=OFF;
-		sale_pluclear(ON);
-		sale_display_update(0x0fff);//061128
-		status_scale.cur_pluid=MISC_PLU_WEIGHT;
-		status_scale.flag_input&=0xf1;
-		status_scale.flag_input|=0x02;
-		status_scale.ride_max     = 1;
-		status_scale.cur_ride = 1;
-		InputQuickPluState = OFF;
-		
-#ifdef USE_TAX_RATE    
-		GetTaxData(&Price,0,1);		//Added by JJANG 20070614 MISC tax 사용
-#endif
-		
-		ClearPluAux();
-		Operation.override = ON;
-		display_tare(1);
-		sale_display_update(UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_RIDE);
-	}
-	
-	void keyapp_misc_bycount(void)
-	{
-		INT16S	n;
-		INT32U	maxQty,cur_keyvalue;
-		
-		n=(INT16S)get_global_bparam(GLOBAL_INPUT_BN_QTYLENGTH);
-		maxQty=power10(n);
-		
-		//BuzOn(1);
-		Operation.transactionOK=OFF;
-		cur_keyvalue = status_scale.cur_keyvalue;
-		sale_pluclear(ON);
-		sale_display_update(0x0fff);//061128
-		status_scale.cur_pluid=MISC_PLU_COUNT;
-		status_scale.flag_input  &= 0xf1;
-		status_scale.flag_input  |= 0x04;
-		status_scale.ride_max     = 2;
-		status_scale.cur_ride = 1;
-		status_scale.cur_qty = 1;
-		if(cur_keyvalue && cur_keyvalue < maxQty)
-		{
-			status_scale.cur_ride =2;
-			status_scale.cur_qty = cur_keyvalue;
-		}
-		{
-			INT8U	byte;
-			byte=get_global_bparam(GLOBAL_SALE_SETUP_FLAG3);// override location
-			if(OnOff(byte&0x02))
-			{
-				status_scale.cur_ride =2;
-			}
-		}
-		
-		status_scale.cur_pcs = 1;
-		InputQuickPluState = OFF;
-		
-#ifdef USE_TAX_RATE
-		GetTaxData(&Price,0,1);		//Added by JJANG 20070614 MISC tax 사용
-#endif
-		ClearPluAux();
-		
-		Operation.override = ON;
-		sale_display_update(UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_RIDE);
-		sale_display_tare_eu();
-	}
-	
-	void keyapp_misc_bypcs(INT16S beep)
-	{
-		INT16S	n;
-		//	INT32U	maxPcs,maxQty,cur_keyvalue;
-		INT32U	maxQty,cur_keyvalue;    
-		
-		n=(INT16S)get_global_bparam(GLOBAL_INPUT_BC_QTYLENGTH);
-		maxQty=power10(n);
-		n=(INT16S)get_global_bparam(GLOBAL_INPUT_BC_PCSLENGTH);
-		//	maxPcs=power10(n);
-		
-		cur_keyvalue = status_scale.cur_keyvalue;
-		if(beep)
-		{
-			BuzOn(1);
-		}
-		Operation.transactionOK=OFF;
-		sale_pluclear(ON);
-		sale_display_update(0x0fff);//061128
-		status_scale.cur_pluid=MISC_PLU_PCS;
-		status_scale.flag_input  &= 0xf1;
-		status_scale.flag_input  |= 0x06;  // 0000 0110
-		status_scale.ride_max     = 3;
-		status_scale.cur_ride = 1;
-		status_scale.cur_qty = 1;
-		status_scale.cur_pcs = 1;
-		InputQuickPluState = OFF;
-		if(cur_keyvalue && cur_keyvalue < maxQty)
-		{
-			//		status_scale.cur_ride =3;
-			//		status_scale.cur_pcs = cur_keyvalue % maxPcs;
-			//		if(!status_scale.cur_pcs || (maxQty-1)< status_scale.cur_pcs)	status_scale.cur_pcs =1;
-			//		cur_keyvalue /= maxPcs;
-			//		status_scale.cur_qty = cur_keyvalue % maxQty;
-			status_scale.cur_ride =3;
-			if(cur_keyvalue < maxQty)
-				status_scale.cur_qty = cur_keyvalue;
-		}
-		{
-			INT8U	byte;
-			byte=get_global_bparam(GLOBAL_SALE_SETUP_FLAG3);// override location
-			if(OnOff(byte&0x02))
-			{
-				status_scale.cur_ride =3;
-			}
-		}
-		//	if(status_scale.cur_keyvalue && status_scale.cur_keyvalue <100)
-		//		status_scale.cur_pcs = status_scale.cur_keyvalue;
-#ifdef USE_TAX_RATE
-		GetTaxData(&Price,0,1);		//Added by JJANG 20070614 MISC tax 사용
-#endif	
-		ClearPluAux();
-		Operation.override = ON;
-		sale_display_update(UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_RIDE);
-		sale_display_tare_eu();
-	}
-	
-	extern INT8U FlagTransactionWithoutPrint;
-	void keyapp_menu(void)
-	{
-		//BuzOn(1);
-		INT16U keyv;
-		INT8U allowCalEnter;
-		
-		allowCalEnter = ON;
-		if(Startup.country == COUNTRY_KR) allowCalEnter = OFF;	// 내수 버전만 강제로 Cal 진입 막
-#ifndef USE_ALLOW_CAL_MODE
-		allowCalEnter = OFF;
-#endif 
-		
-		if(TareOper.canadianTare && !Operation.transactionOK && status_scale.Tare)
-		{
-			MsgCanadianTare();
-			return;
-		}
-		keyv=hex2bcd_word((INT16U)status_scale.cur_keyvalue);
-#ifdef USE_DBG_EMART_NETWORK
-		if (keyv==0x9999)
-		{
-			FlagTransactionWithoutPrint ^= 1;
-			if(FlagTransactionWithoutPrint){
-				DisplayMsg("PRINT LABEL OFF");
-			} else {
-				DisplayMsg("PRINT LABEL ON");
-			}
-			return;
-		}
-#endif
-		if (allowCalEnter && (keyv==0x8000 || (KeyDrv.PressedModeKey && KeyDrv.RawCode==0x7B && Operation.operationMode==MODE_SELF))) {
-			char old_font;
-			CAPTION_STRUCT cap;
-			POINT 	disp_p;
-			INT8U   old_key;
-			INT8U	ret_string[20];
-			
-			old_font=DspStruct.Id1;
-			DspLoadFont1(DSP_MENU_FONT_ID);
-			Dsp_Fill_Buffer(0);
-			VFD7_Fill_Buffer(0);
-			caption_split_by_code(0x1f00,&cap,0);
-			caption_adjust(&cap,NULL);
-			//		disp_p = point( Startup.menu_type*Startup.menu_ygap, 0);
-			//		Dsp_Write_String(disp_p,(HUGEDATA char *)cap.form);
-			display_clear(DISPLAY_UNITPRICE);
-			display_string(DISPLAY_UNITPRICE, (INT8U *)cap.form);
-			Dsp_Diffuse();
-			old_key=KEY_GetMode();
-			KEY_SetMode(1);
-			memset((INT8U*)ret_string, 0x00, 15);
-			keyin_string(KI_FREE_MODE, KI_DEFAULT,0, (HUGEDATA INT8U*)ret_string, cap.input_length, 
-      				cap.input_dlength, Startup.menu_type*Startup.menu_ygap, cap.input_x*Startup.menu_xgap, 1, 1, KI_NOPASS);
-			ret_string[8]=0;
-			str_trimleft((char *)ret_string);
-			KEY_SetMode(old_key);
-			DspLoadFont1(old_font);
-			if (strcmp((char*)ret_string,"83419")==0) {
-				if(permission_check(PMS_DEALER,0)) {
-#ifdef USE_CTS_FUNCTION
-					if (CtsStruct.CtsEnable)
-					{
-						status_run.run_mode = RUN_WAITING_CAL;
-					}
-					else
-					{
-						status_run.run_mode = RUN_CALIBRATION;
-					}
-#else
-					status_run.run_mode = RUN_CALIBRATION;
-#endif
-				} else {
-					//goto PGM;
-					display_lcd_clear();
-					return;
-				}
-			} else {
-				//goto PGM;
-				display_lcd_clear();
-				return;
-			}
-		} else {
-			if(!permission_check(PMS_MENU,0)){
-#ifdef USE_CL5200_DISPLAY_DEFAULT
-				sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-#endif
-				//display_lcd_clear();	
-				return;
-			}
-			if (Operation.operationMode == MODE_SELF)
-			{
-				if (keyv == 0x88)
-				{
-					if(get_nvram_bparam(NVRAM_SELF_KEY_BLOCK_ON))
-					{
-						set_nvram_bparam(NVRAM_SELF_KEY_BLOCK_ON, 0);
-						//					DisplayMsg("Key-Block OFF");
-						DisplayMsg("Key-BLK OFF"); //change to ERROR msg
-					}
-					else
-					{
-						set_nvram_bparam(NVRAM_SELF_KEY_BLOCK_ON, 1);
-						DisplayMsg("Key-BLK ON"); //change to ERROR msg
-					}
-					status_scale.cur_keyvalue = 0;
-				}
-				else
-				{
-					status_run.run_mode = RUN_PROGRAM;
-				}
 			}
 			else
 			{
-				/*PGM:*/		status_run.run_mode = RUN_PROGRAM;
-			}
-		}
-	}
-	
-	extern void print_rewind(void);
-	extern INT16U	KeyWait(INT16U key1,INT16U key2,INT16U key3,INT16U key4,INT16U key5);
-	
-	void keyapp_feed(INT16S beepFlag)
-	{
-		if(beepFlag) BuzOn(1);
-		if(PrtFlashStruct.RewindEnable && Operation.rewindReady)
-		{
-			char	string_buf[20];
-			
-			Operation.rewindReady = OFF;
-			sprintf(string_buf, "%cM", GS);
-			//DisplayMsg(string_buf);
-			PutDataRxBuf(&CommBufPrt,string_buf,2);
-			string_buf[0] = ON;
-			PutDataRxBuf(&CommBufPrt,string_buf,1);
-			while(1)
-			{
-				if (KEY_Read())
-				{
-					BuzOn(1);
-					//if(KeyDrv.Type==KEY_TYPE_FUNCTION && KeyDrv.CnvCode==KS_CLEAR)
-					if(KeyDrv.CnvCode == KS_CLEAR)	// KS_CLEAR = KP_CLEAR = 0x0b
-						break;
-				}
-				
-				// 명령
-				print_rewind();
-				// motor가 동작일때 까지 기다림
-				//			while(CheckRxBuf(&CommBufPrt)) {
-				//				CASInterpreter(&CommBufPrt);
-				//			}
-				//			while(PrtDrvStruct.PrtState != PRT_STATE0I);
-				PrintListWaitEndWithoutComm();
-				// 용지 체크
-				if(CheckPeelHead(ON, OFF))	
-				{
-					print_rewind();
-					//				while(CheckRxBuf(&CommBufPrt)) {
-					//					CASInterpreter(&CommBufPrt);
-					//				}
-					//				while(PrtDrvStruct.PrtState != PRT_STATE0I);
-					PrintListWaitEndWithoutComm();
-					break;	// 없으면
-				}
-			}
-		}
-		else
-		{
-			if (!CheckPeelHead(OFF, OFF))
-			{
-				return;
-			}
-			PutCharRxBuf(&CommBufPrt, 0x0c);
-			//		while (CheckRxBuf(&CommBufPrt)) {
-			//			CASInterpreter(&CommBufPrt);
-			//		}
-			//		while(PrtDrvStruct.PrtState != PRT_STATE0I);
-			PrintListWaitEndWithoutComm();
-		}
-		set_nvram_bparam(NVRAM_PRT_OUTOFPAPER, PrtDrvStruct.OutOfPaperFlag);
-#ifdef	USE_CHECK_OUTOFPAPER_ON_LABEL
-		Prt_CheckOutOfPaper();
-#endif
-	}
-	
-	long	PrevPrintOriginPrice=0;
-	
-	void CheckZeroTotalPrice(void)
-	{
-		if(status_scale.Weight <= 0) {
-			if (get_global_bparam(GLOBAL_SALE_SETUP_FLAG2)&0x20) {	// parameter 574
-#ifdef USE_EMART_NETWORK
-				if (status_scale.cur_unitprice && PluType() == PLU_BY_WEIGHT)	// 변경불가 플래그가 있으면
-				{
-					keyapp_type(ON);	// 무게상품이고, 무게가 없을 때, 자동으로 개수로 변환
-				}
-#else
-				if(status_scale.cur_unitprice && !Operation.fixedPrice && !status_scale.Plu.fixed_weight) {
-					keyapp_fixed_price(OFF,2);
-				}
-#endif
-			}
-		}
-	}
-#ifdef USE_CHECK_INDIV_INFO
-	extern INT8U command_check_indiv_info(HUGEDATA COMM_BUF *CBuf);
-	extern PLU_ADDR plu_table_addr[];
-	INT8U CheckIndivInfo(void)
-	{
-		HUGEDATA COMM_BUF *CBufIndiv;
-		INT8U checkedIndiv = 0xff;
-		char string_buf[20];
-		INT8U ret = ON;
-		INT16U idx;
-		CBufIndiv = &CommBufEthData[0];
-#ifdef USE_NHSAFE_PIG_TRACE 
-		INT8U tempcheckMtrace;
-		tempcheckMtrace = checkMtrace;
-		if((CurTraceStatus.indivStr.individualNO[0] == '1') || ((CurTraceStatus.indivStr.individualNO[0] == 'L') && (CurTraceStatus.indivStr.individualNO[1] == '1')))
-		{
-			checkMtrace = 0; //20150421
-		}
-#endif
-		
-#ifdef USE_NHMART_SAFE_MEAT
-		if(checkMtrace)
-		{
-			Operation.OfflineMode = OFF;
-		}
-		else
-		{
-			Operation.OfflineMode = ON;
-		}
-		if(checkMtrace)
-		{
-			checkedIndiv = command_check_indiv_info(CBufIndiv);
-			if(checkedIndiv != 0)	//0이면 개체정보 정상.
-			{
-				BuzOn(3);
-				switch(checkedIndiv)
-				{
-					case 1:
-						sprintf(string_buf, "POS동작 오류");
-						break;
-					case 2:
-						sprintf(string_buf, "이력번호 오류");
-						break;
-					case 3:
-						sprintf(string_buf, "상품번호 오류");
-						break;
-					case 4:
-						sprintf(string_buf, "조회개체정보 없음");
-						break;
-					case 5:
-						sprintf(string_buf, "개체관리상품이 아님");
-						plu_table_search(status_scale.departmentid, status_scale.cur_pluid,&idx, 1);
-						TNT_DelTraceNoTable(0, 0, plu_table_addr[idx].addr);
-						sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
-						sale_display_update(UPDATE_TITLE);
-						break;
-					case 6:
-						sprintf(string_buf, "유통기한 오류");
-						break;
-					case 7:
-						sprintf(string_buf, "등급 오류");
-						break;
-					case 8:
-						sprintf(string_buf, "개체중량 오류");
-						break;
-					case 9:
-						sprintf(string_buf, "DB연결 오류");
-						break;
-					case 10:
-						sprintf(string_buf, "프로토콜 오류");
-						break;
-					default:
-						sprintf(string_buf, "통신 오류");
-						break;
-				}
-				display_message_page_mid_delay(string_buf, 30);
-				ret = OFF;
-			}
-			else
-			{
-				ret = ON;
-			}
-		}
-#ifdef USE_NHSAFE_PIG_TRACE 
-		if((CurTraceStatus.indivStr.individualNO[0] == '1') || ((CurTraceStatus.indivStr.individualNO[0] == 'L') && (CurTraceStatus.indivStr.individualNO[1] == '1')))
-		{
-			checkMtrace = tempcheckMtrace; //20150421
-		}
-#endif
-#else
-		if(checkMtrace && FlagDisplayIndividual && ((CurTraceStatus.indivStr.individualNO[0] == '0') ||(CurTraceStatus.indivStr.individualNO[0] == '1') || (CurTraceStatus.indivStr.individualNO[0] == 'L')))	//한우(0) 돼지(1) 묶음번호(L)만 유효성 확인. 
-		{
-			checkedIndiv = command_check_indiv_info(CBufIndiv);
-			if(checkedIndiv != 0)	//0이면 개체정보 정상.
-			{
-				BuzOn(3);
-				if(checkedIndiv > (INVALID_INDIV_NO | INVALID_SLAUGHTERHOUSE | INVALID_GRADE))
-				{
-					sprintf(string_buf, "통신오류");
-					display_message_page_mid_delay(string_buf, 30);
-					ret = ON;
-				}
-				else
-				{
-					string_buf[0] = 0;
-					if(checkedIndiv & INVALID_INDIV_NO)
-					{
-						strcat(string_buf, "이력번호");
-					}
-					if(checkedIndiv & INVALID_SLAUGHTERHOUSE)
-					{
-						strcat(string_buf, " 도축장");
-					}
-					if(checkedIndiv & INVALID_GRADE)
-					{
-						strcat(string_buf, " 등급");
-					}
-					strcat(string_buf, " 이상");
-					display_message_page_mid_delay(string_buf, 30);
-					sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-					ret = OFF;
-				}
-			}
-			else
-			{
-				ret = ON;
-			}
-		}
-#endif	//#ifdef USE_NHMART_SAFE_MEAT
-		return ret;
-	}
-#endif	//#ifdef USE_CHECK_INDIV_INFO
-	extern INT8U check_changed_price_range(INT8U divisor, long* upper, long* lower);
-	extern INT8U SaleWeightChk;
-	INT16S CheckPluPrint(INT8U check)
-	// Modified by CJK 20050429
-	// Modified by LBM 20060307
-	{
-		//	INT8U flag_tmp;
-		INT16S status;
-		INT8U date_flag, send_date;
-		INT8U b_date,b_month,b_year;
-		INT8U ret_value = 0;
-		char S_msg1[32];
-		char S_msg2[32];
-#ifdef USE_CONTROL_CHANGING_PRICE
-		long upperPrice = 0;
-		long lowerPrice = 0;
-		INT8U checkedFlag = 0;
-#endif
-		//#ifdef USE_INDIA_FUNCTION
-		INT8U string_buf[50];
-		//#endif
-#ifdef USE_TRACE_STANDALONE
-		long indiv_weight;
-#endif
-		date_flag = get_nvram_bparam(NVRAM_BUSINESS_DATE_FLAG);
-		send_date = get_global_bparam(GLOBAL_AREA_MULTIUNITFLAG);
-		send_date=(send_date>>7)&0x01;
-		
-		if(!status_scale.cur_pluid)	return OFF; //plu 가 없으면 no
-		if(Operation.OverTotalPrice || Operation.OverUnitPrice)	return OFF;
-		if(Operation.wAuto || Operation.wPrepack)
-		{
-			if(!CheckPrepackAutoLogin())	return OFF;
-		}
-		//Added by JJANG 20080617 동일 무게 판매 재판매 못하게 수정,  Parameter 554 
-		if (get_global_bparam(GLOBAL_PRINT_OPER_FLAG2)&0x08)
-		{
-			if (!SaleWeightChk && PluType() == PLU_BY_WEIGHT)	//무게 상품일 때만 동작
-			{
-				DisplayMsg(global_message[MSG_27_C80F]);//"Already printed"
-				return OFF;	
-			}
-		}
-#ifdef USE_CONTROL_CHANGING_PRICE
-		checkedFlag = check_changed_price_range(status_scale.divisor, &upperPrice, &lowerPrice);
-		if(checkedFlag)
-		{
-			//매가변경 통제
-			BuzOn(2);
-			sprintf((char*)string_buf, "가격변경 제한 범위 초과");
-			display_message_page_mid_delay((char*)string_buf, 20);
-			sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-			return OFF;
-		}
-#endif
-		if (send_date)	//parameter 716, Send Sale Date Type 
-		{
-			if(date_flag && !network_status.connection)
-			{
-				b_year = get_nvram_bparam(NVRAM_BUSINESS_DATE+2);
-				b_month =get_nvram_bparam(NVRAM_BUSINESS_DATE+1);
-				b_date = get_nvram_bparam(NVRAM_BUSINESS_DATE);
-				
-				if ((b_year != RTCStruct.year) || (b_month != RTCStruct.month) || (b_date != RTCStruct.date))
-				{
-					strcpy(S_msg1,"시스템 날짜를");
-					strcpy(S_msg2,"사용하시겠습니까? (Y/N)");
-					ret_value = display_message_check_page(S_msg1,S_msg2,2);
-					if (ret_value)
-					{
-						set_nvram_lparam(NVRAM_BUSINESS_DATE_FLAG,0);
-					}	
-				} 
-			}
-		}	
-		
-#ifdef USE_TRACE_STANDALONE
-		if (!plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))	// 개체 체크기능
-		{
-			if (status_scale.Plu.trace_flag && !FlagDisplayIndividual) 
-			{
-				//DisplayMsg("Check Trace No");
-				BuzOn(3);
-				sprintf((char*)string_buf, "이력번호 미선택");
-				display_message_page_mid((char*)string_buf);
+				sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
+				if(beep) BuzOn(2);
+				sale_display_update(UPDATE_TITLE);	// CJK070705
 				return OFF;
 			}
+		}		
+	}
+	else
+	{ 
+		sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
+	}
+	sale_display_update(UPDATE_TITLE);	// CJK070705
+	return ON;
+}
+
+extern char IndivMsg_NonTrace[];
+extern char IndivMsg_SameTraceNo[];
+INT8U individual_call(INT16U indiv_id)
+{
+	INT8U string_buf[25];
+	INT8U ret;
+	if (!plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
+	{
+		if (status_scale.cur_pluid)
+		{
 #ifdef USE_TRACE_FLAG_0_CHECK
-			if (!status_scale.Plu.trace_flag && FlagDisplayIndividual)
+			if (!status_scale.Plu.trace_flag)
 			{
-				BuzOn(3);		
+				BuzOn(2);		
 				//sprintf((char*)string_buf, "개체이력대상이 아닙니다");
 				sprintf((char*)string_buf, IndivMsg_NonTrace);
 				display_message_page_mid((char *)string_buf);
@@ -5072,1411 +3758,2679 @@ void start_external_print(INT16U count)
 			}
 #endif
 		}
-#ifndef USE_NHMART_SAFE_MEAT
-		if (ModeIndiv == 2 && FlagDisplayIndividual)
+		else 
 		{
-			if (CurTraceStatus.indivStr.index != MAX_INDIVIDUAL_NO && !CurTraceStatus.indivStr.lotFlag)	//스캔한 개체 제외, 묶음번호 제외
-			{
-				indiv_weight = get_nvram_lparam(NVRAM_TRACE_STANDALONE_WEIGHT+((INT32U)CurTraceStatus.indivStr.index-1)*4);
-				if (indiv_weight <= 0)	//무게 없을 때
-				{
-					BuzOn(3);
-					sprintf((char*)string_buf, "개체중량이 소진되었습니다");
-					display_message_page_mid((char*)string_buf);
-					return OFF;
-				}
-			}
+			BuzOn(2);
+			return OFF;
 		}
-#endif
-#elif defined(USE_CHN_CART_SCALE)
-		if (Operation.useCheckRemain)	// param735
+	}
+	
+	if(status_scale.cur_pluid)
+	{
+		//		if( !checkGradeEquality( individual_index ) )
+		//		{
+		//			BuzOn(3);
+		//			return;
+		//		}
+	}
+	else
+	{
+		IndividualDisplayTime = SysTimer100ms;
+		IndividualDisplayTimeFlag = ON;
+	}
+	
+	//BuzOn(1);
+	
+	//Clear Individual Display area
+	//sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
+	//sale_display_individual();
+	//sale_display_update(UPDATE_TITLE);	// CJK070705
+	ret = keyapp_call_individual(indiv_id, ON);
+	if(!ret) return OFF;
+	
+	return ON;
+}
+#ifdef USE_NHMART_SAFE_MEAT
+TRACE_INDIVIDUAL_IDENTITY indivInfo;	//저장되기 전 임시 개체 정보.
+extern PLU_ADDR plu_table_addr[];
+extern INT8U command_request_indiv_info(HUGEDATA COMM_BUF *CBuf);
+void keyapp_call_indivInfo(void)
+{
+	HUGEDATA COMM_BUF *CBufIndiv;
+	INT8U checkedIndiv = 0xff;
+	INT16U idx;
+	INT8U string_buf[20];
+	if(!status_scale.cur_pluid) {
+		BuzOn(2);
+		return;	//PLU CALL 후에 입력되어야 함. 
+	}
+	if(checkMtrace)
+	{
+		CBufIndiv = &CommBufEthData[0];
+		checkedIndiv = command_request_indiv_info(CBufIndiv);	//개체 정보 요청. 
+		if(checkedIndiv)
 		{
-			if (CurCHNTraceLotNo)
+			BuzOn(2);
+			switch(checkedIndiv)
 			{
-				if (status_scale.Plu.fixed_weight)
+				case 1:
+					sprintf(string_buf, "POS동작 오류");
+					break;
+				case 2:
+					sprintf(string_buf, "이력번호 오류");
+					break;
+				case 3:
+					sprintf(string_buf, "상품번호 오류");
+					break;
+				case 4:
+					sprintf(string_buf, "조회개체정보 없음");
+					break;
+				case 5:
+					sprintf(string_buf, "개체관리상품이 아님");
+					plu_table_search(status_scale.departmentid, status_scale.cur_pluid,&idx, 1);
+					TNT_DelTraceNoTable(0, 0, plu_table_addr[idx].addr);
+					sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
+					sale_display_update(UPDATE_TITLE);
+					break;
+				case 6:
+					sprintf(string_buf, "유통기한 오류");
+					break;
+				case 7:
+					sprintf(string_buf, "등급 오류");
+					break;
+				case 8:
+					sprintf(string_buf, "개체중량 오류");
+					break;
+				case 9:
+					sprintf(string_buf, "DB연결 오류");
+					break;
+				case 10:
+					sprintf(string_buf, "프로토콜 오류");
+					break;
+				default:
+					sprintf(string_buf, "통신 오류");
+					break;				
+			}
+			display_message_page_mid_delay((char *)string_buf, 20);
+			return;
+		}
+		else	//개체정보 정상으로 받은 경우 CurTrace에 저장.		
+		{
+			memcpy(&CurTraceStatus.indivStr, &indivInfo, sizeof(CurTraceStatus.indivStr));
+#ifdef USE_TRACE_MEATGRADE
+			if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때만 등급 호출 가능
+			{
+				CurTraceStatus.gradeNo = CurTraceStatus.indivStr.gradeNo;
+				trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
+			}
+#else
+			strcpy((char *)CurTraceStatus.curGradeText, (char *)CurTraceStatus.indivStr.grade);
+#endif
+			sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, ON);
+			sale_display_update(UPDATE_TITLE);
+		}
+	}
+	else 
+	{
+		sprintf(string_buf, "오프라인 모드입니다");
+		display_message_page_mid_delay((char *)string_buf, 20);
+		BuzOn(2);
+	}
+}
+void keyapp_switch_offline(void)
+{
+	INT8U string_buf[20];
+	INT8U temp;
+	BuzOn(1);
+	if(checkMtrace)	//key 를 누를 때 토글
+	{
+		checkMtrace = OFF;
+		sprintf((char *)string_buf, "오프라인 모드");
+	}
+	else
+	{
+		checkMtrace = ON;
+		sprintf((char *)string_buf, "온라인 모드");
+	}
+	display_message_page_mid_delay(string_buf, 20);
+	
+	set_bit_on_byte(&temp, checkMtrace, 7);
+	set_global_bparam(GLOBAL_PRINT_OPER_FLAG2, temp);
+	sale_display_update(UPDATE_MODE);
+}
+#endif
+
+
+void keyapp_direct_individual(INT16U skeyIndivID)
+{
+	INT16U keyIndivID;
+	INT32U key_addr;
+	INT8U  individual_index;
+	INT8U  ret = 0;
+	//#ifdef USE_NHMART_SAFE_MEAT
+	//	if(checkMtrace)	{
+	//		BuzOn(2);		
+	//		return;	//온라인 모드시 사용 불가. 
+	//	}
+	//#endif
+	keyIndivID = skeyIndivID - KS_INDIVIDUAL_01;
+	
+	//sprintf(temp,"[keyIndivID=%d],[skeyIndivID=%d],[KS_INDIV=%d]\r\n",keyIndivID,skeyIndivID,KS_INDIVIDUAL_01);
+	//MsgOut((HUGEDATA char *)temp);
+	
+	//	if ((get_global_bparam(GLOBAL_SCANNER_FLAG1)&0x07) != 3)
+	//	{
+	if (keyIndivID > 16) {
+		BuzOn(2);		
+		return;
+	}
+	//	}
+	
+	key_addr  = FLASH_TRACE_STANDALONE_KEY_AREA + DFLASH_BASE;
+	key_addr += keyIndivID;
+	individual_index  = Flash_bread(key_addr);
+	BuzOn(1);
+	individual_call(individual_index);
+	/*
+		if(status_scale.cur_pluid)
+		{
+		//		if( !checkGradeEquality( individual_index ) )
+		//		{
+		//			BuzOn(3);
+		//			return;
+		//		}
+		}
+		else
+		{
+		IndividualDisplayTime = SysTimer100ms;
+		IndividualDisplayTimeFlag = ON;
+		}
+		
+		BuzOn(1);
+		
+		
+		//sprintf(temp,"[keyIndivID=%d],[keyIndex=%d],[indiv_index=%d]\r\n",keyIndivID,keyIndex,individual_index);
+		//MsgOut((HUGEDATA char *)temp);
+		
+		//Clear Individual Display area
+		sale_display_indivFlag_set(OFF);
+		//sale_display_individual();
+		sale_display_update(UPDATE_TITLE);	// CJK070705
+		
+		if (skeyIndivID == 99)	//Modified by JJANG 20081212 바코드로 개체번호 스캔할 때 무조건 99번으로 할당
+		{
+		keyapp_call_individual(skeyIndivID, ON);
+		}
+		else keyapp_call_individual(individual_index, ON);
+		*/
+	return;
+}
+/*
+	void keyapp_direct_individual(INT16U skeyIndivID)
+	{
+	//	char temp[50];
+	INT16U keyIndivID;
+	INT32U key_addr;
+	INT16U keyIndex;
+	//CJK	INT16U deptNo;
+	//CJK	INT32U pluNo;
+	INT8U  individual_index;
+	INT8U  ret = 0;
+	
+	// 개체키를 누르면, 
+	// PLU 와 개체 인덱스와의 일대일 mapping
+	
+	keyIndivID = skeyIndivID - KS_INDIVIDUAL_01;
+	if (keyIndivID > 16) {
+	BuzOn(2);
+	return;
+	}
+	BuzOn(1);
+	
+	if(!status_scale.cur_pluid){
+	IndividualDisplayTime = SysTimer100ms;
+	IndividualDisplayTimeFlag = ON;
+	}
+	
+	//CJK	deptNo = status_scale.departmentid;
+	//CJK	pluNo = status_scale.cur_pluid;
+	
+	key_addr  = FLASH_TRACE_STANDALONE_KEY_AREA + DFLASH_BASE;
+	key_addr += keyIndivID;
+	individual_index  = Flash_bread(key_addr);
+	
+	//CJK	ret = plu_table_search(deptNo,pluNo,&keyIndex,0);
+	//CJK	if( ret )
+	//CJK	{
+	//CJK		//plu_table_individual[keyIndex] = individual_index;
+	//CJK		SetIndividualTable(keyIndex-1, individual_index);
+	//CJK	}
+	
+	//sprintf(temp,"[keyIndivID=%d],[keyIndex=%d],[indiv_index=%d]\r\n",keyIndivID,keyIndex,individual_index);
+	//MsgOut((HUGEDATA char *)temp);
+	
+	//Clear Individual Display area
+	sale_display_indivFlag_set(OFF);
+	sale_display_individual();
+	
+	keyapp_call_individual(individual_index, ON);
+	
+	return;
+	}
+	*/
+
+/*
+	void keyapp_get_individual(void)
+	{
+	//INT16U keyIndivID;
+	//INT32U key_addr;
+	INT16U keyIndex;
+	INT16U deptNo;
+	INT32U pluNo;
+	INT8U  individual_index;
+	INT8U  ret = 0;
+	
+	deptNo = status_scale.departmentid;
+	pluNo = status_scale.cur_pluid;
+	ret = plu_table_search(deptNo,pluNo,&keyIndex,0);
+	if( ret )
+	{
+	if( (keyIndex > 0) && (keyIndex < 10000)) //MAX_PLU_ADDRESS=10000
+	{
+	//individual_index = plu_table_individual[keyIndex];
+	individual_index = GetIndividualTable(keyIndex-1);
+	}
+	}						  	
+	
+	keyapp_call_individual(individual_index, OFF);
+	
+	return;
+	}
+	*/
+
+void keyapp_check_trace(void)
+{
+	INT8U buf[10];
+	INT8U tempparam;
+	
+	if (GlbOper.TraceabilityCallType == 1)
+	{
+		BuzOn(1);
+		
+		//개체이력 저장기능
+		// 0 = 일반개체: 개체정보 저장하지 않음
+		// 1  = 상품개체: 상품별로 개체정보 저장
+		// 2 = 전체개체: 최종판매 개체정보 저장
+		SaveTraceabilityNo++;
+		SaveTraceabilityNo %= 3;	
+		
+		switch(SaveTraceabilityNo)
+		{
+			case 0: 
+				sprintf((char *)buf, "일반개체");
+				display_message_page_mid((char *)buf);
+				break;
+			case 1: 
+				sprintf((char *)buf, "상품개체"); 
+				display_message_page_mid((char *)buf);
+				break;
+			case 2:
+				sprintf((char *)buf, "전체개체"); 
+				display_message_page_mid((char *)buf);
+				break;
+			default : break;
+		}
+		tempparam = get_global_bparam(GLOBAL_SALE_SETUP_FLAG15);
+		tempparam = (tempparam | (SaveTraceabilityNo & 0x03));
+		set_global_bparam(GLOBAL_SALE_SETUP_FLAG15, tempparam);
+	}
+	else
+	{
+		BuzOn(2);
+	}
+}
+	
+#endif
+	
+	
+INT8U check_unitweightchange(INT16S uid) // Added by CJK 20060403
+{
+	//INT32U ret;
+	INT32U NewUnitWeight;
+	INT32U tempUnitPrice;
+	
+	if(Operation.useMultipleUnits == 2) {	// 1회 conversion 가능
+		return OFF;
+	}
+	//ret=uid;
+	if (ADM_GetData.CurUnit == WEIGHT_UNIT_LB) {
+		if(!GlbOper.EnableMultiLbKey) return OFF;
+		if(uid > 3) return OFF;
+	} else {
+		if(!GlbOper.EnableMultiKgKey) return OFF;
+#ifdef USE_WEIGHT_UNIT_500G
+	if(uid > 3) return OFF; //500g 단가 추가
+#else
+	if(uid > 2) return OFF;
+#endif
+	}
+	NewUnitWeight = get_unitweight(uid, ADM_GetData.CurUnit);
+	
+	if(PluType() == 1)//by weight
+	{
+		if(status_scale.cur_weightunit == NewUnitWeight) return OFF;
+		if (ADM_GetData.CurUnit == WEIGHT_UNIT_LB)
+		{
+			tempUnitPrice = (status_scale.cur_unitprice * status_scale.cur_weightunit)/NewUnitWeight;
+			
+			if(tempUnitPrice >= Operation.MaxUnitPrice) return OFF;
+			status_scale.cur_unitprice = tempUnitPrice;
+			Operation.useMultipleUnits = 2;	// 1회 Conversion 가능
+			status_scale.cur_weightunit = NewUnitWeight;
+			return ON;
+		}
+		else	// CJK080214
+		{
+			//tempUnitPrice = (status_scale.cur_unitprice * status_scale.cur_weightunit)/NewUnitWeight;
+			
+			//if(tempUnitPrice >= Operation.MaxUnitPrice) return OFF;
+			//status_scale.cur_unitprice = tempUnitPrice;
+			Operation.useMultipleUnits = 0;	// 계속 Conversion 가능
+			status_scale.cur_weightunit = NewUnitWeight;
+			return ON;
+		}
+	}
+	return OFF;
+	/*
+		if(PluType() == 1)//by weight
+		{
+		if(status_scale.cur_weightunit == NewUnitWeight) return OFF;
+		tempUnitPrice = (status_scale.cur_unitprice * status_scale.cur_weightunit)/NewUnitWeight;
+		if(tempUnitPrice >= Operation.MaxUnitPrice) {
+		return OFF;
+		}
+		Operation.useMultipleUnits = 2;	// 1회 Conversion
+		status_scale.cur_unitprice = tempUnitPrice;
+		status_scale.cur_weightunit = NewUnitWeight;
+		return ON;
+		}
+		*/
+}
+
+#ifdef USE_CANADA_100GToggle		
+INT16S keyapp_toggle_checkunit(INT16S uid) // for 100g/kg toggle
+{
+	if (ADM_GetData.CurUnit != WEIGHT_UNIT_LB)
+	{
+		if(status_scale.cur_weightunit == 1000) return 2;
+		if(status_scale.cur_weightunit == 100) return 1;		
+	}
+	return uid;
+}
+#endif
+void keyapp_unitchange(INT16S uid) // Modified by CJK 20060403
+{
+	CAPTION_STRUCT cap;
+	char str[40];
+	INT8U ret;
+	INT16U capcode;
+	
+	if(status_scale.cur_pluid) {
+#ifdef USE_CANADA_100GToggle		
+		uid = keyapp_toggle_checkunit(uid);
+#endif
+		ret = check_unitweightchange(uid);
+	} else {
+		ret = OFF;
+	}
+	if(!ret) {
+		BuzOn(2);
+		caption_split_by_code(0xc814,&cap,0);//"Check UnitWeight"
+		strcpy(str, cap.form);
+	} else {
+		caption_split_by_code(0xc815,&cap,0);//"CNV"
+		sprintf(str, "%s", cap.form);
+		capcode = 0xc731;
+		capcode += (uid-1);
+		if(ADM_GetData.CurUnit == WEIGHT_UNIT_LB) capcode += 2;	// lb
+		caption_split_by_code(capcode, &cap,0);
+		strcat(str, cap.form);
+	}
+	DisplayMsg(str);
+	sale_display_update(UPDATE_STATUS|UPDATE_MODE);
+}
+
+void keyapp_toggle_weightunit(void)
+{
+	INT8U unit;
+	
+	if(!GlbOper.EnableKgLb || status_scale.cur_pluid || status_scale.Tare ) {
+		BuzOn(2);
+		DisplayMsg(global_message[MSG_NOT_ALLOW_KGLB]);//"kg<->lb Not Allowed"
+		return;
+	}
+	
+	unit = ad_get_kglb();
+	if(unit == WEIGHT_UNIT_LB) {
+		unit = WEIGHT_UNIT_KG;
+		if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G) unit = WEIGHT_UNIT_G;
+	} else {
+		unit = WEIGHT_UNIT_LB;
+	}
+	adm_set_unit_cur(unit);
+	LoadWeighingInfo();
+	sale_display_update(UPDATE_STATUS|UPDATE_MODE);
+}
+
+void keyapp_datetime(void)
+{
+	//BuzOn(1);
+	display_date_change(OFF,OFF);
+}
+
+void	LoadWeighingInfo(void)
+{
+	CAPTION_STRUCT cap;
+	long interval;
+	interval = (long)ad_get_interval(0);
+	interval = ad_cnv_adm2main(interval);
+	
+	//status_scale.auto_maxcount  = get_global_bparam(GLOBAL_SALE_AUTO_COUNT);
+	status_scale.weight_min     = get_global_lparam(GLOBAL_SALE_MINIMUMWEIGHT);
+	status_scale.weight_delta   = get_global_lparam(GLOBAL_SALE_AUTO_DELTAWEIGHT);
+	status_scale.display_dummydigit  = OnOff(get_global_bparam(GLOBAL_SALE_SETUP_FLAG5)&0x40);
+	
+	caption_split_by_code(0x4861,&cap,0); 
+	if (status_scale.weight_delta<cap.input_min ) status_scale.weight_delta=cap.input_min;
+	if (status_scale.weight_delta>cap.input_max ) status_scale.weight_delta=cap.input_min;
+	if (GlbOper.PrintUnderMinWeightOnPrepack || GlbOper.PrintUnderMinWeightOnAUTO)	status_scale.weight_delta=10;
+	// Parameter 690 or 783 [Y]일 때 최소무게 10d로 사용
+
+	caption_split_by_code(0x4862,&cap,0);
+	if (status_scale.weight_min  <cap.input_min ) status_scale.weight_min  =cap.input_min;
+	if (status_scale.weight_min  >cap.input_max ) status_scale.weight_min  =cap.input_min;
+	
+	status_scale.weight_min     *= interval;
+	status_scale.weight_delta   *= interval;
+	
+	status_scale.auto_count     = 0;
+	status_scale.weight_stable  = 0;
+}
+
+INT16S	CheckCanadianTareAction(void)
+{
+	if(TareOper.canadianTare && status_scale.Tare && status_scale.cur_pluid && PluType()==PLU_BY_WEIGHT)
+		return ON;
+	
+	return OFF;
+}
+
+INT16S CheckPrepackAutoLogin(void)
+{
+	//new
+	if(Operation.operationMode == MODE_SELF)	return ON;
+	//	if(Operation.operationClerk != OPER_NORMAL && !status_scale.clerkid)
+	if(PrtStruct.Mode == RECEIPT)//new
+	{
+		caption_split_by_code(0xC80C,&cap,0);//"Select label mode"
+		DisplayMsg(cap.form);
+		return OFF;
+	}
+	if(Operation.operationClerk != OPER_NORMAL && !status_scale.clerkid)
+	{
+		//		if(PrtStruct.Mode == RECEIPT)//new
+		//		{
+		//			caption_split_by_code(0xC80C,&cap,0);//"Select label mode"
+		//			DisplayMsg(cap.form);
+		//			return OFF;
+		//		}
+		caption_split_by_code(0xC80D,&cap,0);
+		DisplayMsg(cap.form);//"Log in clerk"
+		Key_DelaySec(5,0);
+		sale_pluclear(OFF);
+		sale_display_update(0x0fff);//061128
+		return OFF;
+	}
+	return ON;
+}
+
+void keyapp_auto(void)
+{
+	if (Operation.wAuto && CheckCanadianTareAction()) {
+		MsgCanadianTare();
+		return;
+	}
+	if(!CheckPrepackAutoLogin())	return;
+	Operation.wPrepack = 0;//OFF;
+	if(!Operation.wAuto)
+	{
+		Operation.wAuto = ON;
+		LoadWeighingInfo();
+	}
+	else
+	{
+		Operation.wAuto = OFF;
+		if(!Operation.wSave && status_scale.cur_pluid)
+			Operation.salePluClearWait = ON;
+		
+	}
+	sale_display_update(UPDATE_STATUS|UPDATE_MODE);
+}
+
+extern ROMDATA INT16U normal_self_key_numeric_code_set_un[];
+extern ROMDATA INT16U normal_self_key_code_set_un[];
+void keyapp_self(INT16S Flag)	//Made by JJANG 20070801(Use Numeric key)
+{
+	INT16S i;
+	INT16U normal_key_code_set[128];
+	INT16U normal_key_code_set_shifted[128];
+	
+	if(Flag == ON)
+	{
+		for (i = 0; i < KEY_MAX_TABLE_SIZE / 2; i++) 
+		{
+			normal_key_code_set[i] = normal_self_key_numeric_code_set_un[i];
+			normal_key_code_set_shifted[i] = normal_self_key_numeric_code_set_un[i];
+		}
+	}
+	else 
+	{
+		for (i = 0; i < KEY_MAX_TABLE_SIZE / 2; i++) 
+		{
+			normal_key_code_set[i] = normal_self_key_code_set_un[i];
+			normal_key_code_set_shifted[i] = normal_self_key_code_set_un[i];
+		}
+		
+	}
+	Flash_swrite(DFLASH_BASE+FLASH_KEY_AREA           , (HUGEDATA INT8U *)normal_key_code_set        , KEY_MAX_TABLE_SIZE);
+	Flash_swrite(DFLASH_BASE+FLASH_KEY_SHIFT_AREA     , (HUGEDATA INT8U *)normal_key_code_set_shifted, KEY_MAX_TABLE_SIZE);
+	
+	//sale_display_update(UPDATE_STATUS|UPDATE_MODE);
+}
+
+void keyapp_save(void)
+{
+	//BuzOn(1);
+	
+	if(Operation.wSave && CheckCanadianTareAction())
+	{
+		MsgCanadianTare();
+		return;
+	}
+	
+	Operation.wPrepack = OFF;
+	if(!Operation.wSave)
+	{
+		Operation.wSave=ON;
+	}
+	else
+	{
+		Operation.wSave=OFF;
+		if(status_scale.cur_pluid)
+			Operation.salePluClearWait = ON;
+	}
+	//	Operation.woldMode = Operation.wSave;
+#ifdef USE_CL5200_DISPLAY_DEFAULT
+	sale_display_update(UPDATE_STATUS|UPDATE_TARE|UPDATE_MODE);
+#else
+	sale_display_update(UPDATE_STATUS|UPDATE_MODE);
+#endif
+}
+
+void prepack_onoff(INT8U mode)	// mode=0:Toggle, mode=1:ON, mode=2:Off
+{
+	if (mode) goto PP_START;
+	if(Operation.wPrepack && CheckCanadianTareAction())
+	{
+		MsgCanadianTare();
+		return;
+	}
+	PP_START:
+				Operation.wAuto = OFF;
+	if (mode==2) goto PP_OFF;
+	if (mode==1) goto PP_ON;
+	if(!Operation.wPrepack)
+	{
+		PP_ON:		if(!CheckPrepackAutoLogin())	return;
+		Operation.wPrepack=ON;
+		//Operation.wSave = ON;
+		LoadWeighingInfo();
+	}
+	else
+	{
+		PP_OFF:		Operation.wPrepack=OFF;
+		//		if(status_scale.cur_pluid)  //SG061129
+		//			Operation.salePluClearWait = ON;
+		//		if (Operation.woldMode==ON) {
+		//			keyapp_save();
+		//		}
+		if(Operation.operationClerk!=OPER_STD_CLERK && Operation.addStandatdClerk)	// add 를 동작하지 않고 total sum에 대한 계산 flag를 설정한다
+		{
+			Operation.addStandatdClerk = OFF;
+			//if(Operation.addStandatdClerk) {
+			//	caption_split_by_code(0xc040,&cap,0);
+			//} else {
+			caption_split_by_code(0xc041,&cap,0);
+			//}
+			DisplayMsg(cap.form);
+			return;
+		}
+	}
+}
+
+void keyapp_prepack(void)
+{
+	//	INT32U pnt;
+	//	INT16U err;
+	
+	//BuzOn(1);
+	prepack_onoff(0);
+	//sale_prepack_check();
+	sale_display_update(UPDATE_STATUS|UPDATE_MODE);
+}
+
+void keyapp_shift(void)
+{
+	//BuzOn(1);
+	KEY_Set_Shift(3);// 3 = auto change
+}
+
+extern DISC_SALE_TYPE		DiscSale;
+void ClearPluAux(void)
+{
+	status_scale.Plu.dc_id = 0;
+	status_scale.Plu.fixed_weight = 0;
+#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
+	status_scale.Plu.refer_dept = 0;
+	status_scale.Plu.refer_plu = 0;
+	status_scale.linked_count = 0;
+	status_scale.linked_plu[0] = 0;
+	status_scale.linked_plu[1] = 0;
+#endif
+	status_scale.Plu.special_price = 0;
+	status_scale.Plu.member_price = 0;
+	status_scale.Plu.packing_price = 0;
+	status_scale.Plu.tax_id = 0;
+	DiscSale.saleIndexOk = 0;
+	DiscSale.saleDiscountType = DISCOUNT_NO;
+	DiscSale.saleDiscFSP = 0;
+	status_scale.Plu.tare_limit = 0;
+	status_scale.Plu.tare_percent = 0;
+	Operation.fixedPrice = 0;
+	Operation.fixedAction=0;
+}
+
+void keyapp_for(void)
+{
+	INT32U  keyBackup;
+	
+	InputQuickPluState = OFF;	// Count PLU일 때, [PLU_NUM] + [FOR] + Qty 허용
+	status_scale.cur_quickplu = 0;
+	
+	// qty, pcs, unitprice 편집시 blink. FOR 키를 누를 때 마다 값이 표시되도록 함
+	Set7BlinkPrevTime = SysTimer100ms;
+	Seg7BlinkOn = 0;
+	
+	if(Startup.country == COUNTRY_US)	//JJANG 20090316 임시수정, 미국일 때 For key로 타입변경 가능 By Weight --> By Count
+	{
+		if (PluType() == PLU_BY_WEIGHT)
+		{
+			ChangePluType(PLU_BY_PCS);
+			keyapp_override();
+			status_scale.cur_ride = 0;
+		}
+	}
+	
+	if (GlbPrint.directNonfood && !status_scale.cur_pluid && 0 < status_scale.cur_keyvalue )
+	{
+		keyBackup = status_scale.cur_keyvalue;
+		keyapp_misc_bycount();
+		status_scale.cur_ride = 1;
+		status_scale.cur_qty = 1;
+		status_scale.cur_unitprice = keyBackup;     
+		return;
+	}
+	if (!status_scale.ride_max) {BuzOn(2); return;}	// Weight PLU & Not Override
+	if (!Operation.override) {BuzOn(2); return;}
+	status_scale.cur_ride++;
+	if (status_scale.ride_max > 3) status_scale.ride_max = 1;
+	status_scale.cur_ride %= (status_scale.ride_max+1);
+	if (!status_scale.cur_ride) status_scale.cur_ride = 1;
+	sale_display_update(UPDATE_TITLE|UPDATE_RIDE);
+}
+
+void keyapp_non_function(void)
+{
+	BuzOn(2);
+	sale_display_update_error(0xE00A,0,0);
+}
+
+#ifdef USE_TAX_RATE
+extern INT16S GetTaxData(PRICE_TYPE *pPrice,INT8U taxNumber,INT8U misc_flag);
+#endif
+void keyapp_misc_byweight(INT16S beep)
+{
+	if(beep)
+	{
+		BuzOn(1);
+	}
+	
+	Operation.transactionOK=OFF;
+	sale_pluclear(ON);
+	sale_display_update(0x0fff);//061128
+	status_scale.cur_pluid=MISC_PLU_WEIGHT;
+	status_scale.flag_input&=0xf1;
+	status_scale.flag_input|=0x02;
+	status_scale.ride_max     = 1;
+	status_scale.cur_ride = 1;
+	InputQuickPluState = OFF;
+	
+#ifdef USE_TAX_RATE    
+	GetTaxData(&Price,0,1);		//Added by JJANG 20070614 MISC tax 사용
+#endif
+	
+	ClearPluAux();
+	Operation.override = ON;
+	display_tare(1);
+	sale_display_update(UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_RIDE);
+}
+
+void keyapp_misc_bycount(void)
+{
+	INT16S	n;
+	INT32U	maxQty,cur_keyvalue;
+	
+	n=(INT16S)get_global_bparam(GLOBAL_INPUT_BN_QTYLENGTH);
+	maxQty=power10(n);
+	
+	//BuzOn(1);
+	Operation.transactionOK=OFF;
+	cur_keyvalue = status_scale.cur_keyvalue;
+	sale_pluclear(ON);
+	sale_display_update(0x0fff);//061128
+	status_scale.cur_pluid=MISC_PLU_COUNT;
+	status_scale.flag_input  &= 0xf1;
+	status_scale.flag_input  |= 0x04;
+	status_scale.ride_max     = 2;
+	status_scale.cur_ride = 1;
+	status_scale.cur_qty = 1;
+	if(cur_keyvalue && cur_keyvalue < maxQty)
+	{
+		status_scale.cur_ride =2;
+		status_scale.cur_qty = cur_keyvalue;
+	}
+	{
+		INT8U	byte;
+		byte=get_global_bparam(GLOBAL_SALE_SETUP_FLAG3);// override location
+		if(OnOff(byte&0x02))
+		{
+			status_scale.cur_ride =2;
+		}
+	}
+	
+	status_scale.cur_pcs = 1;
+	InputQuickPluState = OFF;
+	
+#ifdef USE_TAX_RATE
+	GetTaxData(&Price,0,1);		//Added by JJANG 20070614 MISC tax 사용
+#endif
+	ClearPluAux();
+	
+	Operation.override = ON;
+	sale_display_update(UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_RIDE);
+	sale_display_tare_eu();
+}
+
+void keyapp_misc_bypcs(INT16S beep)
+{
+	INT16S	n;
+	//	INT32U	maxPcs,maxQty,cur_keyvalue;
+	INT32U	maxQty,cur_keyvalue;    
+	
+	n=(INT16S)get_global_bparam(GLOBAL_INPUT_BC_QTYLENGTH);
+	maxQty=power10(n);
+	n=(INT16S)get_global_bparam(GLOBAL_INPUT_BC_PCSLENGTH);
+	//	maxPcs=power10(n);
+	
+	cur_keyvalue = status_scale.cur_keyvalue;
+	if(beep)
+	{
+		BuzOn(1);
+	}
+	Operation.transactionOK=OFF;
+	sale_pluclear(ON);
+	sale_display_update(0x0fff);//061128
+	status_scale.cur_pluid=MISC_PLU_PCS;
+	status_scale.flag_input  &= 0xf1;
+	status_scale.flag_input  |= 0x06;  // 0000 0110
+	status_scale.ride_max     = 3;
+	status_scale.cur_ride = 1;
+	status_scale.cur_qty = 1;
+	status_scale.cur_pcs = 1;
+	InputQuickPluState = OFF;
+	if(cur_keyvalue && cur_keyvalue < maxQty)
+	{
+		//		status_scale.cur_ride =3;
+		//		status_scale.cur_pcs = cur_keyvalue % maxPcs;
+		//		if(!status_scale.cur_pcs || (maxQty-1)< status_scale.cur_pcs)	status_scale.cur_pcs =1;
+		//		cur_keyvalue /= maxPcs;
+		//		status_scale.cur_qty = cur_keyvalue % maxQty;
+		status_scale.cur_ride =3;
+		if(cur_keyvalue < maxQty)
+			status_scale.cur_qty = cur_keyvalue;
+	}
+	{
+		INT8U	byte;
+		byte=get_global_bparam(GLOBAL_SALE_SETUP_FLAG3);// override location
+		if(OnOff(byte&0x02))
+		{
+			status_scale.cur_ride =3;
+		}
+	}
+	//	if(status_scale.cur_keyvalue && status_scale.cur_keyvalue <100)
+	//		status_scale.cur_pcs = status_scale.cur_keyvalue;
+#ifdef USE_TAX_RATE
+	GetTaxData(&Price,0,1);		//Added by JJANG 20070614 MISC tax 사용
+#endif	
+	ClearPluAux();
+	Operation.override = ON;
+	sale_display_update(UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_RIDE);
+	sale_display_tare_eu();
+}
+
+extern INT8U FlagTransactionWithoutPrint;
+void keyapp_menu(void)
+{
+	//BuzOn(1);
+	INT16U keyv;
+	INT8U allowCalEnter;
+	
+	allowCalEnter = ON;
+	if(Startup.country == COUNTRY_KR) allowCalEnter = OFF;	// 내수 버전만 강제로 Cal 진입 막
+#ifndef USE_ALLOW_CAL_MODE
+	allowCalEnter = OFF;
+#endif 
+	
+	if(TareOper.canadianTare && !Operation.transactionOK && status_scale.Tare)
+	{
+		MsgCanadianTare();
+		return;
+	}
+	keyv=hex2bcd_word((INT16U)status_scale.cur_keyvalue);
+#ifdef USE_DBG_EMART_NETWORK
+	if (keyv==0x9999)
+	{
+		FlagTransactionWithoutPrint ^= 1;
+		if(FlagTransactionWithoutPrint){
+			DisplayMsg("PRINT LABEL OFF");
+		} else {
+			DisplayMsg("PRINT LABEL ON");
+		}
+		return;
+	}
+#endif
+	if (allowCalEnter && (keyv==0x8000 || (KeyDrv.PressedModeKey && KeyDrv.RawCode==0x7B && Operation.operationMode==MODE_SELF))) {
+		char old_font;
+		CAPTION_STRUCT cap;
+		POINT 	disp_p;
+		INT8U   old_key;
+		INT8U	ret_string[20];
+		
+		old_font=DspStruct.Id1;
+		DspLoadFont1(DSP_MENU_FONT_ID);
+		Dsp_Fill_Buffer(0);
+		VFD7_Fill_Buffer(0);
+		caption_split_by_code(0x1f00,&cap,0);
+		caption_adjust(&cap,NULL);
+		//		disp_p = point( Startup.menu_type*Startup.menu_ygap, 0);
+		//		Dsp_Write_String(disp_p,(HUGEDATA char *)cap.form);
+		display_clear(DISPLAY_UNITPRICE);
+		display_string(DISPLAY_UNITPRICE, (INT8U *)cap.form);
+		Dsp_Diffuse();
+		old_key=KEY_GetMode();
+		KEY_SetMode(1);
+		memset((INT8U*)ret_string, 0x00, 15);
+		keyin_string(KI_FREE_MODE, KI_DEFAULT,0, (HUGEDATA INT8U*)ret_string, cap.input_length, 
+				cap.input_dlength, Startup.menu_type*Startup.menu_ygap, cap.input_x*Startup.menu_xgap, 1, 1, KI_NOPASS);
+		ret_string[8]=0;
+		str_trimleft((char *)ret_string);
+		KEY_SetMode(old_key);
+		DspLoadFont1(old_font);
+		if (strcmp((char*)ret_string,"83419")==0) {
+			if(permission_check(PMS_DEALER,0)) {
+#ifdef USE_CTS_FUNCTION
+				if (CtsStruct.CtsEnable)
 				{
-					if ((INT32S)ad_cnv_weight_by_gram(status_scale.Plu.fixed_weight) > CurCHNTraceRemainWeight)
-					{
-						BuzOn(3);
-						return OFF;
-					}
+					status_run.run_mode = RUN_WAITING_CAL;
 				}
 				else
 				{
-					if ((INT32S)ad_cnv_weight_by_gram(status_scale.Weight) > CurCHNTraceRemainWeight)
-					{
-						BuzOn(3);
-						return OFF;
-					}
+					status_run.run_mode = RUN_CALIBRATION;
 				}
+#else
+				status_run.run_mode = RUN_CALIBRATION;
+#endif
+			} else {
+				//goto PGM;
+				display_lcd_clear();
+				return;
+			}
+		} else {
+			//goto PGM;
+			display_lcd_clear();
+			return;
+		}
+	} else {
+		if(!permission_check(PMS_MENU,0)){
+#ifdef USE_CL5200_DISPLAY_DEFAULT
+			sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+#endif
+			//display_lcd_clear();	
+			return;
+		}
+		if (Operation.operationMode == MODE_SELF)
+		{
+			if (keyv == 0x88)
+			{
+				if(get_nvram_bparam(NVRAM_SELF_KEY_BLOCK_ON))
+				{
+					set_nvram_bparam(NVRAM_SELF_KEY_BLOCK_ON, 0);
+					//					DisplayMsg("Key-Block OFF");
+					DisplayMsg("Key-BLK OFF"); //change to ERROR msg
+				}
+				else
+				{
+					set_nvram_bparam(NVRAM_SELF_KEY_BLOCK_ON, 1);
+					DisplayMsg("Key-BLK ON"); //change to ERROR msg
+				}
+				status_scale.cur_keyvalue = 0;
+			}
+			else
+			{
+				status_run.run_mode = RUN_PROGRAM;
 			}
 		}
-#elif defined(USE_INDIA_FUNCTION)
-		if (!AllowNegativeInventory)
+		else
 		{
-			if(!CheckInventory(status_scale.departmentid, status_scale.cur_pluid, status_scale.Plu.ptype, PluType(), Price.Weight[PRICE_RESULT], Price.Qty[PRICE_RESULT]))
+			/*PGM:*/		status_run.run_mode = RUN_PROGRAM;
+		}
+	}
+}
+
+extern void print_rewind(void);
+extern INT16U	KeyWait(INT16U key1,INT16U key2,INT16U key3,INT16U key4,INT16U key5);
+
+void keyapp_feed(INT16S beepFlag)
+{
+	if(beepFlag) BuzOn(1);
+	if(PrtFlashStruct.RewindEnable && Operation.rewindReady)
+	{
+		char	string_buf[20];
+		
+		Operation.rewindReady = OFF;
+		sprintf(string_buf, "%cM", GS);
+		//DisplayMsg(string_buf);
+		PutDataRxBuf(&CommBufPrt,string_buf,2);
+		string_buf[0] = ON;
+		PutDataRxBuf(&CommBufPrt,string_buf,1);
+		while(1)
+		{
+			if (KEY_Read())
+			{
+				BuzOn(1);
+				//if(KeyDrv.Type==KEY_TYPE_FUNCTION && KeyDrv.CnvCode==KS_CLEAR)
+				if(KeyDrv.CnvCode == KS_CLEAR)	// KS_CLEAR = KP_CLEAR = 0x0b
+					break;
+			}
+			
+			// 명령
+			print_rewind();
+			// motor가 동작일때 까지 기다림
+			//			while(CheckRxBuf(&CommBufPrt)) {
+			//				CASInterpreter(&CommBufPrt);
+			//			}
+			//			while(PrtDrvStruct.PrtState != PRT_STATE0I);
+			PrintListWaitEndWithoutComm();
+			// 용지 체크
+			if(CheckPeelHead(ON, OFF))	
+			{
+				print_rewind();
+				//				while(CheckRxBuf(&CommBufPrt)) {
+				//					CASInterpreter(&CommBufPrt);
+				//				}
+				//				while(PrtDrvStruct.PrtState != PRT_STATE0I);
+				PrintListWaitEndWithoutComm();
+				break;	// 없으면
+			}
+		}
+	}
+	else
+	{
+		if (!CheckPeelHead(OFF, OFF))
+		{
+			return;
+		}
+		PutCharRxBuf(&CommBufPrt, 0x0c);
+		//		while (CheckRxBuf(&CommBufPrt)) {
+		//			CASInterpreter(&CommBufPrt);
+		//		}
+		//		while(PrtDrvStruct.PrtState != PRT_STATE0I);
+		PrintListWaitEndWithoutComm();
+	}
+	set_nvram_bparam(NVRAM_PRT_OUTOFPAPER, PrtDrvStruct.OutOfPaperFlag);
+#ifdef	USE_CHECK_OUTOFPAPER_ON_LABEL
+	Prt_CheckOutOfPaper();
+#endif
+}
+
+long	PrevPrintOriginPrice=0;
+
+void CheckZeroTotalPrice(void)
+{
+	if(status_scale.Weight <= 0) {
+		if (get_global_bparam(GLOBAL_SALE_SETUP_FLAG2)&0x20) {	// parameter 574
+#ifdef USE_EMART_NETWORK
+			if (status_scale.cur_unitprice && PluType() == PLU_BY_WEIGHT)	// 변경불가 플래그가 있으면
+			{
+				keyapp_type(ON);	// 무게상품이고, 무게가 없을 때, 자동으로 개수로 변환
+			}
+#else
+			if(status_scale.cur_unitprice && !Operation.fixedPrice && !status_scale.Plu.fixed_weight) {
+				keyapp_fixed_price(OFF,2);
+			}
+#endif
+		}
+	}
+}
+#ifdef USE_CHECK_INDIV_INFO
+extern INT8U command_check_indiv_info(HUGEDATA COMM_BUF *CBuf);
+extern PLU_ADDR plu_table_addr[];
+INT8U CheckIndivInfo(void)
+{
+	HUGEDATA COMM_BUF *CBufIndiv;
+	INT8U checkedIndiv = 0xff;
+	char string_buf[20];
+	INT8U ret = ON;
+	INT16U idx;
+	CBufIndiv = &CommBufEthData[0];
+#ifdef USE_NHSAFE_PIG_TRACE 
+	INT8U tempcheckMtrace;
+	tempcheckMtrace = checkMtrace;
+	if((CurTraceStatus.indivStr.individualNO[0] == '1') || ((CurTraceStatus.indivStr.individualNO[0] == 'L') && (CurTraceStatus.indivStr.individualNO[1] == '1')))
+	{
+		checkMtrace = 0; //20150421
+	}
+#endif
+	
+#ifdef USE_NHMART_SAFE_MEAT
+	if(checkMtrace)
+	{
+		Operation.OfflineMode = OFF;
+	}
+	else
+	{
+		Operation.OfflineMode = ON;
+	}
+	if(checkMtrace)
+	{
+		checkedIndiv = command_check_indiv_info(CBufIndiv);
+		if(checkedIndiv != 0)	//0이면 개체정보 정상.
+		{
+			BuzOn(3);
+			switch(checkedIndiv)
+			{
+				case 1:
+					sprintf(string_buf, "POS동작 오류");
+					break;
+				case 2:
+					sprintf(string_buf, "이력번호 오류");
+					break;
+				case 3:
+					sprintf(string_buf, "상품번호 오류");
+					break;
+				case 4:
+					sprintf(string_buf, "조회개체정보 없음");
+					break;
+				case 5:
+					sprintf(string_buf, "개체관리상품이 아님");
+					plu_table_search(status_scale.departmentid, status_scale.cur_pluid,&idx, 1);
+					TNT_DelTraceNoTable(0, 0, plu_table_addr[idx].addr);
+					sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
+					sale_display_update(UPDATE_TITLE);
+					break;
+				case 6:
+					sprintf(string_buf, "유통기한 오류");
+					break;
+				case 7:
+					sprintf(string_buf, "등급 오류");
+					break;
+				case 8:
+					sprintf(string_buf, "개체중량 오류");
+					break;
+				case 9:
+					sprintf(string_buf, "DB연결 오류");
+					break;
+				case 10:
+					sprintf(string_buf, "프로토콜 오류");
+					break;
+				default:
+					sprintf(string_buf, "통신 오류");
+					break;
+			}
+			display_message_page_mid_delay(string_buf, 30);
+			ret = OFF;
+		}
+		else
+		{
+			ret = ON;
+		}
+	}
+#ifdef USE_NHSAFE_PIG_TRACE 
+	if((CurTraceStatus.indivStr.individualNO[0] == '1') || ((CurTraceStatus.indivStr.individualNO[0] == 'L') && (CurTraceStatus.indivStr.individualNO[1] == '1')))
+	{
+		checkMtrace = tempcheckMtrace; //20150421
+	}
+#endif
+#else
+	if(checkMtrace && FlagDisplayIndividual && ((CurTraceStatus.indivStr.individualNO[0] == '0') ||(CurTraceStatus.indivStr.individualNO[0] == '1') || (CurTraceStatus.indivStr.individualNO[0] == 'L')))	//한우(0) 돼지(1) 묶음번호(L)만 유효성 확인. 
+	{
+		checkedIndiv = command_check_indiv_info(CBufIndiv);
+		if(checkedIndiv != 0)	//0이면 개체정보 정상.
+		{
+			BuzOn(3);
+			if(checkedIndiv > (INVALID_INDIV_NO | INVALID_SLAUGHTERHOUSE | INVALID_GRADE))
+			{
+				sprintf(string_buf, "통신오류");
+				display_message_page_mid_delay(string_buf, 30);
+				ret = ON;
+			}
+			else
+			{
+				string_buf[0] = 0;
+				if(checkedIndiv & INVALID_INDIV_NO)
+				{
+					strcat(string_buf, "이력번호");
+				}
+				if(checkedIndiv & INVALID_SLAUGHTERHOUSE)
+				{
+					strcat(string_buf, " 도축장");
+				}
+				if(checkedIndiv & INVALID_GRADE)
+				{
+					strcat(string_buf, " 등급");
+				}
+				strcat(string_buf, " 이상");
+				display_message_page_mid_delay(string_buf, 30);
+				sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+				ret = OFF;
+			}
+		}
+		else
+		{
+			ret = ON;
+		}
+	}
+#endif	//#ifdef USE_NHMART_SAFE_MEAT
+	return ret;
+}
+#endif	//#ifdef USE_CHECK_INDIV_INFO
+extern INT8U check_changed_price_range(INT8U divisor, long* upper, long* lower);
+extern INT8U SaleWeightChk;
+INT16S CheckPluPrint(INT8U check)
+// Modified by CJK 20050429
+// Modified by LBM 20060307
+{
+	//	INT8U flag_tmp;
+	INT16S status;
+	INT8U date_flag, send_date;
+	INT8U b_date,b_month,b_year;
+	INT8U ret_value = 0;
+	char S_msg1[32];
+	char S_msg2[32];
+#ifdef USE_CONTROL_CHANGING_PRICE
+	long upperPrice = 0;
+	long lowerPrice = 0;
+	INT8U checkedFlag = 0;
+#endif
+	//#ifdef USE_INDIA_FUNCTION
+	INT8U string_buf[50];
+	//#endif
+#ifdef USE_TRACE_STANDALONE
+	long indiv_weight;
+#endif
+	date_flag = get_nvram_bparam(NVRAM_BUSINESS_DATE_FLAG);
+	send_date = get_global_bparam(GLOBAL_AREA_MULTIUNITFLAG);
+	send_date=(send_date>>7)&0x01;
+	
+	if(!status_scale.cur_pluid)	return OFF; //plu 가 없으면 no
+	if(Operation.OverTotalPrice || Operation.OverUnitPrice)	return OFF;
+	if(Operation.wAuto || Operation.wPrepack)
+	{
+		if(!CheckPrepackAutoLogin())	return OFF;
+	}
+	//Added by JJANG 20080617 동일 무게 판매 재판매 못하게 수정,  Parameter 554 
+	if (get_global_bparam(GLOBAL_PRINT_OPER_FLAG2)&0x08)
+	{
+		if (!SaleWeightChk && PluType() == PLU_BY_WEIGHT)	//무게 상품일 때만 동작
+		{
+			DisplayMsg(global_message[MSG_27_C80F]);//"Already printed"
+			return OFF;	
+		}
+	}
+#ifdef USE_CONTROL_CHANGING_PRICE
+	checkedFlag = check_changed_price_range(status_scale.divisor, &upperPrice, &lowerPrice);
+	if(checkedFlag)
+	{
+		//매가변경 통제
+		BuzOn(2);
+		sprintf((char*)string_buf, "가격변경 제한 범위 초과");
+		display_message_page_mid_delay((char*)string_buf, 20);
+		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+		return OFF;
+	}
+#endif
+	if (send_date)	//parameter 716, Send Sale Date Type 
+	{
+		if(date_flag && !network_status.connection)
+		{
+			b_year = get_nvram_bparam(NVRAM_BUSINESS_DATE+2);
+			b_month =get_nvram_bparam(NVRAM_BUSINESS_DATE+1);
+			b_date = get_nvram_bparam(NVRAM_BUSINESS_DATE);
+			
+			if ((b_year != RTCStruct.year) || (b_month != RTCStruct.month) || (b_date != RTCStruct.date))
+			{
+				strcpy(S_msg1,"시스템 날짜를");
+				strcpy(S_msg2,"사용하시겠습니까? (Y/N)");
+				ret_value = display_message_check_page(S_msg1,S_msg2,2);
+				if (ret_value)
+				{
+					set_nvram_lparam(NVRAM_BUSINESS_DATE_FLAG,0);
+				}	
+			} 
+		}
+	}	
+	
+#ifdef USE_TRACE_STANDALONE
+	if (!plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))	// 개체 체크기능
+	{
+		if (status_scale.Plu.trace_flag && !FlagDisplayIndividual) 
+		{
+			//DisplayMsg("Check Trace No");
+			BuzOn(3);
+			sprintf((char*)string_buf, "이력번호 미선택");
+			display_message_page_mid((char*)string_buf);
+			return OFF;
+		}
+#ifdef USE_TRACE_FLAG_0_CHECK
+		if (!status_scale.Plu.trace_flag && FlagDisplayIndividual)
+		{
+			BuzOn(3);		
+			//sprintf((char*)string_buf, "개체이력대상이 아닙니다");
+			sprintf((char*)string_buf, IndivMsg_NonTrace);
+			display_message_page_mid((char *)string_buf);
+			return OFF;
+		}
+#endif
+	}
+#ifndef USE_NHMART_SAFE_MEAT
+	if (ModeIndiv == 2 && FlagDisplayIndividual)
+	{
+		if (CurTraceStatus.indivStr.index != MAX_INDIVIDUAL_NO && !CurTraceStatus.indivStr.lotFlag)	//스캔한 개체 제외, 묶음번호 제외
+		{
+			indiv_weight = get_nvram_lparam(NVRAM_TRACE_STANDALONE_WEIGHT+((INT32U)CurTraceStatus.indivStr.index-1)*4);
+			if (indiv_weight <= 0)	//무게 없을 때
 			{
 				BuzOn(3);
-				sprintf((char*)string_buf, "Not Sufficient Inventory");
+				sprintf((char*)string_buf, "개체중량이 소진되었습니다");
 				display_message_page_mid((char*)string_buf);
 				return OFF;
 			}
 		}
+	}
 #endif
-		// DEL CJK080709
-		/*
-		 //호출에 한번만 출력 가능
-		 if(GlbOper.printOneTimeAfterCall && status_scale.cur_pluid && Operation.transactionOK)
-		 {
-		 //DEL070126		flag_tmp=get_global_bparam(GLOBAL_PRINT_OPER_FLAG2);	// prepack 시 1회만 출력
-		 //if(!OnOff(flag_tmp&0x08) && (Operation.wPrepack || (Operation.wAuto && Operation.wSave)))
-		 if(Operation.wPrepack || (Operation.wAuto && Operation.wSave))
-		 {
-		 }// 통과
-		 else
-		 {
-		 DisplayMsg(global_message[MSG_27_C80F]);//"Already printed"
-		 return OFF;	
-		 }
-		 }
-		 */
-		ReportUseDailyReportBackUp();	//Added by JJANG 20080519, PLU REPORT BACK UP
-		
-		
-		PrevPrintOriginPrice = Price.TotalPrice[PRICE_ORIGIN];
-		
-		//Modified by JJANG 
-		//by weight 일 때, 무게가 없으면 판매 안됨,
-		//by count, by pcs 일 때, 무게와 관계없이 판매 됨 (parameter 570 동작 X)
-		if(GlbOper.weightZeroPricePrint)
+#elif defined(USE_CHN_CART_SCALE)
+	if (Operation.useCheckRemain)	// param735
+	{
+		if (CurCHNTraceLotNo)
 		{
-			if (PluType() == PLU_BY_WEIGHT)
+			if (status_scale.Plu.fixed_weight)
 			{
-				if(!Price.UnitPrice[PRICE_RESULT] && 0L < status_scale.Weight)
-					return ON;	// weight가있고 unit price zero일때도 출력 가능-> 출력 조정
+				if ((INT32S)ad_cnv_weight_by_gram(status_scale.Plu.fixed_weight) > CurCHNTraceRemainWeight)
+				{
+					BuzOn(3);
+					return OFF;
+				}
 			}
-			else return ON;
+			else
+			{
+				if ((INT32S)ad_cnv_weight_by_gram(status_scale.Weight) > CurCHNTraceRemainWeight)
+				{
+					BuzOn(3);
+					return OFF;
+				}
+			}
 		}
-#ifdef USE_EMART_BACK_LABEL
-		if(Operation.BackLabeledFlag) return ON;	//이마트 후방라벨인 경우 무게나 가격 없어도 인쇄.
-#endif
-		
-		status = check_status_weight(check);
-		if (!disp_error_weight_msg(status)) {
+	}
+#elif defined(USE_INDIA_FUNCTION)
+	if (!AllowNegativeInventory)
+	{
+		if(!CheckInventory(status_scale.departmentid, status_scale.cur_pluid, status_scale.Plu.ptype, PluType(), Price.Weight[PRICE_RESULT], Price.Qty[PRICE_RESULT]))
+		{
+			BuzOn(3);
+			sprintf((char*)string_buf, "Not Sufficient Inventory");
+			display_message_page_mid((char*)string_buf);
 			return OFF;
 		}
-		
-		sale_calcprice();
-		if(DiscSale.saleDiscountType)
+	}
+#endif
+	// DEL CJK080709
+	/*
+		//호출에 한번만 출력 가능
+		if(GlbOper.printOneTimeAfterCall && status_scale.cur_pluid && Operation.transactionOK)
 		{
-			if(DiscSale.discIndexData.discPriceType == DISC_PRICE_FREE && !Price.TotalPrice[PRICE_ORIGIN])
-			{
-				DisplayMsg(global_message[MSG_26_C804]);//"Check price"
-				return OFF;
-			}
-			if(DiscSale.discIndexData.discPriceType == DISC_PRICE_FIXED && !Operation.fixedDiscFlag)
-			{
-				DisplayMsg(global_message[MSG_26_C804]);//"Check price"
-				return OFF;
-			}
+		//DEL070126		flag_tmp=get_global_bparam(GLOBAL_PRINT_OPER_FLAG2);	// prepack 시 1회만 출력
+		//if(!OnOff(flag_tmp&0x08) && (Operation.wPrepack || (Operation.wAuto && Operation.wSave)))
+		if(Operation.wPrepack || (Operation.wAuto && Operation.wSave))
+		{
+		}// 통과
+		else
+		{
+		DisplayMsg(global_message[MSG_27_C80F]);//"Already printed"
+		return OFF;	
 		}
-		
-		else if(!Price.TotalPrice[PRICE_RESULT])
+		}
+		*/
+	ReportUseDailyReportBackUp();	//Added by JJANG 20080519, PLU REPORT BACK UP
+	
+	
+	PrevPrintOriginPrice = Price.TotalPrice[PRICE_ORIGIN];
+	
+	//Modified by JJANG 
+	//by weight 일 때, 무게가 없으면 판매 안됨,
+	//by count, by pcs 일 때, 무게와 관계없이 판매 됨 (parameter 570 동작 X)
+	if(GlbOper.weightZeroPricePrint)
+	{
+		if (PluType() == PLU_BY_WEIGHT)
 		{
-			//if (get_global_bparam(GLOBAL_SALE_SETUP_FLAG2)&0x20) {	// Deleted by CJK 20060306
-			//	if (Price.UnitPrice[PRICE_RESULT]) return ON;
-			//	return OFF;
-			//} else {
-			
-			if(check) return OFF;
+			if(!Price.UnitPrice[PRICE_RESULT] && 0L < status_scale.Weight)
+				return ON;	// weight가있고 unit price zero일때도 출력 가능-> 출력 조정
+		}
+		else return ON;
+	}
+#ifdef USE_EMART_BACK_LABEL
+	if(Operation.BackLabeledFlag) return ON;	//이마트 후방라벨인 경우 무게나 가격 없어도 인쇄.
+#endif
+	
+	status = check_status_weight(check);
+	if (!disp_error_weight_msg(status)) {
+		return OFF;
+	}
+	
+	sale_calcprice();
+	if(DiscSale.saleDiscountType)
+	{
+		if(DiscSale.discIndexData.discPriceType == DISC_PRICE_FREE && !Price.TotalPrice[PRICE_ORIGIN])
+		{
 			DisplayMsg(global_message[MSG_26_C804]);//"Check price"
 			return OFF;
-			//			}
 		}
-		return ON;
-	}
-	
-	void ClearAndStart(void)
-	{
-		//		if(status_scale.cur_pluid)
-		//		{
-		Operation.salePluClearWait = ON;
-		Operation.directClearWeight = ON;
-		//		}
-		//		else
-		//		{
-		//			sale_pluclear();
-		//			display_lcd_clear();
-		//			sale_display_update(0x0fff);
-		//		}
-	}
-	
-	INT16S MiscNameCopy(char *p,INT32U	pluid)
-	{
-		switch(pluid)
+		if(DiscSale.discIndexData.discPriceType == DISC_PRICE_FIXED && !Operation.fixedDiscFlag)
 		{
-			case MISC_PLU_WEIGHT:
-				strcpy(p,global_message[MSG_MISC_WEIGHT]);
-				break;
-			case MISC_PLU_PCS:
-				strcpy(p,global_message[MSG_MISC_PCS]);
-				break;
-			default:
-				strcpy(p,global_message[MSG_MISC_COUNT]);
-				break;
+			DisplayMsg(global_message[MSG_26_C804]);//"Check price"
+			return OFF;
 		}
-		return 0;
 	}
 	
-	TRANSACT_CHAIN	tempList[MAX_ADD_TRANSACTION];	// Modified by CJK 20050728
-	void keyapp_void(void)
+	else if(!Price.TotalPrice[PRICE_RESULT])
 	{
-		TRANSACT_CHAIN  *cp;
-		TRANSACT_CHAIN  tc;
-		INT16U h_index, next;
-		INT16U result;
-		INT16S	index,j,lnkedIndex[MAX_LINKED_PLU],maxIndex;
-		long	gPrice,totalPrice,linkedPrice[MAX_LINKED_PLU];
-		INT16U  sz;
-		long	voidNumber=0;
-		INT16S	viewIndex=0;
-		char	priceBuf[15];
-		PLU_BASE plu;
-		INT16U	lastClerk;
-		char    pluname[22];
-		char	tempStr[50];
-		long	temptrtvolume;	 //se-hyung 20071017
-		INT16S	ret;
-		INT32U addr;
-		char dispStr[50];
-		INT16U blankFlag;
-		POINT disp_p;
+		//if (get_global_bparam(GLOBAL_SALE_SETUP_FLAG2)&0x20) {	// Deleted by CJK 20060306
+		//	if (Price.UnitPrice[PRICE_RESULT]) return ON;
+		//	return OFF;
+		//} else {
 		
-		temptrtvolume = 0;		 //se-hyung 20071017
-		lastClerk = status_scale.clerkid;
-		
-		ret = NetClerkLock(lastClerk);
-		if (ret == 3) goto ENDVOID;//return;
-		else if (ret == 0) return;
-		
-		
-		//SG060711
-		//===========================================================
-		
-		h_index = get_nvram_lparam(NVRAM_TRANS_HEAD+lastClerk*4);
-		if (h_index)
+		if(check) return OFF;
+		DisplayMsg(global_message[MSG_26_C804]);//"Check price"
+		return OFF;
+		//			}
+	}
+	return ON;
+}
+
+void ClearAndStart(void)
+{
+	//		if(status_scale.cur_pluid)
+	//		{
+	Operation.salePluClearWait = ON;
+	Operation.directClearWeight = ON;
+	//		}
+	//		else
+	//		{
+	//			sale_pluclear();
+	//			display_lcd_clear();
+	//			sale_display_update(0x0fff);
+	//		}
+}
+
+INT16S MiscNameCopy(char *p,INT32U	pluid)
+{
+	switch(pluid)
+	{
+		case MISC_PLU_WEIGHT:
+			strcpy(p,global_message[MSG_MISC_WEIGHT]);
+			break;
+		case MISC_PLU_PCS:
+			strcpy(p,global_message[MSG_MISC_PCS]);
+			break;
+		default:
+			strcpy(p,global_message[MSG_MISC_COUNT]);
+			break;
+	}
+	return 0;
+}
+
+TRANSACT_CHAIN	tempList[MAX_ADD_TRANSACTION];	// Modified by CJK 20050728
+void keyapp_void(void)
+{
+	TRANSACT_CHAIN  *cp;
+	TRANSACT_CHAIN  tc;
+	INT16U h_index, next;
+	INT16U result;
+	INT16S	index,j,lnkedIndex[MAX_LINKED_PLU],maxIndex;
+	long	gPrice,totalPrice,linkedPrice[MAX_LINKED_PLU];
+	INT16U  sz;
+	long	voidNumber=0;
+	INT16S	viewIndex=0;
+	char	priceBuf[15];
+	PLU_BASE plu;
+	INT16U	lastClerk;
+	char    pluname[22];
+	char	tempStr[50];
+	long	temptrtvolume;	 //se-hyung 20071017
+	INT16S	ret;
+	INT32U addr;
+	char dispStr[50];
+	INT16U blankFlag;
+	POINT disp_p;
+	
+	temptrtvolume = 0;		 //se-hyung 20071017
+	lastClerk = status_scale.clerkid;
+	
+	ret = NetClerkLock(lastClerk);
+	if (ret == 3) goto ENDVOID;//return;
+	else if (ret == 0) return;
+	
+	
+	//SG060711
+	//===========================================================
+	
+	h_index = get_nvram_lparam(NVRAM_TRANS_HEAD+lastClerk*4);
+	if (h_index)
+	{
+		next = h_index;
+		get_nvram_trans_addr(NVRAM_TRANS_DATA, h_index - 1, &tc);
+		cp = &tc;
+	}
+	else
+	{
+		cp = 0;
+	}
+	if(!cp)
+	{
+		sale_display_update_error(0xC03A,3,lastClerk);	     //se-hyung 20071130 subtotal의 영향으로 Y좌표가 8늘어난 것에서 영향 안받기 위한 수정 
+		goto ENDVOID;
+	}
+	totalPrice = Price.TotalPrice[PRICE_RESULT];
+	index = ClerkSearchVoidTransaction(status_scale.departmentid,status_scale.cur_pluid, lastClerk, ON, &totalPrice);
+	gPrice = totalPrice;
+#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
+	if(-1 < index)
+	{
+		for(j=0;j<MAX_LINKED_PLU;j++)
 		{
-			next = h_index;
-			get_nvram_trans_addr(NVRAM_TRANS_DATA, h_index - 1, &tc);
-			cp = &tc;
+			lnkedIndex[j]=-1;
+			if(status_scale.linked_dept[j] && status_scale.linked_plu[j])
+			{
+				if(Price.TotalPrice[PRICE_RESULT])
+					linkedPrice[j] = LinkedPrice[j].TotalPrice[PRICE_RESULT];
+				else
+					linkedPrice[j] = 0;
+				lnkedIndex[j] = ClerkSearchVoidTransaction(status_scale.linked_dept[j],status_scale.linked_plu[j] , lastClerk, ON, &linkedPrice[j]);
+				
+				if(-1<lnkedIndex[j])	gPrice += linkedPrice[j];
+			}
+		}
+	}
+#endif
+	ClearDisp7();
+	display_lcd_clear();
+	if(-1 < index)
+	{
+		// no list
+		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&gPrice,0,1);
+		caption_split_by_code(0xc024,&cap,0);//"Voided %s"
+		display_lcd_clear();	// CJK080221
+		display_string_pos(10, (INT8U*)cap.form);
+		display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
+		VFD7_Diffuse();
+		Key_DelaySec(20,0);
+		display_string_pos_clear(10, 20);
+		ClearAndStart();
+		goto ENDVOID;
+		//return;
+	}
+	
+	maxIndex=0; 
+	for(;cp;)
+	{
+		tempList[maxIndex] = *cp;
+		if (!cp->next) break;
+		next = cp->next;
+		get_nvram_trans_addr(NVRAM_TRANS_DATA, next - 1, &tc);
+		cp = &tc;
+		maxIndex++;
+	}
+	viewIndex = maxIndex;
+	for(;;)
+	{
+		if (viewIndex <= maxIndex)
+		{
+			if(tempList[viewIndex].delete)		strcpy(tempStr,global_message[MSG_29_DSP_VOID]);
+			else				strset(tempStr,0x20,strlen(global_message[MSG_29_DSP_VOID]));
+			temptrtvolume = tempList[viewIndex].content.trtVolume;					  //se-hyung 20071017
+			if(tempList[viewIndex].content.trtStatus& FLAG_TRANS_NEGATIVE)			      //se-hyung 20071016
+			{
+				temptrtvolume = -tempList[viewIndex].content.trtVolume;
+			}
+			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&temptrtvolume,0,1);  //se-hyung 20071017
+			
+			memset(dispStr,0x00,sizeof(dispStr));
+			sprintf(dispStr,"N %3d", viewIndex+1);
+			display_string(DISPLAY_TARE, (INT8U*)dispStr);
+			display_string(DISPLAY_UNITPRICE, (INT8U*)tempStr);
+			display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
+			VFD7_Diffuse();
+			
+			plu_table_search(tempList[viewIndex].content.trtDept,tempList[viewIndex].content.trtPLU,&plu.address,0);
+			Flash_flush_nvbuffer();
+			
+			if(tempList[viewIndex].content.trtPLU<MISC_PLU_WEIGHT)
+			{
+				addr = plu_get_field_point((INT16S)(plu.address-1),PTYPE_PLU_NAME1,(INT16S*)&sz); // Name
+				Flash_sread(addr,(HUGEDATA INT8U*)pluname,20);
+				blankFlag = IsBlankString((char *)pluname,20);
+				
+				if (blankFlag)
+					strcpy(pluname,global_message[MSG_NO_PLUNAME]);
+			}
+			else
+			{
+				MiscNameCopy(pluname,tempList[viewIndex].content.trtPLU);
+			}
+			pluname[20]=0;
 		}
 		else
 		{
-			cp = 0;
+			memset(pluname,0x20,sizeof(pluname));
 		}
-		if(!cp)
-		{
-			sale_display_update_error(0xC03A,3,lastClerk);	     //se-hyung 20071130 subtotal의 영향으로 Y좌표가 8늘어난 것에서 영향 안받기 위한 수정 
-			goto ENDVOID;
-		}
-		totalPrice = Price.TotalPrice[PRICE_RESULT];
-		index = ClerkSearchVoidTransaction(status_scale.departmentid,status_scale.cur_pluid, lastClerk, ON, &totalPrice);
-		gPrice = totalPrice;
-#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
-		if(-1 < index)
-		{
-			for(j=0;j<MAX_LINKED_PLU;j++)
-			{
-				lnkedIndex[j]=-1;
-				if(status_scale.linked_dept[j] && status_scale.linked_plu[j])
-				{
-					if(Price.TotalPrice[PRICE_RESULT])
-						linkedPrice[j] = LinkedPrice[j].TotalPrice[PRICE_RESULT];
-					else
-						linkedPrice[j] = 0;
-					lnkedIndex[j] = ClerkSearchVoidTransaction(status_scale.linked_dept[j],status_scale.linked_plu[j] , lastClerk, ON, &linkedPrice[j]);
-					
-					if(-1<lnkedIndex[j])	gPrice += linkedPrice[j];
-				}
-			}
-		}
-#endif
-		ClearDisp7();
-		display_lcd_clear();
-		if(-1 < index)
-		{
-			// no list
-			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&gPrice,0,1);
-			caption_split_by_code(0xc024,&cap,0);//"Voided %s"
-			display_lcd_clear();	// CJK080221
-			display_string_pos(10, (INT8U*)cap.form);
-			display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
-			VFD7_Diffuse();
-			Key_DelaySec(20,0);
-			display_string_pos_clear(10, 20);
-			ClearAndStart();
-			goto ENDVOID;
-			//return;
-		}
-		
-		maxIndex=0; 
-		for(;cp;)
-		{
-			tempList[maxIndex] = *cp;
-			if (!cp->next) break;
-			next = cp->next;
-			get_nvram_trans_addr(NVRAM_TRANS_DATA, next - 1, &tc);
-			cp = &tc;
-			maxIndex++;
-		}
-		viewIndex = maxIndex;
-		for(;;)
-		{
-			if (viewIndex <= maxIndex)
-			{
-				if(tempList[viewIndex].delete)		strcpy(tempStr,global_message[MSG_29_DSP_VOID]);
-				else				strset(tempStr,0x20,strlen(global_message[MSG_29_DSP_VOID]));
-				temptrtvolume = tempList[viewIndex].content.trtVolume;					  //se-hyung 20071017
-				if(tempList[viewIndex].content.trtStatus& FLAG_TRANS_NEGATIVE)			      //se-hyung 20071016
-				{
-					temptrtvolume = -tempList[viewIndex].content.trtVolume;
-				}
-				FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&temptrtvolume,0,1);  //se-hyung 20071017
-				
-				memset(dispStr,0x00,sizeof(dispStr));
-				sprintf(dispStr,"N %3d", viewIndex+1);
-				display_string(DISPLAY_TARE, (INT8U*)dispStr);
-				display_string(DISPLAY_UNITPRICE, (INT8U*)tempStr);
-				display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
-				VFD7_Diffuse();
-				
-				plu_table_search(tempList[viewIndex].content.trtDept,tempList[viewIndex].content.trtPLU,&plu.address,0);
-				Flash_flush_nvbuffer();
-				
-				if(tempList[viewIndex].content.trtPLU<MISC_PLU_WEIGHT)
-				{
-					addr = plu_get_field_point((INT16S)(plu.address-1),PTYPE_PLU_NAME1,(INT16S*)&sz); // Name
-					Flash_sread(addr,(HUGEDATA INT8U*)pluname,20);
-					blankFlag = IsBlankString((char *)pluname,20);
-					
-					if (blankFlag)
-						strcpy(pluname,global_message[MSG_NO_PLUNAME]);
-				}
-				else
-				{
-					MiscNameCopy(pluname,tempList[viewIndex].content.trtPLU);
-				}
-				pluname[20]=0;
-			}
-			else
-			{
-				memset(pluname,0x20,sizeof(pluname));
-			}
-			memset(tempStr,0x20,sizeof(pluname));
-			memcpy(tempStr,pluname,strlen(pluname));
-			disp_p.x = 0;
-			disp_p.y = 0;
-			Dsp_Write_String(disp_p, tempStr);
-			
-			if(Operation.operationClerk==OPER_NORMAL)
-			{
-				sprintf(tempStr,global_message[MSG_VOID_LIST],maxIndex);
-			}
-			else
-			{
-				sprintf(gmsg,"#%2d ",lastClerk);    
-				sprintf(tempStr,global_message[MSG_VOID_LIST],maxIndex);
-				strcat(gmsg,tempStr);
-				strcat(gmsg,global_message[MSG_VOID_LIST_2]);
-			}
-			str_fill(gmsg,35);
-			display_string(DISPLAY_WEIGHT, (INT8U*)global_message[MSG_VOID_LIST]);
-			VFD7_Diffuse();
-			
-			while(!KEY_Read());
-			
-			result = KeyDrv.CnvCode;
-			
-			if(result==KP_ESC)
-			{
-				BuzOn(1);
-				ClearDisp7();
-				display_lcd_clear();
-				break;
-			}
-			
-			switch(result)
-			{
-				case KP_ARROW_RI:
-					BuzOn(1);
-					if(tempList[viewIndex].delete)
-					{
-						if(ClerkVoidTransaction(lastClerk, (INT16S)tempList[viewIndex].content.trtSerialNo, OFF,status_scale.scaleid, 0) == 0)
-							tempList[viewIndex].delete=OFF;
-					}
-					else
-					{
-						if(ClerkVoidTransaction(lastClerk, (INT16S)tempList[viewIndex].content.trtSerialNo, ON,status_scale.scaleid, 0) == 0)
-							tempList[viewIndex].delete=ON;
-					}
-					break;
-				case KP_ARROW_UP:
-				case KP_PAGE_UP:
-					BuzOn(1);
-					if(viewIndex < maxIndex)
-						viewIndex++;
-					break;
-				case KP_ARROW_DN:
-				case KP_PAGE_DN:
-					BuzOn(1);
-					viewIndex--;
-					break;
-				default:
-					BuzOn(2);
-					break;
-					
-			}
-			if(viewIndex<0)	viewIndex=0;
-			if(maxIndex<=viewIndex)	viewIndex=maxIndex;
-		}
-		
-		ClearAndStart();
-		
-		ENDVOID:
-					NetClerkLockRelease((INT8U)lastClerk);  //SG060711
-		
-	}
-	
-	void keyapp_lastvoid(void)	// add-up+clerk(CJK070424)	// only add-up
-	{
-		//TRANSACT_CHAIN  *cp;
-		INT16U h_index;
-		STRUCT_TOTAL_PRICE totalData;
-		INT16U lastClerk;
-		INT16S	ret;
-		
-		lastClerk = status_scale.clerkid;
-		
-		ret = NetClerkLock(lastClerk);
-		
-		if (ret == 1 || ret == 2)
-		{
-			h_index = get_nvram_lparam(NVRAM_TRANS_HEAD+lastClerk*4);
-			if (h_index)
-			{
-				ClerkTotalPrice(0, lastClerk, &totalData);	// mode:2 => 0
-				if (ClerkVoidTransaction(lastClerk, (INT16S)(totalData.TotalCount+totalData.VoidCount), ON, status_scale.scaleid, 0) == 0)
-				{
-					caption_split_by_code(0xc044,&cap,0);//"LAST PLU VOIDED"
-					DisplayMsg(cap.form);
-				}
-				else
-				{
-					BuzOn(2);
-				}
-			}
-			else
-			{
-				DisplayMsg((char *)global_message[MSG_NOSALEDATA]);
-			}
-		}
-		else if (ret == 0) return;
-		NetClerkLockRelease((INT8U)lastClerk);
-		
-	}
-	
-	//extern void KEY_Set_Shift(INT8U onoff);
-	
-	// for Return
-	extern TRANSACT_CHAIN  TrChain; //SG070213
-	extern TRANSACTION_RECORD_SUB_TYPE Trans_sub;
-	extern TR_ADDITION_DATA_TYPE TrReturn_add;
-	/////////////// 
-	extern void	InsertTransactionRecord(INT8U trtType,INT8U trtStatus,INT8U trtStatus2,INT16S operator,INT8U dept,INT32U pluNumber,INT8U pluType,INT8U group,PRICE_TYPE *pPrice,TRANSACTION_RECORD_TYPE* ptrans,TRANSACTION_RECORD_SUB_TYPE* ptrans_sub,long rprice );
-	extern INT16S	LocalClerkSummaries(INT8U scaleNum,INT8U operator,TRANSACTION_RECORD_TYPE* pTrans,TRANSACTION_RECORD_SUB_TYPE* pTrans_sub,TR_ADDITION_DATA_TYPE* pTrans_add);
-	
-	void makeReturnTrData(PRICE_TYPE *pPrice) //insert transaction data to "TrChain.content"
-	{
-		INT8U trtType,pluType;
-		INT8U	operator=status_scale.clerkid;
-		//INT8U	scaleNum=status_scale.scaleid;
-		INT8U	trtStatus;
-		INT8U	trtStatus2;
-		//INT16S stat;
-		
-		if(Operation.operationClerk == OPER_NORMAL)	operator = 0;
-		
-		trtType = TRANS_TYPE_NORMAL;
-		if(Operation.operationMode == MODE_REPACK)	trtType = TRANS_TYPE_REPACK;
-		if(Operation.operationMode == MODE_SELF)	trtType = TRANS_TYPE_SELF;
-		
-		trtStatus = FLAG_TRANS_RETURN;
-		if(Operation.transAddup)		trtStatus |= FLAG_TRANS_ADD;
-		if(Operation.wPrepack)			trtStatus |= FLAG_TRANS_PREPACK;
-		if(Operation.printON)			trtStatus |= FLAG_TRANS_LABEL;
-		if(Operation.negative)			trtStatus |= FLAG_TRANS_NEGATIVE;
-		if(Operation.override && status_scale.cur_pluid<MISC_PLU_WEIGHT && Price.UnitPrice[PRICE_ORIGIN] != status_scale.Plu.unitprice)
-			trtStatus |= FLAG_TRANS_OVERRIDE;
-		
-		trtStatus2 = 0;
-		if (ethernet_list.status == 4)	trtStatus2 |= FLAG2_TRANS_LOCAL;	// CJK080320
-		
-		pluType = PluType();
-		memset(&TrChain, 0 , sizeof(TrChain));
-		InsertAdditionalData(&TrReturn_add);
-		InsertTransactionRecord(trtType,trtStatus,trtStatus2,operator,status_scale.Plu.deptid,status_scale.cur_pluid,pluType,status_scale.Plu.group,pPrice,&TrChain.content,&Trans_sub,0);
-		TrChain.next = 0;
-		TrChain.flag = ON;
-		//stat = LocalClerkSummaries(scaleNum,operator,&TrChain.content);
-		
-	}
-	
-	//keyin_setcallback(keyapp_common_disc);
-	//keyin_anycheck_on=1;
-	//keyin_escape_clear=1;
-	void keyapp_callback_salemode(void)
-	{
-		sale_adm_proc();
-		CurPluWeightUnit = ADM_GetData.CurUnit;
-		sale_calcprice();
-		//sale_display_date(OFF);
-		//sale_display_total(1);
-		sale_display_update(UPDATE_PRICE);
-		sale_display_proc(ON);
-	}
-	
-	void AddReturnTrData(void)
-	{
-		INT8U	operator=status_scale.clerkid;
-		INT8U	scaleNum=status_scale.scaleid;
-		
-		LocalClerkSummaries(scaleNum, operator, &TrChain.content, &Trans_sub, &TrReturn_add);
-	}
-	
-	extern long InternalTaxPrice(long  taxRate,long totalPrice);
-	void keyapp_return(void)
-	{
-		//INT16S	index;
-		char	priceBuf[15];
-		long	tPrice,tWeight,tQty;
-		INT16S decpoint;
-		INT16U	result;
-		INT16S	okFlag=ON;
-		INT8U	byte;
-		//	INT16S	pDecimal;
-		char	cPriceStr[30];
-		//	INT8U	state;
-		INT8U	ucTemp;
-		INT8U	printReturn;
-		INT8U   flag1, flag2;
-		//	INT8U	kr_flag=0;
-		POINT disp_p;
-#ifdef USE_SCALE_POS_PROTOCOL
-		INT8U	kr_flag=0;
-#endif
-		
+		memset(tempStr,0x20,sizeof(pluname));
+		memcpy(tempStr,pluname,strlen(pluname));
 		disp_p.x = 0;
 		disp_p.y = 0;
+		Dsp_Write_String(disp_p, tempStr);
 		
-		//	INT8U	Discount_flag;
-		//	Discount_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG7);
-		
-		if(Operation.negative) {
-			DisplayMsg(global_message[MSG_24_C04C]);
-			return;
-		}
-		byte = get_global_bparam(GLOBAL_SALE_SETUP_FLAG2);
-		if(OnOff(byte&0x04)) {   //option:
-			KEY_Set_Shift(3);// 3 = auto change
-			return;
-		}
-		if(!status_scale.cur_pluid)	return;
-		if(!GlbOper.XZreport)
+		if(Operation.operationClerk==OPER_NORMAL)
 		{
-			//DisplayMsg("No X report");
-			return;
+			sprintf(tempStr,global_message[MSG_VOID_LIST],maxIndex);
+		}
+		else
+		{
+			sprintf(gmsg,"#%2d ",lastClerk);    
+			sprintf(tempStr,global_message[MSG_VOID_LIST],maxIndex);
+			strcat(gmsg,tempStr);
+			strcat(gmsg,global_message[MSG_VOID_LIST_2]);
+		}
+		str_fill(gmsg,35);
+		display_string(DISPLAY_WEIGHT, (INT8U*)global_message[MSG_VOID_LIST]);
+		VFD7_Diffuse();
+		
+		while(!KEY_Read());
+		
+		result = KeyDrv.CnvCode;
+		
+		if(result==KP_ESC)
+		{
+			BuzOn(1);
+			ClearDisp7();
+			display_lcd_clear();
+			break;
 		}
 		
-		//SG071113 
-		if(PluType()==PLU_BY_WEIGHT) //무게상품일경우 안정될때까지 기다려야 함
+		switch(result)
 		{
-			while(!ADM_GetData.Stable){
-				ProcessAll();
+			case KP_ARROW_RI:
+				BuzOn(1);
+				if(tempList[viewIndex].delete)
+				{
+					if(ClerkVoidTransaction(lastClerk, (INT16S)tempList[viewIndex].content.trtSerialNo, OFF,status_scale.scaleid, 0) == 0)
+						tempList[viewIndex].delete=OFF;
+				}
+				else
+				{
+					if(ClerkVoidTransaction(lastClerk, (INT16S)tempList[viewIndex].content.trtSerialNo, ON,status_scale.scaleid, 0) == 0)
+						tempList[viewIndex].delete=ON;
+				}
+				break;
+			case KP_ARROW_UP:
+			case KP_PAGE_UP:
+				BuzOn(1);
+				if(viewIndex < maxIndex)
+					viewIndex++;
+				break;
+			case KP_ARROW_DN:
+			case KP_PAGE_DN:
+				BuzOn(1);
+				viewIndex--;
+				break;
+			default:
+				BuzOn(2);
+				break;
+				
+		}
+		if(viewIndex<0)	viewIndex=0;
+		if(maxIndex<=viewIndex)	viewIndex=maxIndex;
+	}
+	
+	ClearAndStart();
+	
+	ENDVOID:
+				NetClerkLockRelease((INT8U)lastClerk);  //SG060711
+	
+}
+
+void keyapp_lastvoid(void)	// add-up+clerk(CJK070424)	// only add-up
+{
+	//TRANSACT_CHAIN  *cp;
+	INT16U h_index;
+	STRUCT_TOTAL_PRICE totalData;
+	INT16U lastClerk;
+	INT16S	ret;
+	
+	lastClerk = status_scale.clerkid;
+	
+	ret = NetClerkLock(lastClerk);
+	
+	if (ret == 1 || ret == 2)
+	{
+		h_index = get_nvram_lparam(NVRAM_TRANS_HEAD+lastClerk*4);
+		if (h_index)
+		{
+			ClerkTotalPrice(0, lastClerk, &totalData);	// mode:2 => 0
+			if (ClerkVoidTransaction(lastClerk, (INT16S)(totalData.TotalCount+totalData.VoidCount), ON, status_scale.scaleid, 0) == 0)
+			{
+				caption_split_by_code(0xc044,&cap,0);//"LAST PLU VOIDED"
+				DisplayMsg(cap.form);
+			}
+			else
+			{
+				BuzOn(2);
 			}
 		}
+		else
+		{
+			DisplayMsg((char *)global_message[MSG_NOSALEDATA]);
+		}
+	}
+	else if (ret == 0) return;
+	NetClerkLockRelease((INT8U)lastClerk);
+	
+}
+
+//extern void KEY_Set_Shift(INT8U onoff);
+
+// for Return
+extern TRANSACT_CHAIN  TrChain; //SG070213
+extern TRANSACTION_RECORD_SUB_TYPE Trans_sub;
+extern TR_ADDITION_DATA_TYPE TrReturn_add;
+/////////////// 
+extern void	InsertTransactionRecord(INT8U trtType,INT8U trtStatus,INT8U trtStatus2,INT16S operator,INT8U dept,INT32U pluNumber,INT8U pluType,INT8U group,PRICE_TYPE *pPrice,TRANSACTION_RECORD_TYPE* ptrans,TRANSACTION_RECORD_SUB_TYPE* ptrans_sub,long rprice );
+extern INT16S	LocalClerkSummaries(INT8U scaleNum,INT8U operator,TRANSACTION_RECORD_TYPE* pTrans,TRANSACTION_RECORD_SUB_TYPE* pTrans_sub,TR_ADDITION_DATA_TYPE* pTrans_add);
+
+void makeReturnTrData(PRICE_TYPE *pPrice) //insert transaction data to "TrChain.content"
+{
+	INT8U trtType,pluType;
+	INT8U	operator=status_scale.clerkid;
+	//INT8U	scaleNum=status_scale.scaleid;
+	INT8U	trtStatus;
+	INT8U	trtStatus2;
+	//INT16S stat;
+	
+	if(Operation.operationClerk == OPER_NORMAL)	operator = 0;
+	
+	trtType = TRANS_TYPE_NORMAL;
+	if(Operation.operationMode == MODE_REPACK)	trtType = TRANS_TYPE_REPACK;
+	if(Operation.operationMode == MODE_SELF)	trtType = TRANS_TYPE_SELF;
+	
+	trtStatus = FLAG_TRANS_RETURN;
+	if(Operation.transAddup)		trtStatus |= FLAG_TRANS_ADD;
+	if(Operation.wPrepack)			trtStatus |= FLAG_TRANS_PREPACK;
+	if(Operation.printON)			trtStatus |= FLAG_TRANS_LABEL;
+	if(Operation.negative)			trtStatus |= FLAG_TRANS_NEGATIVE;
+	if(Operation.override && status_scale.cur_pluid<MISC_PLU_WEIGHT && Price.UnitPrice[PRICE_ORIGIN] != status_scale.Plu.unitprice)
+		trtStatus |= FLAG_TRANS_OVERRIDE;
+	
+	trtStatus2 = 0;
+	if (ethernet_list.status == 4)	trtStatus2 |= FLAG2_TRANS_LOCAL;	// CJK080320
+	
+	pluType = PluType();
+	memset(&TrChain, 0 , sizeof(TrChain));
+	InsertAdditionalData(&TrReturn_add);
+	InsertTransactionRecord(trtType,trtStatus,trtStatus2,operator,status_scale.Plu.deptid,status_scale.cur_pluid,pluType,status_scale.Plu.group,pPrice,&TrChain.content,&Trans_sub,0);
+	TrChain.next = 0;
+	TrChain.flag = ON;
+	//stat = LocalClerkSummaries(scaleNum,operator,&TrChain.content);
+	
+}
+
+//keyin_setcallback(keyapp_common_disc);
+//keyin_anycheck_on=1;
+//keyin_escape_clear=1;
+void keyapp_callback_salemode(void)
+{
+	sale_adm_proc();
+	CurPluWeightUnit = ADM_GetData.CurUnit;
+	sale_calcprice();
+	//sale_display_date(OFF);
+	//sale_display_total(1);
+	sale_display_update(UPDATE_PRICE);
+	sale_display_proc(ON);
+}
+
+void AddReturnTrData(void)
+{
+	INT8U	operator=status_scale.clerkid;
+	INT8U	scaleNum=status_scale.scaleid;
+	
+	LocalClerkSummaries(scaleNum, operator, &TrChain.content, &Trans_sub, &TrReturn_add);
+}
+
+extern long InternalTaxPrice(long  taxRate,long totalPrice);
+void keyapp_return(void)
+{
+	//INT16S	index;
+	char	priceBuf[15];
+	long	tPrice,tWeight,tQty;
+	INT16S decpoint;
+	INT16U	result;
+	INT16S	okFlag=ON;
+	INT8U	byte;
+	//	INT16S	pDecimal;
+	char	cPriceStr[30];
+	//	INT8U	state;
+	INT8U	ucTemp;
+	INT8U	printReturn;
+	INT8U   flag1, flag2;
+	//	INT8U	kr_flag=0;
+	POINT disp_p;
+#ifdef USE_SCALE_POS_PROTOCOL
+	INT8U	kr_flag=0;
+#endif
+	
+	disp_p.x = 0;
+	disp_p.y = 0;
+	
+	//	INT8U	Discount_flag;
+	//	Discount_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG7);
+	
+	if(Operation.negative) {
+		DisplayMsg(global_message[MSG_24_C04C]);
+		return;
+	}
+	byte = get_global_bparam(GLOBAL_SALE_SETUP_FLAG2);
+	if(OnOff(byte&0x04)) {   //option:
+		KEY_Set_Shift(3);// 3 = auto change
+		return;
+	}
+	if(!status_scale.cur_pluid)	return;
+	if(!GlbOper.XZreport)
+	{
+		//DisplayMsg("No X report");
+		return;
+	}
+	
+	//SG071113 
+	if(PluType()==PLU_BY_WEIGHT) //무게상품일경우 안정될때까지 기다려야 함
+	{
+		while(!ADM_GetData.Stable){
+			ProcessAll();
+		}
+	}
+	
+	KEY_SetMode(1);
+	flag2=0;
+	if(Price.DisplayedPrice) {
+		tPrice = Price.DisplayedPrice;
+	} else {
+		flag2=1;
+		decpoint=DecimalPointPrice();
+		tPrice = 0;
+		tWeight = 0;
+		tQty = 0;
 		
-		KEY_SetMode(1);
-		flag2=0;
-		if(Price.DisplayedPrice) {
-			tPrice = Price.DisplayedPrice;
-		} else {
-			flag2=1;
-			decpoint=DecimalPointPrice();
-			tPrice = 0;
-			tWeight = 0;
-			tQty = 0;
-			
-			caption_split_by_code(0xc018,&cap,0);//strcpy(gmsg,"PRICE        [         ]");
+		caption_split_by_code(0xc018,&cap,0);//strcpy(gmsg,"PRICE        [         ]");
+		ClearDisp7();
+		display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
+		VFD7_Diffuse();
+		result = keyin_ulong(KI_TOTAL, KI_FORM_NORMAL, decpoint,(long*)&tPrice, 8, 
+				0,  0, 0,KI_NOPASS );
+		
+		if (result==KP_ESC) goto NEXT;
+		if(PluType()==PLU_BY_WEIGHT) {
+			decpoint=DecimalPointWeight();
+			caption_split_by_code(0xc019,&cap,0);//strcpy(gmsg,"WEIGHT          [      ]");
 			ClearDisp7();
 			display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
 			VFD7_Diffuse();
-			result = keyin_ulong(KI_TOTAL, KI_FORM_NORMAL, decpoint,(long*)&tPrice, 8, 
+			
+			result = keyin_ulong(KI_TOTAL, KI_FORM_NORMAL, decpoint,(long*)&tWeight, 6, 
 					0,  0, 0,KI_NOPASS );
-			
-			if (result==KP_ESC) goto NEXT;
-			if(PluType()==PLU_BY_WEIGHT) {
-				decpoint=DecimalPointWeight();
-				caption_split_by_code(0xc019,&cap,0);//strcpy(gmsg,"WEIGHT          [      ]");
-				ClearDisp7();
-				display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
-				VFD7_Diffuse();
-				
-				result = keyin_ulong(KI_TOTAL, KI_FORM_NORMAL, decpoint,(long*)&tWeight, 6, 
-						0,  0, 0,KI_NOPASS );
-			} else {
-				caption_split_by_code(0xc01a,&cap,1);//strcpy(gmsg,"QUANTITY            [  ]");
-				ClearDisp7();
-				display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
-				VFD7_Diffuse();
-				result = keyin_ulong(KI_TOTAL, KI_FORM_NORMAL, 0,(long*)&tQty, 2, 
-						0,  0, 0,KI_NOPASS );
-			}
-			NEXT:
-					if (result==KP_ESC) goto RETURN_CANCEL;
-			//	}
-			//	if(!Price.DisplayedPrice) { // 입력값이면
-			//		pDecimal = (INT16S)get_global_bparam(GLOBAL_AREA_PRICE_DECIMALPOINT);
-			if(PluType()==PLU_BY_WEIGHT) {
-				//			if(!tWeight)	okFlag=OFF;  // 무게값에 0 을 입력해도 리턴 가능하게 수정
-				Price.Weight[PRICE_RESULT]	= tWeight;
-				
-			} else {
-				if(!tQty)	okFlag=OFF;
-				Price.Qty[PRICE_RESULT]		= (INT16S)tQty;
-			}
-			
-			Price.TotalPrice[PRICE_RESULT]	= tPrice;
-			Price.DisplayedPrice = tPrice;
-			
-			//Price.TaxPrice = longmuldiv(Price.TotalPrice[PRICE_RESULT],Price.TaxRate,10000);
-			// tax
-			if(GlbOper.priceAddExTax == 0)
-				Price.TaxPrice = longmuldiv(Price.DisplayedPrice, Price.TaxRate,10000);
-			else if(GlbOper.priceAddExTax == 1)
-				Price.TaxPrice = InternalTaxPrice(Price.TaxRate, Price.DisplayedPrice);
-			
-		}								   
-		if(!tPrice)	okFlag = OFF;
-		//Dsp_Fill_Buffer(0);
-		//Dsp_Diffuse();
-		display_lcd_clear();
-		
-		ClearPayment(TRANS_TYPE_PAY_TOTAL_NOPAY);	//Added by JJANG 20080619 return시 초기화 안되는 문제 수정
-		
-		//Added by JJANG 071123 저울나라에서 반품요청을 받아들여야 반품행위와 리포트 갱신을 한다.
-#ifdef USE_SCALE_POS_PROTOCOL
-		if(okFlag)
-		{
-			kr_flag = keyapp_ktr_req_returnid();
-			if(!kr_flag) okFlag = OFF;
-		}
-#endif
-		if(okFlag) 
-		{
-			
-			makeReturnTrData(&Price); // CJK080327
-			//ProcessAll(); //SG071113
-			
-			//		SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,FLAG_TRANS_RETURN);
-			//		FloatToString(TO_STR,priceBuf,8,DISPLAY_PRICE,&tPrice,0);
-			//ORG		FloatToString(TO_STR,priceBuf,8,DISPLAY_PRICE,&Price.DisplayedPrice,0);
-			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&Price.TotalPrice[PRICE_RESULT],0,1); //Modified by JJANG 20080104 무조건 RESULT값을 찍도록!
-			
-			display_string_pos(10, (INT8U*)global_message[MSG_RETURN]);
-			display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
+		} else {
+			caption_split_by_code(0xc01a,&cap,1);//strcpy(gmsg,"QUANTITY            [  ]");
+			ClearDisp7();
+			display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
 			VFD7_Diffuse();
-			
-			Cash_open();	// Modified by CJK 20051110
-			
-			//SG070214
-			ucTemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG5);
-			printReturn = (ucTemp>>5)&0x01; 
-			
-			flag1 =ON;
-			if(printReturn)
-			{
-				////SGTEST SG071113 /////////////////////////////////////////////////////////
-				if(flag2) status_scale.Weight = Price.Weight[PRICE_RESULT];
-				sale_calcprice();
-				if(flag2) Price.TotalPrice[PRICE_RESULT]=tPrice;
-				sale_display_update(0x0fff);
-				sale_display_proc(OFF);
-				
-				SaleInsertLabelData();
-				LabelData.Price.Weight[PRICE_RESULT] = -LabelData.Price.Weight[PRICE_RESULT];
-				LabelData.Price.TotalPrice[PRICE_RESULT] = -LabelData.Price.TotalPrice[PRICE_RESULT];
-				LabelData.Price.DisplayedPrice = -LabelData.Price.DisplayedPrice;
-				LabelData.Price.Qty[PRICE_RESULT] = -LabelData.Price.Qty[PRICE_RESULT];
-				
-				StartPrintFlag = ON;
-				//Modified by JJANG 20080619 clerk 0 --> status_scale.clerkid
-				flag1 =Prt_PrintStart(PRT_ITEM_RETURN_MODE, PrtStruct.Mode, status_scale.clerkid, OFF, 0, 0);
-				PrintListWaitEnd();
-				//SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,0);
-				StartPrintFlag = OFF;
-				/////////////////////////////////////////////////////////////
-				
-			}
-			if(flag1 == 1)
-			{
-				//makeReturnTrData(&Price); //SG070703
-				AddReturnTrData(); // CJK080327
-			}
-		} 
-		else 
-		{
-			caption_split_by_code(0xc801,&cap,0);//strcpy(gmsg,"Check return value");
-			Dsp_Write_String(disp_p, cap.form);
-			
+			result = keyin_ulong(KI_TOTAL, KI_FORM_NORMAL, 0,(long*)&tQty, 2, 
+					0,  0, 0,KI_NOPASS );
 		}
-		Key_DelaySec(10,0);
-		RETURN_CANCEL:
-					display_string_pos_clear(5,20);
-		KEY_SetMode(0);
-		ClearAndStart();
-	}
-	
-	void keyapp_cleardiscount(void)
-	{
-		if (DiscSale.saleDiscountType!=DISCOUNT_NO) {
-			DiscSale.discIndexData.discTargetType=0;
-			DiscSale.saleGlobalOk         =OFF;
-			DiscSale.saleDiscountType     =DISCOUNT_NO;
-			DiscSale.saleDiscFSP	      =0;
-			Price.UnitPrice[PRICE_RESULT] =Price.UnitPrice[PRICE_ORIGIN];
-			Price.TotalPrice[PRICE_RESULT]=Price.TotalPrice[PRICE_ORIGIN];
-			//DEL070705		sale_display_discount(OFF);
-			sale_display_update(0x0fff);
-			//DEL070706		sale_display_total(0);
-		}
-	}
-	
-	INT16S key_common_disc1=0;
-	INT16S key_common_disc2=0;
-	
-	void keyapp_common_disc(long tPrice)
-	{
-		INT8U	flag_tmp;
-        char	old;
-#ifdef USE_PRT_CHNIA_DISCOUNT_RATE
-		long chnPer;
-#endif        
-        old=DspStruct.Id1;
-		
-		DiscSale.saleGlobalOk = ON;
-		DiscSale.saleDiscountType = DISCOUNT_GLOBAL;
-		if(status_scale.cur_pluid < MISC_PLU_WEIGHT)
-		{
-			Operation.override = OFF;
-			Netweight_flag= OFF;
-			SetMaxRide(PluType());
-			SetCurRide(PluType());
+		NEXT:
+				if (result==KP_ESC) goto RETURN_CANCEL;
+		//	}
+		//	if(!Price.DisplayedPrice) { // 입력값이면
+		//		pDecimal = (INT16S)get_global_bparam(GLOBAL_AREA_PRICE_DECIMALPOINT);
+		if(PluType()==PLU_BY_WEIGHT) {
+			//			if(!tWeight)	okFlag=OFF;  // 무게값에 0 을 입력해도 리턴 가능하게 수정
+			Price.Weight[PRICE_RESULT]	= tWeight;
+			
+		} else {
+			if(!tQty)	okFlag=OFF;
+			Price.Qty[PRICE_RESULT]		= (INT16S)tQty;
 		}
 		
-		DiscSale.discIndexData.discTargetType = DISC_TARGET_TPRICE;
-		flag_tmp=get_global_bparam(GLOBAL_SALE_SETUP_FLAG2); // Parameter 585
-		if(OnOff(flag_tmp&0x08)) {	// u.p discount
-			DiscSale.discIndexData.discPriceType = key_common_disc1;
-			if(Operation.fixedPrice) DiscSale.discIndexData.discPriceType =key_common_disc2;
-		} else {
-			DiscSale.discIndexData.discPriceType = key_common_disc2;
-		}
-		if (key_common_disc1==DISC_PRICE_UPRICE || key_common_disc1==DISC_PRICE_USPECIAL) {
-			DiscSale.discIndexData.discTarget[0] = 0;//tPrice;//Price.TotalPrice[PRICE_RESULT];
-			DiscSale.discIndexData.discTarget[1] = 0;//tPrice;//Price.TotalPrice[PRICE_RESULT];
-			DiscSale.discIndexData.discPrice[0] = tPrice;
-			DiscSale.discIndexData.discPrice[1] = tPrice;
-		} else {
-			DiscSale.discIndexData.discTarget[0] = 0;//1;
-			DiscSale.discIndexData.discTarget[1] = 0;//1;
-#ifdef USE_PRT_CHNIA_DISCOUNT_RATE
-			chnPer = 100 - tPrice;
-			DiscSale.discIndexData.discPrice[0] = chnPer*100;
-			DiscSale.discIndexData.discPrice[1] = chnPer*100;
-#else
-			DiscSale.discIndexData.discPrice[0] = tPrice*100;
-			DiscSale.discIndexData.discPrice[1] = tPrice*100;
+		Price.TotalPrice[PRICE_RESULT]	= tPrice;
+		Price.DisplayedPrice = tPrice;
+		
+		//Price.TaxPrice = longmuldiv(Price.TotalPrice[PRICE_RESULT],Price.TaxRate,10000);
+		// tax
+		if(GlbOper.priceAddExTax == 0)
+			Price.TaxPrice = longmuldiv(Price.DisplayedPrice, Price.TaxRate,10000);
+		else if(GlbOper.priceAddExTax == 1)
+			Price.TaxPrice = InternalTaxPrice(Price.TaxRate, Price.DisplayedPrice);
+		
+	}								   
+	if(!tPrice)	okFlag = OFF;
+	//Dsp_Fill_Buffer(0);
+	//Dsp_Diffuse();
+	display_lcd_clear();
+	
+	ClearPayment(TRANS_TYPE_PAY_TOTAL_NOPAY);	//Added by JJANG 20080619 return시 초기화 안되는 문제 수정
+	
+	//Added by JJANG 071123 저울나라에서 반품요청을 받아들여야 반품행위와 리포트 갱신을 한다.
+#ifdef USE_SCALE_POS_PROTOCOL
+	if(okFlag)
+	{
+		kr_flag = keyapp_ktr_req_returnid();
+		if(!kr_flag) okFlag = OFF;
+	}
 #endif
+	if(okFlag) 
+	{
+		
+		makeReturnTrData(&Price); // CJK080327
+		//ProcessAll(); //SG071113
+		
+		//		SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,FLAG_TRANS_RETURN);
+		//		FloatToString(TO_STR,priceBuf,8,DISPLAY_PRICE,&tPrice,0);
+		//ORG		FloatToString(TO_STR,priceBuf,8,DISPLAY_PRICE,&Price.DisplayedPrice,0);
+		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&Price.TotalPrice[PRICE_RESULT],0,1); //Modified by JJANG 20080104 무조건 RESULT값을 찍도록!
+		
+		display_string_pos(10, (INT8U*)global_message[MSG_RETURN]);
+		display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
+		VFD7_Diffuse();
+		
+		Cash_open();	// Modified by CJK 20051110
+		
+		//SG070214
+		ucTemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG5);
+		printReturn = (ucTemp>>5)&0x01; 
+		
+		flag1 =ON;
+		if(printReturn)
+		{
+			////SGTEST SG071113 /////////////////////////////////////////////////////////
+			if(flag2) status_scale.Weight = Price.Weight[PRICE_RESULT];
+			sale_calcprice();
+			if(flag2) Price.TotalPrice[PRICE_RESULT]=tPrice;
+			sale_display_update(0x0fff);
+			sale_display_proc(OFF);
+			
+			SaleInsertLabelData();
+			LabelData.Price.Weight[PRICE_RESULT] = -LabelData.Price.Weight[PRICE_RESULT];
+			LabelData.Price.TotalPrice[PRICE_RESULT] = -LabelData.Price.TotalPrice[PRICE_RESULT];
+			LabelData.Price.DisplayedPrice = -LabelData.Price.DisplayedPrice;
+			LabelData.Price.Qty[PRICE_RESULT] = -LabelData.Price.Qty[PRICE_RESULT];
+			
+			StartPrintFlag = ON;
+			//Modified by JJANG 20080619 clerk 0 --> status_scale.clerkid
+			flag1 =Prt_PrintStart(PRT_ITEM_RETURN_MODE, PrtStruct.Mode, status_scale.clerkid, OFF, 0, 0);
+			PrintListWaitEnd();
+			//SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,0);
+			StartPrintFlag = OFF;
+			/////////////////////////////////////////////////////////////
+			
 		}
-		//DEL071204	sale_adm_proc();
-		//DEL071204	CurPluWeightUnit = ADM_GetData.CurUnit;
-		//DEL071204	sale_calcprice();
-		//DEL071204	sale_display_total(1);
-		keyapp_callback_salemode();
-		if (tPrice==0l) {
-			DiscSale.saleGlobalOk = OFF;
-			DiscSale.saleDiscountType = DISCOUNT_NO;
+		if(flag1 == 1)
+		{
+			//makeReturnTrData(&Price); //SG070703
+			AddReturnTrData(); // CJK080327
 		}
-        DspLoadFont1(old);
+	} 
+	else 
+	{
+		caption_split_by_code(0xc801,&cap,0);//strcpy(gmsg,"Check return value");
+		Dsp_Write_String(disp_p, cap.form);
+		
+	}
+	Key_DelaySec(10,0);
+	RETURN_CANCEL:
+				display_string_pos_clear(5,20);
+	KEY_SetMode(0);
+	ClearAndStart();
+}
+
+void keyapp_cleardiscount(void)
+{
+	if (DiscSale.saleDiscountType!=DISCOUNT_NO) {
+		DiscSale.discIndexData.discTargetType=0;
+		DiscSale.saleGlobalOk         =OFF;
+		DiscSale.saleDiscountType     =DISCOUNT_NO;
+		DiscSale.saleDiscFSP	      =0;
+		Price.UnitPrice[PRICE_RESULT] =Price.UnitPrice[PRICE_ORIGIN];
+		Price.TotalPrice[PRICE_RESULT]=Price.TotalPrice[PRICE_ORIGIN];
+		//DEL070705		sale_display_discount(OFF);
+		sale_display_update(0x0fff);
+		//DEL070706		sale_display_total(0);
+	}
+}
+
+INT16S key_common_disc1=0;
+INT16S key_common_disc2=0;
+
+void keyapp_common_disc(long tPrice)
+{
+	INT8U	flag_tmp;
+	char	old;
+#ifdef USE_PRT_CHNIA_DISCOUNT_RATE
+	long chnPer;
+#endif        
+	old=DspStruct.Id1;
+	
+	DiscSale.saleGlobalOk = ON;
+	DiscSale.saleDiscountType = DISCOUNT_GLOBAL;
+	if(status_scale.cur_pluid < MISC_PLU_WEIGHT)
+	{
+		Operation.override = OFF;
+		Netweight_flag= OFF;
+		SetMaxRide(PluType());
+		SetCurRide(PluType());
 	}
 	
-	void keyapp_common_disccancel(void)
-	{
+	DiscSale.discIndexData.discTargetType = DISC_TARGET_TPRICE;
+	flag_tmp=get_global_bparam(GLOBAL_SALE_SETUP_FLAG2); // Parameter 585
+	if(OnOff(flag_tmp&0x08)) {	// u.p discount
+		DiscSale.discIndexData.discPriceType = key_common_disc1;
+		if(Operation.fixedPrice) DiscSale.discIndexData.discPriceType =key_common_disc2;
+	} else {
+		DiscSale.discIndexData.discPriceType = key_common_disc2;
+	}
+	if (key_common_disc1==DISC_PRICE_UPRICE || key_common_disc1==DISC_PRICE_USPECIAL) {
+		DiscSale.discIndexData.discTarget[0] = 0;//tPrice;//Price.TotalPrice[PRICE_RESULT];
+		DiscSale.discIndexData.discTarget[1] = 0;//tPrice;//Price.TotalPrice[PRICE_RESULT];
+		DiscSale.discIndexData.discPrice[0] = tPrice;
+		DiscSale.discIndexData.discPrice[1] = tPrice;
+	} else {
+		DiscSale.discIndexData.discTarget[0] = 0;//1;
+		DiscSale.discIndexData.discTarget[1] = 0;//1;
+#ifdef USE_PRT_CHNIA_DISCOUNT_RATE
+		chnPer = 100 - tPrice;
+		DiscSale.discIndexData.discPrice[0] = chnPer*100;
+		DiscSale.discIndexData.discPrice[1] = chnPer*100;
+#else
+		DiscSale.discIndexData.discPrice[0] = tPrice*100;
+		DiscSale.discIndexData.discPrice[1] = tPrice*100;
+#endif
+	}
+	//DEL071204	sale_adm_proc();
+	//DEL071204	CurPluWeightUnit = ADM_GetData.CurUnit;
+	//DEL071204	sale_calcprice();
+	//DEL071204	sale_display_total(1);
+	keyapp_callback_salemode();
+	if (tPrice==0l) {
 		DiscSale.saleGlobalOk = OFF;
 		DiscSale.saleDiscountType = DISCOUNT_NO;
-		//DEL071204	sale_adm_proc();
-		//DEL071204	CurPluWeightUnit = ADM_GetData.CurUnit;
-		//DEL071204	sale_calcprice();
-		//DEL071204	sale_display_total(1);
-		keyapp_callback_salemode();
 	}
-	
-	void keyapp_minus_disc(void)
-	{
-		long	result;
-		long	tPrice;
-		INT16S decpoint=DecimalPointPrice();
-		char	old;
-		INT8U	uctemp;
-		INT8U   old_key;
-		char    str[36];
-		char    char_w;
-		CAPTION_STRUCT	cap;
-		
-		if(!status_scale.cur_pluid) {
-			BuzOn(2);            
-			return;
-		}
-		
-		old_key = KEY_GetMode();
-		KEY_SetMode(1);
-		
-		//CheckZeroTotalPrice();
-		Operation.specialPriceDisc = OFF;
-		
-		
-		tPrice = 0;
-		
-		old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		
-		caption_split_by_code(0xc01c,&cap,0);
-		cap.input_length = get_global_bparam(GLOBAL_DISPLAY_UNITPRICELENGTH)+1;//unit price digit + decimal point 
-		caption_adjust(&cap, NULL);
-		
-		display_clear(DISPLAY_WEIGHT);
-		display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
-		VFD7_Diffuse();
+	DspLoadFont1(old);
+}
 
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		char_w = display_font_get_width();
-		
-		key_common_disc1=DISC_PRICE_UPRICE;
-		key_common_disc2=DISC_PRICE_TPRICE;
+void keyapp_common_disccancel(void)
+{
+	DiscSale.saleGlobalOk = OFF;
+	DiscSale.saleDiscountType = DISCOUNT_NO;
+	//DEL071204	sale_adm_proc();
+	//DEL071204	CurPluWeightUnit = ADM_GetData.CurUnit;
+	//DEL071204	sale_calcprice();
+	//DEL071204	sale_display_total(1);
+	keyapp_callback_salemode();
+}
+
+void keyapp_minus_disc(void)
+{
+	long	result;
+	long	tPrice;
+	INT16S decpoint=DecimalPointPrice();
+	char	old;
+	INT8U	uctemp;
+	INT8U   old_key;
+	char    str[36];
+	char    char_w;
+	CAPTION_STRUCT	cap;
+	
+	if(!status_scale.cur_pluid) {
+		BuzOn(2);            
+		return;
+	}
+	
+	old_key = KEY_GetMode();
+	KEY_SetMode(1);
+	
+	//CheckZeroTotalPrice();
+	Operation.specialPriceDisc = OFF;
+	
+	
+	tPrice = 0;
+	
+	old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	
+	caption_split_by_code(0xc01c,&cap,0);
+	cap.input_length = get_global_bparam(GLOBAL_DISPLAY_UNITPRICELENGTH)+1;//unit price digit + decimal point 
+	caption_adjust(&cap, NULL);
+	
+	display_clear(DISPLAY_WEIGHT);
+	display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
+	VFD7_Diffuse();
+
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	char_w = display_font_get_width();
+	
+	key_common_disc1=DISC_PRICE_UPRICE;
+	key_common_disc2=DISC_PRICE_TPRICE;
 #if !defined(USE_SINGLE_LINE_GRAPHIC)
-		keyin_setcallback(keyapp_common_disc);
+	keyin_setcallback(keyapp_common_disc);
 #endif
-		keyin_setanycheck(keyapp_common_disc);
-		//keyin_anycheck_on=1;
-		keyin_escape_clear=1;
+	keyin_setanycheck(keyapp_common_disc);
+	//keyin_anycheck_on=1;
+	keyin_escape_clear=1;
 #ifdef USE_ARAB_CONVERT
-		result = keyin_ulong(KI_UNIT, KI_FORM_ILNN, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y, DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
+	result = keyin_ulong(KI_UNIT, KI_FORM_ILNN, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y, DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
 #else
-		result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y, DSP_MSG_X, 0,KI_NOPASS );
+	result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y, DSP_MSG_X, 0,KI_NOPASS );
 #endif
-		keyin_escape_clear=0;
-		keyin_clearcallback();
-		DspLoadFont1(old);
-		if(result==KP_ENTER || result==KP_SAVE)
-		{
-			keyapp_common_disc(tPrice);
-			Operation.transactionOK = OFF;
+	keyin_escape_clear=0;
+	keyin_clearcallback();
+	DspLoadFont1(old);
+	if(result==KP_ENTER || result==KP_SAVE)
+	{
+		keyapp_common_disc(tPrice);
+		Operation.transactionOK = OFF;
 #if defined(USE_GSMART_BARCODE) || defined(USE_BARCODE_DISCOUNT_RATE)
-			status_scale.discountflag = 1;
+		status_scale.discountflag = 1;
 #endif
-		} else {
-			keyapp_common_disccancel();
+	} else {
+		keyapp_common_disccancel();
+	}
+	//DEL070705	display_lcd_clear();
+	//DEL070705	sale_display_discount(ON);
+	memset(str, 0x20, MAX_MSG_CHAR);
+	str[MAX_MSG_CHAR] = 0;
+	PutString(DSP_MSG_Y, DSP_MSG_X, str, DSP_MSG_FONT_ID, DSP_MSG_MAGY, DSP_MSG_MAGX, MAX_MSG_CHAR);
+	sale_display_update(0x0fff);
+	
+	if (result==KP_ENTER || result==KP_SAVE){
+		uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6);
+		if(!(uctemp&0x01))
+			keyapp_print(OFF);
+	}	
+	
+	if (result==KP_CLEAR || result==KP_ESC) {
+		if ((Operation.fixedAction==2) && (Operation.fixedPrice)) {
+			keyapp_fixed_price(OFF,2);
 		}
-		//DEL070705	display_lcd_clear();
-		//DEL070705	sale_display_discount(ON);
-		memset(str, 0x20, MAX_MSG_CHAR);
-		str[MAX_MSG_CHAR] = 0;
-		PutString(DSP_MSG_Y, DSP_MSG_X, str, DSP_MSG_FONT_ID, DSP_MSG_MAGY, DSP_MSG_MAGX, MAX_MSG_CHAR);
-		sale_display_update(0x0fff);
-		
-		if (result==KP_ENTER || result==KP_SAVE){
-			uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6);
-			if(!(uctemp&0x01))
-				keyapp_print(OFF);
-		}	
-		
-		if (result==KP_CLEAR || result==KP_ESC) {
-			if ((Operation.fixedAction==2) && (Operation.fixedPrice)) {
-				keyapp_fixed_price(OFF,2);
-			}
-		}
-		KEY_SetMode(old_key);
+	}
+	KEY_SetMode(old_key);
+}
+
+void keyapp_sale_percent(void)
+{
+	long	result;
+	long	tPer;
+	char	old;
+	INT8U   uctemp;
+	INT8U   old_key;
+	char    str[36];
+	char    char_w;
+	CAPTION_STRUCT	cap;
+	
+	if (!status_scale.cur_pluid) {
+		BuzOn(2);            
+		return;
 	}
 	
-	void keyapp_sale_percent(void)
-	{
-		long	result;
-		long	tPer;
-		char	old;
-		INT8U   uctemp;
-		INT8U   old_key;
-		char    str[36];
-		char    char_w;
-		CAPTION_STRUCT	cap;
-		
-		if (!status_scale.cur_pluid) {
-			BuzOn(2);            
-			return;
-		}
-		
-		old_key = KEY_GetMode();
-		KEY_SetMode(1);
-		
-		//CheckZeroTotalPrice();
-		Operation.specialPriceDisc = OFF;
-		
-		
-		tPer = 0;
-		
-		old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		
-		caption_split_by_code(0xc01d,&cap,0);
-		cap.input_length = 2;
-		caption_adjust(&cap, NULL);
-		
-		display_clear(DISPLAY_WEIGHT);
-		display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
-		VFD7_Diffuse();
-		
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		char_w = display_font_get_width();
-		
-		key_common_disc1=DISC_PRICE_UPERCENT;
-		key_common_disc2=DISC_PRICE_PERCENT;
+	old_key = KEY_GetMode();
+	KEY_SetMode(1);
+	
+	//CheckZeroTotalPrice();
+	Operation.specialPriceDisc = OFF;
+	
+	
+	tPer = 0;
+	
+	old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	
+	caption_split_by_code(0xc01d,&cap,0);
+	cap.input_length = 2;
+	caption_adjust(&cap, NULL);
+	
+	display_clear(DISPLAY_WEIGHT);
+	display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
+	VFD7_Diffuse();
+	
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	char_w = display_font_get_width();
+	
+	key_common_disc1=DISC_PRICE_UPERCENT;
+	key_common_disc2=DISC_PRICE_PERCENT;
 #if !defined(USE_SINGLE_LINE_GRAPHIC)
-		keyin_setcallback(keyapp_common_disc);
+	keyin_setcallback(keyapp_common_disc);
 #endif
-		keyin_setanycheck(keyapp_common_disc);
-		//keyin_anycheck_on=1;
-		keyin_escape_clear=1;
+	keyin_setanycheck(keyapp_common_disc);
+	//keyin_anycheck_on=1;
+	keyin_escape_clear=1;
 #ifdef USE_ARAB_CONVERT
-		result = keyin_ulong(KI_UNIT, KI_FORM_ILNN, 0,(long*)&tPer, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
+	result = keyin_ulong(KI_UNIT, KI_FORM_ILNN, 0,(long*)&tPer, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
 #else
-		result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, 0,(long*)&tPer, cap.input_length, DSP_MSG_Y,  DSP_MSG_X, 0,KI_NOPASS );
+	result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, 0,(long*)&tPer, cap.input_length, DSP_MSG_Y,  DSP_MSG_X, 0,KI_NOPASS );
 #endif
-		keyin_escape_clear=0;
-		keyin_clearcallback();
-		DspLoadFont1(old);
-		if(result==KP_ENTER || result==KP_SAVE)
-		{
-			keyapp_common_disc(tPer);
-			Operation.transactionOK = OFF; //SG060419
-#if defined(USE_GSMART_BARCODE) || defined(USE_PRT_CHNIA_DISCOUNT_RATE)
-			status_scale.discountflag = 2;
-			status_scale.discount_rate = (INT8U)tPer;
-#endif
-		} else {
-			keyapp_common_disccancel();
-		}
-		//sale_pluclear();
-		//DEL070705	display_lcd_clear();
-		//DEL070705	sale_display_discount(ON);	//clear
-		memset(str, 0x20, 35);
-		str[35] = 0;
-		//PutNSmallString(0, 0, str, 35);
-		PutString(DSP_MSG_Y, DSP_MSG_X, str, DSP_MSG_FONT_ID, DSP_MSG_MAGY, DSP_MSG_MAGX, MAX_MSG_CHAR);
-		sale_display_update(0x0fff);
-		
-		if (result==KP_ENTER || result==KP_SAVE){
-			uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6); //SG060419
-			if(!(uctemp&0x01))
-				keyapp_print(OFF);
-		}	
-		
-		if (result==KP_CLEAR || result==KP_ESC) {
-			if ((Operation.fixedAction==2) && (Operation.fixedPrice)) {
-				keyapp_fixed_price(OFF,2);
-			}
-		}
-		KEY_SetMode(old_key);
-	}
-	
-	void keyapp_sale_specialprice(void)
+	keyin_escape_clear=0;
+	keyin_clearcallback();
+	DspLoadFont1(old);
+	if(result==KP_ENTER || result==KP_SAVE)
 	{
-		long	result;
-		long	tPrice;
-		char	old;
-		INT8U   uctemp;
-		INT8U   old_key;
-		char    str[36];
-		char    char_w;
-		INT16S	decpoint = DecimalPointPrice();
-		CAPTION_STRUCT	cap;
-		
-		if (!status_scale.cur_pluid) {
-			BuzOn(2);            
-			return;
-		}
-		
-		old_key = KEY_GetMode();
-		KEY_SetMode(1);
-		
-		//CheckZeroTotalPrice();
-		Operation.specialPriceDisc = OFF;
-		
-		tPrice = 0;
-		
-		old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		
-		caption_split_by_code(0xc01e,&cap,0);
-		cap.input_length = 7;
-		caption_adjust(&cap, NULL);
-		display_clear(DISPLAY_WEIGHT);
-		display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
-		VFD7_Diffuse();	
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		char_w = display_font_get_width();
-		
-		key_common_disc1=DISC_PRICE_USPECIAL;
-		key_common_disc2=DISC_PRICE_TSPECIAL;
-#if !defined(USE_SINGLE_LINE_GRAPHIC)
-		keyin_setcallback(keyapp_common_disc);
-#endif
-		keyin_setanycheck(keyapp_common_disc);
-		//keyin_anycheck_on=1;
-		keyin_escape_clear=1;
-#ifdef USE_ARAB_CONVERT
-		result = keyin_ulong(KI_UNIT, KI_FORM_ILNN, 0,(long*)&tPrice, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
-#else
-		result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y,  DSP_MSG_X, 0,KI_NOPASS );
-#endif
-		keyin_escape_clear=0;
-		keyin_clearcallback();
-		DspLoadFont1(old);
-		if(result==KP_ENTER || result==KP_SAVE)
-		{
-			keyapp_common_disc(tPrice);
-			Operation.transactionOK = OFF; //SG060419
-#if defined(USE_GSMART_BARCODE) || defined(USE_BARCODE_DISCOUNT_RATE)
-			status_scale.discountflag = 3;
-#endif
-		} else {
-			keyapp_common_disccancel();
-		}
-		//sale_pluclear();
-		//DEL070705	display_lcd_clear();
-		//DEL070705	sale_display_discount(ON);	//clear
-		memset(str, 0x20, 35);
-		str[35] = 0;
-		//PutNSmallString(0, 0, str, 35);
-		PutString(DSP_MSG_Y, DSP_MSG_X, str, DSP_MSG_FONT_ID, DSP_MSG_MAGY, DSP_MSG_MAGX, MAX_MSG_CHAR);
-		sale_display_update(0x0fff);
-		
-		if (result==KP_ENTER || result==KP_SAVE){
-			uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6); //SG060419
-			if(!(uctemp&0x01))
-				keyapp_print(OFF);
-		}	
-		
-		if (result==KP_CLEAR || result==KP_ESC) {
-			if ((Operation.fixedAction==2) && (Operation.fixedPrice)) {
-				keyapp_fixed_price(OFF,2);
-			}
-		}
-		KEY_SetMode(old_key);
-	}
-	
-#if defined(USE_FIXED_PERCENT_KEY) || defined(USE_FIXED_PERCENT_KEY_SET)
-	void keyapp_sale_fixedpercent(long tPer)
-	{
-		long	result;
-		
-		if (!status_scale.cur_pluid) {
-			BuzOn(2);            
-			return;
-		}
-		Operation.specialPriceDisc = OFF;
-		key_common_disc1=DISC_PRICE_UPERCENT;
-		key_common_disc2=DISC_PRICE_PERCENT;
 		keyapp_common_disc(tPer);
 		Operation.transactionOK = OFF; //SG060419
-		sale_display_update(0x0fff);	//Discount sign
 #if defined(USE_GSMART_BARCODE) || defined(USE_PRT_CHNIA_DISCOUNT_RATE)
 		status_scale.discountflag = 2;
 		status_scale.discount_rate = (INT8U)tPer;
 #endif
+	} else {
+		keyapp_common_disccancel();
+	}
+	//sale_pluclear();
+	//DEL070705	display_lcd_clear();
+	//DEL070705	sale_display_discount(ON);	//clear
+	memset(str, 0x20, 35);
+	str[35] = 0;
+	//PutNSmallString(0, 0, str, 35);
+	PutString(DSP_MSG_Y, DSP_MSG_X, str, DSP_MSG_FONT_ID, DSP_MSG_MAGY, DSP_MSG_MAGX, MAX_MSG_CHAR);
+	sale_display_update(0x0fff);
+	
+	if (result==KP_ENTER || result==KP_SAVE){
+		uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6); //SG060419
+		if(!(uctemp&0x01))
+			keyapp_print(OFF);
+	}	
+	
+	if (result==KP_CLEAR || result==KP_ESC) {
+		if ((Operation.fixedAction==2) && (Operation.fixedPrice)) {
+			keyapp_fixed_price(OFF,2);
+		}
+	}
+	KEY_SetMode(old_key);
+}
+
+void keyapp_sale_specialprice(void)
+{
+	long	result;
+	long	tPrice;
+	char	old;
+	INT8U   uctemp;
+	INT8U   old_key;
+	char    str[36];
+	char    char_w;
+	INT16S	decpoint = DecimalPointPrice();
+	CAPTION_STRUCT	cap;
+	
+	if (!status_scale.cur_pluid) {
+		BuzOn(2);            
+		return;
+	}
+	
+	old_key = KEY_GetMode();
+	KEY_SetMode(1);
+	
+	//CheckZeroTotalPrice();
+	Operation.specialPriceDisc = OFF;
+	
+	tPrice = 0;
+	
+	old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	
+	caption_split_by_code(0xc01e,&cap,0);
+	cap.input_length = 7;
+	caption_adjust(&cap, NULL);
+	display_clear(DISPLAY_WEIGHT);
+	display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
+	VFD7_Diffuse();	
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	char_w = display_font_get_width();
+	
+	key_common_disc1=DISC_PRICE_USPECIAL;
+	key_common_disc2=DISC_PRICE_TSPECIAL;
+#if !defined(USE_SINGLE_LINE_GRAPHIC)
+	keyin_setcallback(keyapp_common_disc);
+#endif
+	keyin_setanycheck(keyapp_common_disc);
+	//keyin_anycheck_on=1;
+	keyin_escape_clear=1;
+#ifdef USE_ARAB_CONVERT
+	result = keyin_ulong(KI_UNIT, KI_FORM_ILNN, 0,(long*)&tPrice, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
+#else
+	result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y,  DSP_MSG_X, 0,KI_NOPASS );
+#endif
+	keyin_escape_clear=0;
+	keyin_clearcallback();
+	DspLoadFont1(old);
+	if(result==KP_ENTER || result==KP_SAVE)
+	{
+		keyapp_common_disc(tPrice);
+		Operation.transactionOK = OFF; //SG060419
+#if defined(USE_GSMART_BARCODE) || defined(USE_BARCODE_DISCOUNT_RATE)
+		status_scale.discountflag = 3;
+#endif
+	} else {
+		keyapp_common_disccancel();
+	}
+	//sale_pluclear();
+	//DEL070705	display_lcd_clear();
+	//DEL070705	sale_display_discount(ON);	//clear
+	memset(str, 0x20, 35);
+	str[35] = 0;
+	//PutNSmallString(0, 0, str, 35);
+	PutString(DSP_MSG_Y, DSP_MSG_X, str, DSP_MSG_FONT_ID, DSP_MSG_MAGY, DSP_MSG_MAGX, MAX_MSG_CHAR);
+	sale_display_update(0x0fff);
+	
+	if (result==KP_ENTER || result==KP_SAVE){
+		uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6); //SG060419
+		if(!(uctemp&0x01))
+			keyapp_print(OFF);
+	}	
+	
+	if (result==KP_CLEAR || result==KP_ESC) {
+		if ((Operation.fixedAction==2) && (Operation.fixedPrice)) {
+			keyapp_fixed_price(OFF,2);
+		}
+	}
+	KEY_SetMode(old_key);
+}
+
+#if defined(USE_FIXED_PERCENT_KEY) || defined(USE_FIXED_PERCENT_KEY_SET)
+void keyapp_sale_fixedpercent(long tPer)
+{
+	long	result;
+	
+	if (!status_scale.cur_pluid) {
+		BuzOn(2);            
+		return;
+	}
+	Operation.specialPriceDisc = OFF;
+	key_common_disc1=DISC_PRICE_UPERCENT;
+	key_common_disc2=DISC_PRICE_PERCENT;
+	keyapp_common_disc(tPer);
+	Operation.transactionOK = OFF; //SG060419
+	sale_display_update(0x0fff);	//Discount sign
+#if defined(USE_GSMART_BARCODE) || defined(USE_PRT_CHNIA_DISCOUNT_RATE)
+	status_scale.discountflag = 2;
+	status_scale.discount_rate = (INT8U)tPer;
+#endif
+}
+#endif
+
+#ifdef USE_CHN_FONT
+char DisplayMsg_CantChangeType[] = {"Can't Change PLU Type"};
+#else
+char DisplayMsg_CantChangeType[] = {"상품종류 변경 불가"};
+#endif
+
+extern INT16S	GetDiscountInfo(INT16S pluType);
+extern void	sale_display_fixed_price(INT16S display);
+
+void keyapp_fixed_price(INT16S beep,INT16S mode)	// nonfood모드로
+{
+	INT8U	pluType,byte;
+	
+#ifdef DISABLE_PLUTYPE_CHANGE
+	display_message_page_mid(DisplayMsg_CantChangeType);
+	return;
+#endif
+	if(beep)
+	{
+		BuzOn(1);
+		if(CheckCanadianTareAction())
+		{
+			MsgCanadianTare();
+			return;
+		}
+		
+	}
+	if(!status_scale.cur_pluid)	return;
+#ifdef USE_FIXED_PLUTYPE//USE_EMART_NETWORK
+	if (status_scale.Plu.disable_typechange)	// 변경불가 플래그가 있으면
+	{
+		//DisplayMsg(global_message[MSG_CANT_CHANGE_TYPE]);
+		display_message_page_mid(DisplayMsg_CantChangeType);
+		return;
 	}
 #endif
-	
-#ifdef USE_CHN_FONT
-	char DisplayMsg_CantChangeType[] = {"Can't Change PLU Type"};
-#else
-	char DisplayMsg_CantChangeType[] = {"상품종류 변경 불가"};
+	if(MISC_PLU_WEIGHT <= status_scale.cur_pluid)	return;
+	pluType = PluType();
+	if(Operation.fixedPrice) {
+		Operation.fixedPrice = 0;
+		GetDiscountInfo(pluType);
+		//DEL070705		MsgDisplayTime = 1;
+		//DEL070705		sale_display_discount(OFF);
+		//DEL070705		MsgDisplayTime = 0;
+		Operation.fixedAction=0;
+	} else {
+		Operation.fixedPrice = 1;
+		Operation.fixedAction=(INT8U)mode;
+	}
+	if(Startup.country==COUNTRY_KR) {	// Added by CJK 20060508 : Only Korea
+		if (mode!=2) {	// 정가키를 눌렀을 때만
+			if (GlbOper.saveChangeType) {
+				byte = OnOff(Operation.fixedPrice);
+				plu_set_field(status_scale.Plu.address-1, PTYPE_FIXED_PRICE,&byte);// Save
+				if (network_status.service_flag&0x20)	// send plu
+				{
+					commun_net_mask(0, &status_scale.Plu.address, 0xff, 1);
+				}
+			}
+			status_scale.Plu.fixed_price = Operation.fixedPrice;
+		}
+	}
+	sale_display_update(UPDATE_CENTER|UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
+	//DEL070706	sale_display_fixed_price(OFF);
+	SetMaxRide(pluType);
+	SetCurRide(pluType);
+}
+
+void keyapp_type(INT16S keyFlag)
+{
+	INT8U	pluType;
+	CAPTION_STRUCT cap;
+	INT8U flagSkipSettingRide = OFF;
+#ifdef USE_FIXED_PLUTYPE
+	INT8U pluFixedCntType;
 #endif
-	
-	extern INT16S	GetDiscountInfo(INT16S pluType);
-	extern void	sale_display_fixed_price(INT16S display);
-	
-	void keyapp_fixed_price(INT16S beep,INT16S mode)	// nonfood모드로
+#ifdef USE_DIVIDING_FUNCTION
+	if(status_scale.divisor) return;
+#endif
+	if(keyFlag)
 	{
-		INT8U	pluType,byte;
-		
+		//BuzOn(1);
 #ifdef DISABLE_PLUTYPE_CHANGE
 		display_message_page_mid(DisplayMsg_CantChangeType);
 		return;
 #endif
-		if(beep)
+		
+		if(CheckCanadianTareAction())
 		{
-			BuzOn(1);
-			if(CheckCanadianTareAction())
-			{
-				MsgCanadianTare();
-				return;
-			}
-			
+			MsgCanadianTare();
+			return;
+		}
+		//if(DiscSale.saleDiscountType == DISCOUNT_INDEX)
+		if(Operation.discountInfo)
+		{
+			caption_split_by_code(0xC80E,&cap,0);
+			DisplayMsg(cap.form);//"Discount PLU"
+			return;
 		}
 		if(!status_scale.cur_pluid)	return;
-#ifdef USE_FIXED_PLUTYPE//USE_EMART_NETWORK
-		if (status_scale.Plu.disable_typechange)	// 변경불가 플래그가 있으면
+#ifdef USE_FIXED_PLUTYPE
+		if(status_scale.Plu.disable_typechange && (status_scale.Plu.ptype == PLU_BY_COUNT))
 		{
-			//DisplayMsg(global_message[MSG_CANT_CHANGE_TYPE]);
+			pluFixedCntType = ON;	//plu_callbykey 에서 모든 FIXED PLU TYPE을 NON FIXED 로 만들기 때문에 구분하기 위함. 
+		}
+		else
+		{
+			pluFixedCntType = OFF;
+		}
+		if (status_scale.Plu.disable_typechange && !pluFixedCntType)	// 변경 불가 플래그가 있으면 
+		{
+			//DisplayMsg(global_message[MSG_CANT_CHANGE_TYPE]);//"Discount PLU"
 			display_message_page_mid(DisplayMsg_CantChangeType);
 			return;
 		}
 #endif
-		if(MISC_PLU_WEIGHT <= status_scale.cur_pluid)	return;
-		pluType = PluType();
-		if(Operation.fixedPrice) {
-			Operation.fixedPrice = 0;
-			GetDiscountInfo(pluType);
-			//DEL070705		MsgDisplayTime = 1;
-			//DEL070705		sale_display_discount(OFF);
-			//DEL070705		MsgDisplayTime = 0;
-			Operation.fixedAction=0;
-		} else {
-			Operation.fixedPrice = 1;
-			Operation.fixedAction=(INT8U)mode;
-		}
-		if(Startup.country==COUNTRY_KR) {	// Added by CJK 20060508 : Only Korea
-			if (mode!=2) {	// 정가키를 눌렀을 때만
-				if (GlbOper.saveChangeType) {
-					byte = OnOff(Operation.fixedPrice);
-					plu_set_field(status_scale.Plu.address-1, PTYPE_FIXED_PRICE,&byte);// Save
-					if (network_status.service_flag&0x20)	// send plu
-					{
-						commun_net_mask(0, &status_scale.Plu.address, 0xff, 1);
-					}
-				}
-				status_scale.Plu.fixed_price = Operation.fixedPrice;
-			}
-		}
-		sale_display_update(UPDATE_CENTER|UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
-		//DEL070706	sale_display_fixed_price(OFF);
-		SetMaxRide(pluType);
-		SetCurRide(pluType);
+		if(MISC_PLU_WEIGHT <=status_scale.cur_pluid)	return;
+		//if(PluType() == PLU_FIXED)	return;// fixed price key로 풀어라
+		//if(Operation.fixedPrice)	return;
+		
+		//if(!permission_check(PMS_KEY_TYPE_CHANGE))	return;
+		DiscSale.saleDiscountType=DISCOUNT_NO;
+		DiscSale.saleDiscFSP =0;
 	}
-	
-	void keyapp_type(INT16S keyFlag)
-	{
-		INT8U	pluType;
-		CAPTION_STRUCT cap;
-		INT8U flagSkipSettingRide = OFF;
-#ifdef USE_FIXED_PLUTYPE
-		INT8U pluFixedCntType;
-#endif
-#ifdef USE_DIVIDING_FUNCTION
-		if(status_scale.divisor) return;
-#endif
-		if(keyFlag)
+	if(Operation.fixedPrice) {
+		keyapp_fixed_price(OFF,0);
+		ChangePluType(PLU_BY_COUNT);
+	} else {
+		switch(PluType())
 		{
-			//BuzOn(1);
-#ifdef DISABLE_PLUTYPE_CHANGE
-			display_message_page_mid(DisplayMsg_CantChangeType);
-			return;
-#endif
-			
-			if(CheckCanadianTareAction())
-			{
-				MsgCanadianTare();
-				return;
-			}
-			//if(DiscSale.saleDiscountType == DISCOUNT_INDEX)
-			if(Operation.discountInfo)
-			{
-				caption_split_by_code(0xC80E,&cap,0);
-				DisplayMsg(cap.form);//"Discount PLU"
-				return;
-			}
-			if(!status_scale.cur_pluid)	return;
+			case PLU_BY_WEIGHT:
+				if(PluType() == status_scale.Plu.ptype)	// by-weight plu
+				{
+					//if(GlbOper.enableByCount)
+					//	ChangePluType(PLU_BY_PCS);
+					//else
+					ChangePluType(PLU_BY_COUNT);
+					status_scale.cur_qty = 1;
+					status_scale.cur_pcs = 1;
+				}
+				else
+				{
+					ChangePluType(status_scale.Plu.ptype);
+				}
+				
+				break;
 #ifdef USE_FIXED_PLUTYPE
-			if(status_scale.Plu.disable_typechange && (status_scale.Plu.ptype == PLU_BY_COUNT))
-			{
-				pluFixedCntType = ON;	//plu_callbykey 에서 모든 FIXED PLU TYPE을 NON FIXED 로 만들기 때문에 구분하기 위함. 
-			}
-			else
-			{
-				pluFixedCntType = OFF;
-			}
-			if (status_scale.Plu.disable_typechange && !pluFixedCntType)	// 변경 불가 플래그가 있으면 
-			{
-				//DisplayMsg(global_message[MSG_CANT_CHANGE_TYPE]);//"Discount PLU"
-				display_message_page_mid(DisplayMsg_CantChangeType);
-				return;
-			}
-#endif
-			if(MISC_PLU_WEIGHT <=status_scale.cur_pluid)	return;
-			//if(PluType() == PLU_FIXED)	return;// fixed price key로 풀어라
-			//if(Operation.fixedPrice)	return;
-			
-			//if(!permission_check(PMS_KEY_TYPE_CHANGE))	return;
-			DiscSale.saleDiscountType=DISCOUNT_NO;
-			DiscSale.saleDiscFSP =0;
-		}
-		if(Operation.fixedPrice) {
-			keyapp_fixed_price(OFF,0);
-			ChangePluType(PLU_BY_COUNT);
-		} else {
-			switch(PluType())
-			{
-				case PLU_BY_WEIGHT:
-					if(PluType() == status_scale.Plu.ptype)	// by-weight plu
-					{
-						//if(GlbOper.enableByCount)
-						//	ChangePluType(PLU_BY_PCS);
-						//else
-						ChangePluType(PLU_BY_COUNT);
-						status_scale.cur_qty = 1;
-						status_scale.cur_pcs = 1;
-					}
-					else
-					{
-						ChangePluType(status_scale.Plu.ptype);
-					}
-					
-					break;
-#ifdef USE_FIXED_PLUTYPE
-				case PLU_BY_PCS:
-					if (status_scale.cur_ride < 3)	// 2:change unit count, 3:change unit price
-					{
-						status_scale.cur_ride++;
-						flagSkipSettingRide = ON;
-					}
-					else ChangePluType(PLU_BY_WEIGHT);
-					break;
-				case PLU_BY_COUNT:
-					if (status_scale.cur_ride < 2)	// 2:change unit count
-					{
-						status_scale.cur_ride++;
-						flagSkipSettingRide = ON;
-					}
-					else 
-					{
-						if(!pluFixedCntType)
-						{
-							ChangePluType(PLU_BY_WEIGHT);
-						}
-					}
-					break;
-#else
-				case PLU_BY_PCS:
-				case PLU_BY_COUNT:
-					if(PluType() == status_scale.Plu.ptype)	// by-pcs plu or by-count plu
+			case PLU_BY_PCS:
+				if (status_scale.cur_ride < 3)	// 2:change unit count, 3:change unit price
+				{
+					status_scale.cur_ride++;
+					flagSkipSettingRide = ON;
+				}
+				else ChangePluType(PLU_BY_WEIGHT);
+				break;
+			case PLU_BY_COUNT:
+				if (status_scale.cur_ride < 2)	// 2:change unit count
+				{
+					status_scale.cur_ride++;
+					flagSkipSettingRide = ON;
+				}
+				else 
+				{
+					if(!pluFixedCntType)
 					{
 						ChangePluType(PLU_BY_WEIGHT);
 					}
-					else					// by-weight plu
-					{
-						ChangePluType(status_scale.Plu.ptype);
-					}
-					break;
-#endif
-			}
-		}
-		pluType = PluType();
-		if (!flagSkipSettingRide)
-		{
-			SetMaxRide(pluType);
-			SetCurRide(pluType);
-		}
-		GetDiscountInfo(pluType);
-		sale_display_update(0xfff);
-		sale_display_tare_eu();
-		//strcpy(gmsg,"keyapp_type");
-		//PutNSmallString(1,0,gmsg,30);
-	}
-	
-	void keyapp_edit_sellbydate(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_sellbydate(status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-	
-	// keyapp_origin()
-	void keyapp_edit_origin(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_origin((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-	
-	// keyapp_pluitem
-	void keyapp_edit_item(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_item((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		keyapp_pluno((INT8U)status_scale.departmentid,status_scale.cur_pluid,OFF);	// Added by CJK 20060607
-	}
-	
-	void keyapp_edit_price(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_price((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		keyapp_pluno((INT8U)status_scale.departmentid,status_scale.cur_pluid,OFF);	// Added by CJK 20060607
-	}
-	
-	//SG060309
-	void keyapp_edit_packeddate(void)
-	{
-		POINT disp_p;
-		char format[34], ret_string[20],s_date[20],s_time[20];
-		INT8U date_form;		//  Yxxx xxxx  :  Y = Year format
-		//  xMxx xxxx  :  M = month format
-		//  xxDD xxxx	: DD = Date format
-		//  xxxx xTTTT :  T = Time format
-		//	INT8U key_mode, sep_date, sep_time,date_type;
-		INT8U key_mode, date_type;    
-		INT16S w,m1,m2,m3;
-		//	INT16U  i16umax, i16umin;
-		INT16U  max_id, cur_id, i,  result, line_id;
-		INT16U  page_max, page_cur;
-		INT16U  year,month,day;
-		RTC_STRUCT time_str;
-		INT8U   old_font;
-		//	INT16U  cap_id[]={0x3841,0x3842};
-		INT16U  cap_id[]={0x3841};
-		CAPTION_STRUCT sub_cap;
-		char   str[48];
-		char   string_buf[50];
-#ifdef USE_PERSIAN_CALENDAR
-		INT16U perCentury;
-#endif
-		
-		//	max_id   = 2;
-		max_id   = 1;
-		
-		page_max = max_id/Startup.line_max;
-		if (max_id%Startup.line_max) page_max++;
-		
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		date_form = get_global_bparam(GLOBAL_DATETIME_MODE);
-		//	sep_date  = get_global_bparam(GLOBAL_DATE_SEPARATOR);
-		//	sep_time  = get_global_bparam(GLOBAL_TIME_SEPARATOR);
-		
-		date_type = ((date_form>>4)& 0x03);
-		
-		cur_id     = 0;
-		page_cur   = 0;
-		line_id    = 0;
-		disp_p = point(0, 0);
-		PAGE_VIEW:
-					
-					Report_GetCurTime(&time_str,1); //SG060310
-		
-		year  = (INT16U)time_str.year;
-		month = (INT16U)time_str.month; 
-		day   = (INT16U)time_str.date;
-		
-		switch (date_type) {
-			default:
-			case 0:	caption_split_by_code(0x384A, &sub_cap,0); // 0
-			sprintf(s_date,"%02d.%02d.%02d",year,month,day);
-			break;
-			case 1:						 // 1
-				caption_split_by_code(0x384B, &sub_cap,0);
-				sprintf(s_date,"%02d.%02d.%02d",month,day,year);
-				break;
-			case 2:
-			case 3:	caption_split_by_code(0x384D, &sub_cap,0);
-			sprintf(s_date,"%02d.%02d.%02d",day,month,year);
-			break;
-		}
-		sprintf(s_time,"%02d:%02d:%02d",mPackDate.hour,mPackDate.min,mPackDate.sec);
-		for (i=0; i<=Startup.line_max; i++) {
-			cur_id = (page_cur*Startup.line_max) + i;
-			if (cur_id>=max_id) break;
-			if (i==0) {
-				//display_title_page_change(0x3743, page_cur+1, page_max);
-				Dsp_Fill_Buffer(0);
-				sprintf(string_buf, "   ");
-				caption_get_name(0x3743, string_buf+3);
-				menu_writetitle_str(&string_buf[3]);
-				menu_writepage(1, 1);
-				Dsp_Diffuse();
-			}
-			caption_split_by_code(cap_id[cur_id],&cap,0);
-			if ((cur_id==0) || (cur_id==1)) {
-				//			strcat((char *)cap.form,"[");
-				strcat((char *)cap.form,"  ");
-				cap.input_x = strlen(cap.form);
-				if (cur_id==0) strcat((char *)cap.form,s_date);
-				else           strcat((char *)cap.form,s_time);
-				
-				if (cur_id==0) {
-					Dsp_Write_String(disp_p,sub_cap.form);
 				}
-				display_string_pos((DISPLAY_START_POS_WEIGHT+strlen(&string_buf[3])), (INT8U*)cap.form);
-			} 
-			else 
-			{
-				caption_adjust(&cap,NULL);
-				strcpy(str,cap.form);
-			}
-			
-			VFD7_Diffuse();
-			strcpy(format,"99.99.99");
-			switch (cur_id) {
-				case 0: sprintf(ret_string,"%s",s_date); break;
-				case 1: sprintf(ret_string,"%s",s_time); break;
-			}
-			switch (cap.input_itype) {
-				//			case 'N': result = keyin_ulong(KI_GRAPHIC, KI_FORM_NORMAL, 0,(long*)&ret_long,
-				//							cap.input_dlength, (i+Startup.menu_type)*Startup.menu_ygap, cap.input_x*Startup.menu_xgap, 0,KI_PASS );
-				//					   keyin_clearcallback();
-				//				   break;
-				case 'S': result = keyin_string(KI_FREE_MODE, KI_TOTAL,NULL, (HUGEDATA INT8U*)ret_string,cap.input_length,
-						cap.input_dlength, (i+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap, 0, 0, KI_PASS);
 				break;
-				case 'D':
-				case 'T': result = keyin_string(KI_IP_MODE, KI_TOTAL,(HUGEDATA INT8U*)format, (HUGEDATA INT8U*)ret_string,8,8,
-						(i+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap,	0, 0, KI_PASS);
+#else
+			case PLU_BY_PCS:
+			case PLU_BY_COUNT:
+				if(PluType() == status_scale.Plu.ptype)	// by-pcs plu or by-count plu
+				{
+					ChangePluType(PLU_BY_WEIGHT);
+				}
+				else					// by-weight plu
+				{
+					ChangePluType(status_scale.Plu.ptype);
+				}
 				break;
-			}
+#endif
 		}
-		PAGE_INPUT:
-					cur_id=(page_cur*Startup.line_max)+line_id;
-		if (cur_id>=max_id) {
-			line_id=max_id%Startup.line_max;
-			cur_id =max_id-1;
+	}
+	pluType = PluType();
+	if (!flagSkipSettingRide)
+	{
+		SetMaxRide(pluType);
+		SetCurRide(pluType);
+	}
+	GetDiscountInfo(pluType);
+	sale_display_update(0xfff);
+	sale_display_tare_eu();
+	//strcpy(gmsg,"keyapp_type");
+	//PutNSmallString(1,0,gmsg,30);
+}
+
+void keyapp_edit_sellbydate(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_sellbydate(status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+
+// keyapp_origin()
+void keyapp_edit_origin(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_origin((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+
+// keyapp_pluitem
+void keyapp_edit_item(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_item((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	keyapp_pluno((INT8U)status_scale.departmentid,status_scale.cur_pluid,OFF);	// Added by CJK 20060607
+}
+
+void keyapp_edit_price(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_price((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	keyapp_pluno((INT8U)status_scale.departmentid,status_scale.cur_pluid,OFF);	// Added by CJK 20060607
+}
+
+//SG060309
+void keyapp_edit_packeddate(void)
+{
+	POINT disp_p;
+	char format[34], ret_string[20],s_date[20],s_time[20];
+	INT8U date_form;		//  Yxxx xxxx  :  Y = Year format
+	//  xMxx xxxx  :  M = month format
+	//  xxDD xxxx	: DD = Date format
+	//  xxxx xTTTT :  T = Time format
+	//	INT8U key_mode, sep_date, sep_time,date_type;
+	INT8U key_mode, date_type;    
+	INT16S w,m1,m2,m3;
+	//	INT16U  i16umax, i16umin;
+	INT16U  max_id, cur_id, i,  result, line_id;
+	INT16U  page_max, page_cur;
+	INT16U  year,month,day;
+	RTC_STRUCT time_str;
+	INT8U   old_font;
+	//	INT16U  cap_id[]={0x3841,0x3842};
+	INT16U  cap_id[]={0x3841};
+	CAPTION_STRUCT sub_cap;
+	char   str[48];
+	char   string_buf[50];
+#ifdef USE_PERSIAN_CALENDAR
+	INT16U perCentury;
+#endif
+	
+	//	max_id   = 2;
+	max_id   = 1;
+	
+	page_max = max_id/Startup.line_max;
+	if (max_id%Startup.line_max) page_max++;
+	
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	date_form = get_global_bparam(GLOBAL_DATETIME_MODE);
+	//	sep_date  = get_global_bparam(GLOBAL_DATE_SEPARATOR);
+	//	sep_time  = get_global_bparam(GLOBAL_TIME_SEPARATOR);
+	
+	date_type = ((date_form>>4)& 0x03);
+	
+	cur_id     = 0;
+	page_cur   = 0;
+	line_id    = 0;
+	disp_p = point(0, 0);
+	PAGE_VIEW:
+				
+				Report_GetCurTime(&time_str,1); //SG060310
+	
+	year  = (INT16U)time_str.year;
+	month = (INT16U)time_str.month; 
+	day   = (INT16U)time_str.date;
+	
+	switch (date_type) {
+		default:
+		case 0:	caption_split_by_code(0x384A, &sub_cap,0); // 0
+		sprintf(s_date,"%02d.%02d.%02d",year,month,day);
+		break;
+		case 1:						 // 1
+			caption_split_by_code(0x384B, &sub_cap,0);
+			sprintf(s_date,"%02d.%02d.%02d",month,day,year);
+			break;
+		case 2:
+		case 3:	caption_split_by_code(0x384D, &sub_cap,0);
+		sprintf(s_date,"%02d.%02d.%02d",day,month,year);
+		break;
+	}
+	sprintf(s_time,"%02d:%02d:%02d",mPackDate.hour,mPackDate.min,mPackDate.sec);
+	for (i=0; i<=Startup.line_max; i++) {
+		cur_id = (page_cur*Startup.line_max) + i;
+		if (cur_id>=max_id) break;
+		if (i==0) {
+			//display_title_page_change(0x3743, page_cur+1, page_max);
+			Dsp_Fill_Buffer(0);
+			sprintf(string_buf, "   ");
+			caption_get_name(0x3743, string_buf+3);
+			menu_writetitle_str(&string_buf[3]);
+			menu_writepage(1, 1);
+			Dsp_Diffuse();
 		}
 		caption_split_by_code(cap_id[cur_id],&cap,0);
-		//	i16umax = (INT16U)cap.input_max;
-		//	i16umin = (INT16U)cap.input_min;
-		disp_p = point(0, 0);
 		if ((cur_id==0) || (cur_id==1)) {
+			//			strcat((char *)cap.form,"[");
 			strcat((char *)cap.form,"  ");
+			cap.input_x = strlen(cap.form);
 			if (cur_id==0) strcat((char *)cap.form,s_date);
 			else           strcat((char *)cap.form,s_time);
 			
@@ -6488,646 +6442,601 @@ void start_external_print(INT16U count)
 		else 
 		{
 			caption_adjust(&cap,NULL);
+			strcpy(str,cap.form);
 		}
 		
 		VFD7_Diffuse();
-		
 		strcpy(format,"99.99.99");
+		switch (cur_id) {
+			case 0: sprintf(ret_string,"%s",s_date); break;
+			case 1: sprintf(ret_string,"%s",s_time); break;
+		}
+		switch (cap.input_itype) {
+			//			case 'N': result = keyin_ulong(KI_GRAPHIC, KI_FORM_NORMAL, 0,(long*)&ret_long,
+			//							cap.input_dlength, (i+Startup.menu_type)*Startup.menu_ygap, cap.input_x*Startup.menu_xgap, 0,KI_PASS );
+			//					   keyin_clearcallback();
+			//				   break;
+			case 'S': result = keyin_string(KI_FREE_MODE, KI_TOTAL,NULL, (HUGEDATA INT8U*)ret_string,cap.input_length,
+					cap.input_dlength, (i+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap, 0, 0, KI_PASS);
+			break;
+			case 'D':
+			case 'T': result = keyin_string(KI_IP_MODE, KI_TOTAL,(HUGEDATA INT8U*)format, (HUGEDATA INT8U*)ret_string,8,8,
+					(i+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap,	0, 0, KI_PASS);
+			break;
+		}
+	}
+	PAGE_INPUT:
+				cur_id=(page_cur*Startup.line_max)+line_id;
+	if (cur_id>=max_id) {
+		line_id=max_id%Startup.line_max;
+		cur_id =max_id-1;
+	}
+	caption_split_by_code(cap_id[cur_id],&cap,0);
+	//	i16umax = (INT16U)cap.input_max;
+	//	i16umin = (INT16U)cap.input_min;
+	disp_p = point(0, 0);
+	if ((cur_id==0) || (cur_id==1)) {
+		strcat((char *)cap.form,"  ");
+		if (cur_id==0) strcat((char *)cap.form,s_date);
+		else           strcat((char *)cap.form,s_time);
 		
-		PAGE_KI_IN:
-					switch (cur_id) {
-						case 0:	sprintf(ret_string,"%s",s_date); break;
-						case 1:	sprintf(ret_string,"%s",s_time); break;
-					}
-					switch (cap.input_itype) 
-					{
-						/*
-						 case 'N': result = keyin_ulong(KI_GRAPHIC, 
-						 KI_FORM_NORMAL, 
-						 0,
-						 (long*)&ret_long,
-						 cap.input_dlength, 
-						 (line_id+Startup.menu_type)*Startup.menu_ygap, 
-						 cap.input_x*Startup.menu_xgap, 
-						 0,
-						 KI_NOPASS );
-						 keyin_clearcallback();
-						 if(result == KP_ESC)	goto RET_ESC;
-						 
-						 cap.input_max = i16umax;
-						 cap.input_min = i16umin;
-						 
-						 if( input_range_check(ret_long, cap.input_min, cap.input_max) )
-						 {
-						 ret_long=ret_long%100;
-						 if (cur_id>=2) date_temp=(INT8U)ret_long;
-						 switch (cur_id) {
-						 case 2: date_form &= 0xbf;
-						 if (date_temp) date_form|=0x40;
-						 break; // Month Format
-						 case 3: date_form &= 0x7f;
-						 if (date_temp) date_form|=0x80;
-						 break; // Year  Format
-						 case 4: date_form &= 0xf0;
-						 date_form |= date_temp;
-						 break;    // Time Format
-						 }
-						 } 
-						 else 
-						 {
-						 error_display_form1(0, cap.input_min, cap.input_max);
-						 goto PAGE_VIEW;
-						 }
-						 break;
-						 */
-						case 'S': result = keyin_string(KI_FREE_MODE, KI_TOTAL,NULL, (HUGEDATA INT8U*)ret_string,cap.input_length,
-								cap.input_dlength, (line_id+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap, 0, 0, KI_NOPASS);
+		if (cur_id==0) {
+			Dsp_Write_String(disp_p,sub_cap.form);
+		}
+		display_string_pos((DISPLAY_START_POS_WEIGHT+strlen(&string_buf[3])), (INT8U*)cap.form);
+	} 
+	else 
+	{
+		caption_adjust(&cap,NULL);
+	}
+	
+	VFD7_Diffuse();
+	
+	strcpy(format,"99.99.99");
+	
+	PAGE_KI_IN:
+				switch (cur_id) {
+					case 0:	sprintf(ret_string,"%s",s_date); break;
+					case 1:	sprintf(ret_string,"%s",s_time); break;
+				}
+				switch (cap.input_itype) 
+				{
+					/*
+						case 'N': result = keyin_ulong(KI_GRAPHIC, 
+						KI_FORM_NORMAL, 
+						0,
+						(long*)&ret_long,
+						cap.input_dlength, 
+						(line_id+Startup.menu_type)*Startup.menu_ygap, 
+						cap.input_x*Startup.menu_xgap, 
+						0,
+						KI_NOPASS );
+						keyin_clearcallback();
 						if(result == KP_ESC)	goto RET_ESC;
-						switch(cur_id)
+						
+						cap.input_max = i16umax;
+						cap.input_min = i16umin;
+						
+						if( input_range_check(ret_long, cap.input_min, cap.input_max) )
 						{
-							case 5: break;//sep_date = ret_string[0]; break;
-							case 6: break;//sep_time = ret_string[0]; break;
+						ret_long=ret_long%100;
+						if (cur_id>=2) date_temp=(INT8U)ret_long;
+						switch (cur_id) {
+						case 2: date_form &= 0xbf;
+						if (date_temp) date_form|=0x40;
+						break; // Month Format
+						case 3: date_form &= 0x7f;
+						if (date_temp) date_form|=0x80;
+						break; // Year  Format
+						case 4: date_form &= 0xf0;
+						date_form |= date_temp;
+						break;    // Time Format
+						}
+						} 
+						else 
+						{
+						error_display_form1(0, cap.input_min, cap.input_max);
+						goto PAGE_VIEW;
 						}
 						break;
-						case 'D':
-						case 'T':
-							result = keyin_string(KI_IP_MODE, KI_TOTAL,(HUGEDATA INT8U*)format, (HUGEDATA INT8U*)ret_string,8,8,
-									(line_id+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap, 0, 0, KI_NOPASS);
-							if(result == KP_ESC)	goto RET_ESC;
-							if (cap.input_itype=='T') {
-								if( !(input_time_check_str((char*)&ret_string,0)) ) {
-									BuzOn(2);
-									goto PAGE_KI_IN;
-								}
-							} else {
-								for(w=0; w<8; w++) ret_string[w] -= '0';
-								m1 = ret_string[0]*10 + ret_string[1];
-								m2 = ret_string[3]*10 + ret_string[4];
-								m3 = ret_string[6]*10 + ret_string[7];
-								switch (date_type) {
-									case 0: year=(INT16U)m1; month=(INT16U)m2; day=(INT16U)m3;break;
-									case 1: year=(INT16U)m3; month=(INT16U)m1; day=(INT16U)m2; break;
-									case 2:
-									case 3: year=(INT16U)m3; month=(INT16U)m2; day=(INT16U)m1; break;
-								}
-								mPackDate.year =(INT8U)year ;
-								mPackDate.month=(INT8U)month;
-								mPackDate.date =(INT8U)day  ;
-								
-							}
-							break;
+						*/
+					case 'S': result = keyin_string(KI_FREE_MODE, KI_TOTAL,NULL, (HUGEDATA INT8U*)ret_string,cap.input_length,
+							cap.input_dlength, (line_id+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap, 0, 0, KI_NOPASS);
+					if(result == KP_ESC)	goto RET_ESC;
+					switch(cur_id)
+					{
+						case 5: break;//sep_date = ret_string[0]; break;
+						case 6: break;//sep_time = ret_string[0]; break;
 					}
-					switch(result) {
-						case KP_ARROW_DN:
-						case KP_ENTER:
-							if (cur_id<max_id-1) {
-								if (line_id<Startup.line_max-1) {
-									line_id++;
-									goto PAGE_INPUT;
-								} else {
-									if (page_cur<page_max-1) {
-										line_id=0;
-										page_cur++;
-										goto PAGE_VIEW;
-									}
-								}
+					break;
+					case 'D':
+					case 'T':
+						result = keyin_string(KI_IP_MODE, KI_TOTAL,(HUGEDATA INT8U*)format, (HUGEDATA INT8U*)ret_string,8,8,
+								(line_id+Startup.menu_type)*Startup.menu_ygap,cap.input_x*Startup.menu_xgap, 0, 0, KI_NOPASS);
+						if(result == KP_ESC)	goto RET_ESC;
+						if (cap.input_itype=='T') {
+							if( !(input_time_check_str((char*)&ret_string,0)) ) {
+								BuzOn(2);
+								goto PAGE_KI_IN;
 							}
-							else
-							{
-								if (result == KP_ENTER)
-									goto RET_END;
+						} else {
+							for(w=0; w<8; w++) ret_string[w] -= '0';
+							m1 = ret_string[0]*10 + ret_string[1];
+							m2 = ret_string[3]*10 + ret_string[4];
+							m3 = ret_string[6]*10 + ret_string[7];
+							switch (date_type) {
+								case 0: year=(INT16U)m1; month=(INT16U)m2; day=(INT16U)m3;break;
+								case 1: year=(INT16U)m3; month=(INT16U)m1; day=(INT16U)m2; break;
+								case 2:
+								case 3: year=(INT16U)m3; month=(INT16U)m2; day=(INT16U)m1; break;
 							}
-							goto PAGE_INPUT;
-						case KP_PAGE_DN:
-							if (page_cur<page_max-1) 
-							{
-								page_cur++;
-								goto PAGE_VIEW;
-							}
-							goto PAGE_VIEW;
-						case KP_ARROW_UP:
-							if (line_id>0) {
-								line_id--;
+							mPackDate.year =(INT8U)year ;
+							mPackDate.month=(INT8U)month;
+							mPackDate.date =(INT8U)day  ;
+							
+						}
+						break;
+				}
+				switch(result) {
+					case KP_ARROW_DN:
+					case KP_ENTER:
+						if (cur_id<max_id-1) {
+							if (line_id<Startup.line_max-1) {
+								line_id++;
 								goto PAGE_INPUT;
 							} else {
-								if (page_cur>0) {
-									page_cur--;
-									line_id=Startup.line_max-1;
+								if (page_cur<page_max-1) {
+									line_id=0;
+									page_cur++;
 									goto PAGE_VIEW;
 								}
-								else
-									goto PAGE_INPUT;
 							}
-						case KP_PAGE_UP:
-							if(page_cur>0) {
+						}
+						else
+						{
+							if (result == KP_ENTER)
+								goto RET_END;
+						}
+						goto PAGE_INPUT;
+					case KP_PAGE_DN:
+						if (page_cur<page_max-1) 
+						{
+							page_cur++;
+							goto PAGE_VIEW;
+						}
+						goto PAGE_VIEW;
+					case KP_ARROW_UP:
+						if (line_id>0) {
+							line_id--;
+							goto PAGE_INPUT;
+						} else {
+							if (page_cur>0) {
 								page_cur--;
+								line_id=Startup.line_max-1;
 								goto PAGE_VIEW;
 							}
+							else
+								goto PAGE_INPUT;
+						}
+					case KP_PAGE_UP:
+						if(page_cur>0) {
+							page_cur--;
 							goto PAGE_VIEW;
-						case KP_SAVE:
-							goto RET_END;
-						default:
-							goto PAGE_KI_IN;
-					}
-					goto RET_ESC;
-					RET_END:
+						}
+						goto PAGE_VIEW;
+					case KP_SAVE:
+						goto RET_END;
+					default:
+						goto PAGE_KI_IN;
+				}
+				goto RET_ESC;
+				RET_END:
+						
+						if(!mPackDate.deltadays){
+#ifdef USE_PERSIAN_CALENDAR
+							RTC_Convert_Persian_Read();
+#else
+							RTC_CLK_Burst_Read();
+#endif
 							
-							if(!mPackDate.deltadays){
 #ifdef USE_PERSIAN_CALENDAR
-								RTC_Convert_Persian_Read();
+							if(RTCStruct.year < 0x5a) 	perCentury = 1400; //90년 이전: 1400년대, 90년 이후: 1300년대
+							else perCentury = 1300;
 #else
-								RTC_CLK_Burst_Read();
+							year = (INT16U)(bcd2hex(RTCStruct.year) + 2000);
 #endif
-								
+							month = (INT16U)bcd2hex(RTCStruct.month);
+							day = (INT16U)bcd2hex(RTCStruct.date);
 #ifdef USE_PERSIAN_CALENDAR
-								if(RTCStruct.year < 0x5a) 	perCentury = 1400; //90년 이전: 1400년대, 90년 이후: 1300년대
-								else perCentury = 1300;
+							mPackDate.deltadays = date_getdeltadays(mPackDate.year+perCentury,mPackDate.month,mPackDate.date,
+									year,month,day);
 #else
-								year = (INT16U)(bcd2hex(RTCStruct.year) + 2000);
+							mPackDate.deltadays = date_getdeltadays(mPackDate.year+2000,mPackDate.month,mPackDate.date,
+									year,month,day);
 #endif
-								month = (INT16U)bcd2hex(RTCStruct.month);
-								day = (INT16U)bcd2hex(RTCStruct.date);
-#ifdef USE_PERSIAN_CALENDAR
-								mPackDate.deltadays = date_getdeltadays(mPackDate.year+perCentury,mPackDate.month,mPackDate.date,
-										year,month,day);
-#else
-								mPackDate.deltadays = date_getdeltadays(mPackDate.year+2000,mPackDate.month,mPackDate.date,
-										year,month,day);
-#endif
-								if(mPackDate.deltadays)
-									display_date_change(DISPLAY_DATE_DAY,ON);		       				
-							}else {
-								mPackDate.deltadays=0;
-							}
-					
-					
-					RET_ESC:
-							display_string_pos_clear(DISPLAY_START_POS_WEIGHT,20);
-					KEY_SetMode(key_mode);
-					DspLoadFont1(old_font);
-					return;
-	}
-	
-	void keyapp_edit_packdate(void)
-	{
-		if(mPackDate.deltadays){
-			mPackDate.deltadays = 0;
-			return;
-		}
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		keyapp_edit_packeddate();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		sale_pluclear(OFF);
-		//	display_lcd_clear();
-		sale_display_update(0x0fff);
-	}
-	
-	//SG060227
-	extern void transaction_sale_store(TRANSACTION_RECORD_TYPE *pTrans, TRANSACTION_RECORD_SUB_TYPE *pTrans_sub, TR_ADDITION_DATA_TYPE* pTrans_add, UNITPRICE_CHANGE_TYPE *pChgPrice, INT8U mode, INT8U sendflag);
-	void keyapp_save_price(void)
-	{
-#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
-		UNITPRICE_CHANGE_TYPE	chgprice;
-		//TRANSACTION_RECORD_TYPE pTrans;
-		TR_ADDITION_DATA_TYPE trans_add;
-		
-		//INT8U	chg_flag;
-		INT8U 	Reason_code;
-		INT8U	ret_value = 0;
-		INT8U	changed = OFF;
-		INT8U	changeFlag;
-#endif
-		
-		//chg_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG8) & 0x40;	//parameter 723
-		
-		//	char tmpStr[64];
-		//	sprintf(tmpStr,"SGTest\r\n");
-		//	MsgOut(tmpStr);
-		
-		//	if(GlbOper.saveChangePrice && status_scale.cur_pluid<MISC_PLU_WEIGHT)
-		if(status_scale.cur_pluid && status_scale.cur_pluid<MISC_PLU_WEIGHT)
-		{
-			if(Price.UnitPrice[PRICE_ORIGIN] != status_scale.Plu.unitprice)
-			{
-#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
-				if (UseEmartNetwork)
-				{
-					ret_value = GetCheckAddTransactionData(0,1,AUDIT_MODE_CIRCULAR);		//mode : sale, count : 1, Circular
-					if (ret_value);
-					else return; 
-				}
-#endif
+							if(mPackDate.deltadays)
+								display_date_change(DISPLAY_DATE_DAY,ON);		       				
+						}else {
+							mPackDate.deltadays=0;
+						}
 				
-#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE			
-				changed = OFF;
-#endif
-				if(Operation.saveZeroOverride)// zero 일때도 save
-				{
-					if(Price.UnitPrice[PRICE_ORIGIN])
-					{
-						save_override_unit_price();
-#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
-						changed = ON;
-#endif
-					}
-				}
-				else
-				{
-					if(status_scale.Plu.unitprice)
-					{
-						save_override_unit_price();
-#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
-						changed = ON;
-#endif
-					}
-				}
-#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
-				if (ret_value && changed)
-				{
-					Reason_code = 0;	//Fix
-					changeFlag = GetChangeFlag(status_scale.Plu.ptype, status_scale.Plu.ptype, Price.UnitPrice[PRICE_ORIGIN], status_scale.Plu.unitprice, 0, 0, 0);	// plu type change는 무시
-					InsertAdditionalData(&trans_add);
-					InsertUnitPriceChangeRecord(status_scale.scaleid,status_scale.departmentid,status_scale.cur_pluid,
-							status_scale.Plu.unitprice,Price.UnitPrice[PRICE_ORIGIN],Reason_code,status_scale.clerkid,changeFlag,&chgprice);
-					transaction_sale_store(NULL, NULL, &trans_add, &chgprice, 0, 1);
-				}
-#endif
-			}
-			// change unit price
-		}
-	}
-	
-	void keyapp_edit_discount(void)
-	{
-		if(!status_scale.cur_pluid)	return;
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		discount_edit_item((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		keyapp_pluno((INT8U)status_scale.departmentid,status_scale.cur_pluid,OFF);	// Added by CJK 20060607
-	}
-	
-	void keyapp_edit_delplu(void)
-	{
-		//BuzOn(1);
-		plu_edit_delete((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-	}
-	
-	void keyapp_edit_ingredient(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_ingredient((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-	
-	void keyapp_edit_date_flag(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_date_flag((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-	
-	void keyapp_chess_print(void)
-	{
-		printer_chess();
-	}
-	
-	void keyapp_test_print(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		printer_test();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-	
-	void keyapp_edit_speedkey(void)
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_speedkey(status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-	
-	void keyapp_edit_tax(void)	//Added by JJANG 20070619
-	{
-#ifdef USE_TAX_RATE
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_tax(&Price,(INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-#endif
-	}
-	
-	void keyapp_apply_global_tax(void)
-	{
-#ifdef USE_TAX_RATE
-		plu_apply_global_tax(&Price,(INT8U)status_scale.departmentid,status_scale.cur_pluid);
-#endif
-	}
-	
-	
-	
-#ifdef USE_TRACEABILITY
-	void keyapp_edit_trace(void)		//insert by se-hyung for function traceability key 20070706
-	{
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		plu_edit_traceability((INT8U)status_scale.departmentid,status_scale.cur_pluid);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-	}
-#endif
-	extern PLU_BATCH_TYPE	Batch[MAX_PLU_BATCH];
-	extern INT8U	BatchCount,BatchIndex;
-	void keyapp_batch(INT8U beep)
-	{
-		
-		JOB_BATCH_STRUCT  batch_str;
-		INT32U  addr_flash, addr;
-		INT16U  read_code;
-		INT16S   i;
-		
-		if(beep)
-			BuzOn(1);
-		if(status_scale.cur_pluid) {
-			sale_pluclear(ON);
-			sale_display_update(0x0fff);//061128
-		}
-		
-		addr_flash =  DFLASH_BASE + FLASH_JOBBATCH_AREA;	
-		
-		BatchCount =0;
-		BatchIndex =0;
-		for(i=0; i<10; i++)	
-		{
-			addr =  addr_flash + JOB_BATCH_STRUCT_SIZE * i;
-			read_code = Flash_wread(addr);
-			if(read_code == (i+1))  
-			{	
-				Flash_sread(addr, (HUGEDATA INT8U*)&batch_str, JOB_BATCH_STRUCT_SIZE); 
-				Batch[BatchIndex].dept = batch_str.deptNO;
-				Batch[BatchIndex].plu =  batch_str.pluNO;
-				Batch[BatchIndex].printCount = batch_str.quantity;
-				BatchCount++;
-				BatchIndex++;			
 				
-			}
-		}
-		BatchIndex = 0;
-		
-	}
-	
-	void keyapp_set_scan_clerk(void) //Added by JJANG 20071022 (function key #125)
-	{
-		CAPTION_STRUCT 	cap;
-		POINT 		disp_p;
-		
-		INT16U  result;
-		long ret_long;
-		
-		if(status_scale.cur_pluid) return;	//PLU가 호출된 상태에서는 동작안함
-		
-		KEY_SetMode(1);		
-		//	Dsp_ChangeMode(DSP_PGM_MODE);
-		ClearDisp7();
-		//	display_lcd_clear_buf();
-		//	DspLoadFont1(DSP_MENU_FONT_ID);
-		caption_split_by_code(0x1f01, &cap,0);
-		caption_adjust(&cap,NULL);
-		//	disp_p = point((Startup.menu_type)*Startup.menu_ygap,0);
-		display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
-		VFD7_Diffuse();
-		//	Dsp_Write_String(disp_p,(HUGEDATA char*)cap.form);
-		//	Dsp_Diffuse();
-		ret_long = 0;
-		if (Scan_clerk) ret_long = Scan_clerk;
-		
-		KI_IN:
-							//	keyin_setanycheck(keyapp_callback_salemode);
-							result=keyin_ulong(KI_TOTAL, KI_FORM_NORMAL,  0,(long*)&ret_long, cap.input_dlength,
-				(Startup.menu_type)*Startup.menu_ygap,  cap.input_x*Startup.menu_xgap, 0,KI_NOPASS );
-		//	keyin_clearcallback();
-		
-		if(result == KP_ESC) goto RET_ESC;
-		cap.input_min = 0;
-		if( !input_range_check(ret_long, cap.input_min, cap.input_max)) 
-		{
-			error_display_form1(0, cap.input_min, cap.input_max);
-			goto KI_IN;
-		} 
-		else Scan_clerk = ret_long;
-		switch(result) 
-		{
-			case KP_ENTER:
-			case KP_SAVE:
-				goto RET_END;
-			default:
-				BuzOn(2);
-				goto KI_IN;
-		}
-		RET_END:
-				Scan_clerk = ret_long;
-		RET_ESC:
-				//Dsp_Fill_Buffer(0);		// LCD Buffer clear
-				//Dsp_Diffuse();
-				//	display_lcd_clear();    
-				ClearDisp7();
-		//	Dsp_ChangeMode(DSP_SALE_MODE);
-		KEY_SetMode(0);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-		return;
-	}
-	void kayapp_input_barcode(void)	 //Added by JJANG 20071022 (function key #126)
-	{
-		CAPTION_STRUCT 	cap;
-		POINT 		disp_p;
-		
-		INT16U  result;
-		INT8U 	len,i;
-		char 	ret_string[33];
-#ifdef USE_TRACE_STANDALONE
-		INT8U  bsIndex = 0, bsLeng = 0;
-		if ((get_global_bparam(GLOBAL_SCANNER_FLAG1)&0x07) != 3)
-		{
-			if(status_scale.cur_pluid) return; //GS마트인 경우, 상품호출된 후에도 바코드 입력기능 허용함
-		}
-#else
-		if(status_scale.cur_pluid) return;
-#endif
-		KEY_SetMode(1);
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		
-		display_lcd_clear_buf();
-		
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		display_string_pos_clear(DISPLAY_START_POS_WEIGHT, 20);
-		
-		caption_split_by_code(0x146D, &cap,0);
-		caption_adjust(&cap,NULL);
-		display_string_pos(DISPLAY_START_POS_WEIGHT, (INT8U*)cap.form);
-		VFD7_Diffuse();
-		//disp_p = point((Startup.menu_type)*Startup.menu_ygap,0);
-		//Dsp_Write_String(disp_p,(HUGEDATA char*)cap.form);
-		//Dsp_Diffuse();
-		
-		memset(ret_string, 0, sizeof(ret_string));	//초기화
-		KI_IN:
-				//keyin_setanycheck(keyapp_callback_salemode);
-				//숫자만 입력 가능
-				result = keyin_string(KI_SNUMBER, KI_GRAPHIC,0, (HUGEDATA INT8U*)ret_string, cap.input_length,
-				cap.input_dlength, (Startup.menu_type)*Startup.menu_ygap, cap.input_x*Startup.menu_xgap, 0, 0, KI_NOPASS);
-		//keyin_clearcallback();
-		
-		switch(result) 
-		{
-			case KP_ESC:
-				goto RET_ESC; 
-			case KP_ENTER:
-			case KP_SAVE:
-				goto RET_END;
-			default:
-				BuzOn(2);
-				goto KI_IN;
-		}
-		RET_END:
-				len=strlen(ret_string);	//Write Barcode
-		// Deleted by CJK 090611 : 착한고기 무시
-		////Added by JJANG 20081212 개체키 입력 시 임의로 바코드 앞에 '0'을 붙인다. 글자잘림 현상 방어
-		//#ifdef USE_TRACE_STANDALONE
-		//	if ((get_global_bparam(GLOBAL_SCANNER_FLAG1)&0x07) == 3)
-		//	{
-		//		getScannerMappingSymbolInfo(&bsIndex,&bsLeng,'X',0,0); //'X' : scan code
-		//		for(i=0;i<bsIndex-1;i++)
-		//		{
-		//			PS2_Write('0'-0x30+KEY_NUM_0);
-		//		}		
-		//	}
-		//#endif
-		
-		for(i=0;i<len;i++)
-		{
-			PS2_Write(ret_string[i]-0x30+KEY_NUM_0);
-		}
-		PS2_Write(KS_SCANPRINT);
-		RET_ESC:
-				//Dsp_Fill_Buffer(0);	// LCD Buffer clear
-				//Dsp_Diffuse();
-				//	display_lcd_clear();  
-				display_string_pos_clear(DISPLAY_START_POS_WEIGHT, 20);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		KEY_SetMode(0);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-		return;
-	}
-	
-	//Added by JJANG 090819 (function key #138)
-	void kayapp_input_customer_no(void)
-	{
-		CAPTION_STRUCT cap;
-		INT8U	result;
-		INT8U	old_font;
-		INT8U	key_mode;
-		INT32U	res;
-		INT16U	customer_no = 0;
-		INT16U	clerkid;
-		STRUCT_TOTAL_PRICE totalData;
-		
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		clerkid = status_scale.clerkid;
-		ClerkTotalPrice(0, clerkid, &totalData);
-		
-		if (Operation.operationClerk == OPER_FLOATING)
-		{
-			if(ethernet_list.status==2) 
-			{
-				totalData.TotalCount = ClerkSaleAmount.totalCount;
-				totalData.VoidCount =  ClerkSaleAmount.voidCount;
-			}
-			if (totalData.TotalCount || totalData.VoidCount)
-			{
-				BuzOn(2);
-				caption_split_by_code(0xCA07, &cap, 0);	//CLERK IS OPENED!
-				DisplayMsg(cap.form);
-				goto RET_END;
-			}
-		}
-		
-		customer_no = get_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO + clerkid*2);
-		res = customer_no;
-		
-		Menu_Init();
-		caption_split_by_code(0x3421, &cap,0);
-		cap.input_dlength = 4;
-		cap.input_length  = 4;
-		caption_adjust(&cap,NULL);
-		cap.input_max = 9999;
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &res, NULL, NULL, NULL);
-		
-		result = Menu_InputDisplay();
-		if (result == MENU_RET_SAVE) 
-		{
-			if (Operation.operationClerk == OPER_FLOATING)
-			{
-				if (!customer_no) SetClerkCustomerNo(clerkid, (INT16U)res);
-				else 
-				{
-					if (customer_no != (INT16U)res) BuzOn(2); 
-				}
-			}
-			else //label mode
-			{
-				if (!customer_no) set_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO + clerkid*2, (INT16U)res);
-				else 
-				{
-					if (customer_no != (INT16U)res) BuzOn(2); 
-				}
-			}
-		}
-		RET_END:
+				RET_ESC:
+						display_string_pos_clear(DISPLAY_START_POS_WEIGHT,20);
+				KEY_SetMode(key_mode);
 				DspLoadFont1(old_font);
-		KEY_SetMode(key_mode);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+				return;
+}
+
+void keyapp_edit_packdate(void)
+{
+	if(mPackDate.deltadays){
+		mPackDate.deltadays = 0;
 		return;
 	}
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	keyapp_edit_packeddate();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	sale_pluclear(OFF);
+	//	display_lcd_clear();
+	sale_display_update(0x0fff);
+}
+
+//SG060227
+extern void transaction_sale_store(TRANSACTION_RECORD_TYPE *pTrans, TRANSACTION_RECORD_SUB_TYPE *pTrans_sub, TR_ADDITION_DATA_TYPE* pTrans_add, UNITPRICE_CHANGE_TYPE *pChgPrice, INT8U mode, INT8U sendflag);
+void keyapp_save_price(void)
+{
+#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
+	UNITPRICE_CHANGE_TYPE	chgprice;
+	//TRANSACTION_RECORD_TYPE pTrans;
+	TR_ADDITION_DATA_TYPE trans_add;
 	
-	void kayapp_customer_close(void)
+	//INT8U	chg_flag;
+	INT8U 	Reason_code;
+	INT8U	ret_value = 0;
+	INT8U	changed = OFF;
+	INT8U	changeFlag;
+#endif
+	
+	//chg_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG8) & 0x40;	//parameter 723
+	
+	//	char tmpStr[64];
+	//	sprintf(tmpStr,"SGTest\r\n");
+	//	MsgOut(tmpStr);
+	
+	//	if(GlbOper.saveChangePrice && status_scale.cur_pluid<MISC_PLU_WEIGHT)
+	if(status_scale.cur_pluid && status_scale.cur_pluid<MISC_PLU_WEIGHT)
 	{
-		INT16U	customer_no = 0;
-		
-		customer_no = get_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO);
-		
-		if (!customer_no || Operation.operationClerk == OPER_FLOATING)
+		if(Price.UnitPrice[PRICE_ORIGIN] != status_scale.Plu.unitprice)
 		{
-			BuzOn(2);
-			return;
+#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
+			if (UseEmartNetwork)
+			{
+				ret_value = GetCheckAddTransactionData(0,1,AUDIT_MODE_CIRCULAR);		//mode : sale, count : 1, Circular
+				if (ret_value);
+				else return; 
+			}
+#endif
+			
+#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE			
+			changed = OFF;
+#endif
+			if(Operation.saveZeroOverride)// zero 일때도 save
+			{
+				if(Price.UnitPrice[PRICE_ORIGIN])
+				{
+					save_override_unit_price();
+#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
+					changed = ON;
+#endif
+				}
+			}
+			else
+			{
+				if(status_scale.Plu.unitprice)
+				{
+					save_override_unit_price();
+#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
+					changed = ON;
+#endif
+				}
+			}
+#ifdef USE_EMART_CHANGE_DATA_AT_NON_SALE
+			if (ret_value && changed)
+			{
+				Reason_code = 0;	//Fix
+				changeFlag = GetChangeFlag(status_scale.Plu.ptype, status_scale.Plu.ptype, Price.UnitPrice[PRICE_ORIGIN], status_scale.Plu.unitprice, 0, 0, 0);	// plu type change는 무시
+				InsertAdditionalData(&trans_add);
+				InsertUnitPriceChangeRecord(status_scale.scaleid,status_scale.departmentid,status_scale.cur_pluid,
+						status_scale.Plu.unitprice,Price.UnitPrice[PRICE_ORIGIN],Reason_code,status_scale.clerkid,changeFlag,&chgprice);
+				transaction_sale_store(NULL, NULL, &trans_add, &chgprice, 0, 1);
+			}
+#endif
 		}
-		else set_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO, 0); 
+		// change unit price
+	}
+}
+
+void keyapp_edit_discount(void)
+{
+	if(!status_scale.cur_pluid)	return;
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	discount_edit_item((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	keyapp_pluno((INT8U)status_scale.departmentid,status_scale.cur_pluid,OFF);	// Added by CJK 20060607
+}
+
+void keyapp_edit_delplu(void)
+{
+	//BuzOn(1);
+	plu_edit_delete((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+}
+
+void keyapp_edit_ingredient(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_ingredient((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+
+void keyapp_edit_date_flag(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_date_flag((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+
+void keyapp_chess_print(void)
+{
+	printer_chess();
+}
+
+void keyapp_test_print(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	printer_test();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+
+void keyapp_edit_speedkey(void)
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_speedkey(status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+
+void keyapp_edit_tax(void)	//Added by JJANG 20070619
+{
+#ifdef USE_TAX_RATE
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_tax(&Price,(INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+#endif
+}
+
+void keyapp_apply_global_tax(void)
+{
+#ifdef USE_TAX_RATE
+	plu_apply_global_tax(&Price,(INT8U)status_scale.departmentid,status_scale.cur_pluid);
+#endif
+}
+
+
+
+#ifdef USE_TRACEABILITY
+void keyapp_edit_trace(void)		//insert by se-hyung for function traceability key 20070706
+{
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	plu_edit_traceability((INT8U)status_scale.departmentid,status_scale.cur_pluid);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+}
+#endif
+extern PLU_BATCH_TYPE	Batch[MAX_PLU_BATCH];
+extern INT8U	BatchCount,BatchIndex;
+void keyapp_batch(INT8U beep)
+{
+	
+	JOB_BATCH_STRUCT  batch_str;
+	INT32U  addr_flash, addr;
+	INT16U  read_code;
+	INT16S   i;
+	
+	if(beep)
+		BuzOn(1);
+	if(status_scale.cur_pluid) {
+		sale_pluclear(ON);
+		sale_display_update(0x0fff);//061128
 	}
 	
-	//void kayapp_close_ticket(void)
-	//{
-	//	if(!status_scale.clerkid || Operation.operationClerk!=OPER_FLOATING)
-	//	{
-	//			BuzOn(2);
-	//			return;
-	//	}
-	//	
-	//	set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 1); 
-	//	while(!network_ClerkDeleteTransaction(status_scale.clerkid));
-	//	set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 0); 
-	//
-	//	ClerkDeleteTransaction(status_scale.clerkid);
+	addr_flash =  DFLASH_BASE + FLASH_JOBBATCH_AREA;	
 	
-	//}
-	
-	void keyapp_copy_ticket(void)
+	BatchCount =0;
+	BatchIndex =0;
+	for(i=0; i<10; i++)	
 	{
-		INT16U	clerkid;
-		STRUCT_TOTAL_PRICE totalData;
-		
-		if(Operation.operationClerk != OPER_FLOATING) return;
-		clerkid = status_scale.clerkid;
-		ClerkTotalPrice(0, clerkid, &totalData);	
+		addr =  addr_flash + JOB_BATCH_STRUCT_SIZE * i;
+		read_code = Flash_wread(addr);
+		if(read_code == (i+1))  
+		{	
+			Flash_sread(addr, (HUGEDATA INT8U*)&batch_str, JOB_BATCH_STRUCT_SIZE); 
+			Batch[BatchIndex].dept = batch_str.deptNO;
+			Batch[BatchIndex].plu =  batch_str.pluNO;
+			Batch[BatchIndex].printCount = batch_str.quantity;
+			BatchCount++;
+			BatchIndex++;			
+			
+		}
+	}
+	BatchIndex = 0;
+	
+}
+
+void keyapp_set_scan_clerk(void) //Added by JJANG 20071022 (function key #125)
+{
+	CAPTION_STRUCT 	cap;
+	POINT 		disp_p;
+	
+	INT16U  result;
+	long ret_long;
+	
+	if(status_scale.cur_pluid) return;	//PLU가 호출된 상태에서는 동작안함
+	
+	KEY_SetMode(1);		
+	//	Dsp_ChangeMode(DSP_PGM_MODE);
+	ClearDisp7();
+	//	display_lcd_clear_buf();
+	//	DspLoadFont1(DSP_MENU_FONT_ID);
+	caption_split_by_code(0x1f01, &cap,0);
+	caption_adjust(&cap,NULL);
+	//	disp_p = point((Startup.menu_type)*Startup.menu_ygap,0);
+	display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
+	VFD7_Diffuse();
+	//	Dsp_Write_String(disp_p,(HUGEDATA char*)cap.form);
+	//	Dsp_Diffuse();
+	ret_long = 0;
+	if (Scan_clerk) ret_long = Scan_clerk;
+	
+	KI_IN:
+						//	keyin_setanycheck(keyapp_callback_salemode);
+						result=keyin_ulong(KI_TOTAL, KI_FORM_NORMAL,  0,(long*)&ret_long, cap.input_dlength,
+			(Startup.menu_type)*Startup.menu_ygap,  cap.input_x*Startup.menu_xgap, 0,KI_NOPASS );
+	//	keyin_clearcallback();
+	
+	if(result == KP_ESC) goto RET_ESC;
+	cap.input_min = 0;
+	if( !input_range_check(ret_long, cap.input_min, cap.input_max)) 
+	{
+		error_display_form1(0, cap.input_min, cap.input_max);
+		goto KI_IN;
+	} 
+	else Scan_clerk = ret_long;
+	switch(result) 
+	{
+		case KP_ENTER:
+		case KP_SAVE:
+			goto RET_END;
+		default:
+			BuzOn(2);
+			goto KI_IN;
+	}
+	RET_END:
+			Scan_clerk = ret_long;
+	RET_ESC:
+			//Dsp_Fill_Buffer(0);		// LCD Buffer clear
+			//Dsp_Diffuse();
+			//	display_lcd_clear();    
+			ClearDisp7();
+	//	Dsp_ChangeMode(DSP_SALE_MODE);
+	KEY_SetMode(0);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	return;
+}
+void kayapp_input_barcode(void)	 //Added by JJANG 20071022 (function key #126)
+{
+	CAPTION_STRUCT 	cap;
+	POINT 		disp_p;
+	
+	INT16U  result;
+	INT8U 	len,i;
+	char 	ret_string[33];
+#ifdef USE_TRACE_STANDALONE
+	INT8U  bsIndex = 0, bsLeng = 0;
+	if ((get_global_bparam(GLOBAL_SCANNER_FLAG1)&0x07) != 3)
+	{
+		if(status_scale.cur_pluid) return; //GS마트인 경우, 상품호출된 후에도 바코드 입력기능 허용함
+	}
+#else
+	if(status_scale.cur_pluid) return;
+#endif
+	KEY_SetMode(1);
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	
+	display_lcd_clear_buf();
+	
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	display_string_pos_clear(DISPLAY_START_POS_WEIGHT, 20);
+	
+	caption_split_by_code(0x146D, &cap,0);
+	caption_adjust(&cap,NULL);
+	display_string_pos(DISPLAY_START_POS_WEIGHT, (INT8U*)cap.form);
+	VFD7_Diffuse();
+	//disp_p = point((Startup.menu_type)*Startup.menu_ygap,0);
+	//Dsp_Write_String(disp_p,(HUGEDATA char*)cap.form);
+	//Dsp_Diffuse();
+	
+	memset(ret_string, 0, sizeof(ret_string));	//초기화
+	KI_IN:
+			//keyin_setanycheck(keyapp_callback_salemode);
+			//숫자만 입력 가능
+			result = keyin_string(KI_SNUMBER, KI_GRAPHIC,0, (HUGEDATA INT8U*)ret_string, cap.input_length,
+			cap.input_dlength, (Startup.menu_type)*Startup.menu_ygap, cap.input_x*Startup.menu_xgap, 0, 0, KI_NOPASS);
+	//keyin_clearcallback();
+	
+	switch(result) 
+	{
+		case KP_ESC:
+			goto RET_ESC; 
+		case KP_ENTER:
+		case KP_SAVE:
+			goto RET_END;
+		default:
+			BuzOn(2);
+			goto KI_IN;
+	}
+	RET_END:
+			len=strlen(ret_string);	//Write Barcode
+	// Deleted by CJK 090611 : 착한고기 무시
+	////Added by JJANG 20081212 개체키 입력 시 임의로 바코드 앞에 '0'을 붙인다. 글자잘림 현상 방어
+	//#ifdef USE_TRACE_STANDALONE
+	//	if ((get_global_bparam(GLOBAL_SCANNER_FLAG1)&0x07) == 3)
+	//	{
+	//		getScannerMappingSymbolInfo(&bsIndex,&bsLeng,'X',0,0); //'X' : scan code
+	//		for(i=0;i<bsIndex-1;i++)
+	//		{
+	//			PS2_Write('0'-0x30+KEY_NUM_0);
+	//		}		
+	//	}
+	//#endif
+	
+	for(i=0;i<len;i++)
+	{
+		PS2_Write(ret_string[i]-0x30+KEY_NUM_0);
+	}
+	PS2_Write(KS_SCANPRINT);
+	RET_ESC:
+			//Dsp_Fill_Buffer(0);	// LCD Buffer clear
+			//Dsp_Diffuse();
+			//	display_lcd_clear();  
+			display_string_pos_clear(DISPLAY_START_POS_WEIGHT, 20);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	KEY_SetMode(0);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	return;
+}
+
+//Added by JJANG 090819 (function key #138)
+void kayapp_input_customer_no(void)
+{
+	CAPTION_STRUCT cap;
+	INT8U	result;
+	INT8U	old_font;
+	INT8U	key_mode;
+	INT32U	res;
+	INT16U	customer_no = 0;
+	INT16U	clerkid;
+	STRUCT_TOTAL_PRICE totalData;
+	
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	clerkid = status_scale.clerkid;
+	ClerkTotalPrice(0, clerkid, &totalData);
+	
+	if (Operation.operationClerk == OPER_FLOATING)
+	{
 		if(ethernet_list.status==2) 
 		{
 			totalData.TotalCount = ClerkSaleAmount.totalCount;
@@ -7138,371 +7047,462 @@ void start_external_print(INT16U count)
 			BuzOn(2);
 			caption_split_by_code(0xCA07, &cap, 0);	//CLERK IS OPENED!
 			DisplayMsg(cap.form);
-			sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-			return;
+			goto RET_END;
 		}
+	}
+	
+	customer_no = get_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO + clerkid*2);
+	res = customer_no;
+	
+	Menu_Init();
+	caption_split_by_code(0x3421, &cap,0);
+	cap.input_dlength = 4;
+	cap.input_length  = 4;
+	caption_adjust(&cap,NULL);
+	cap.input_max = 9999;
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &res, NULL, NULL, NULL);
+	
+	result = Menu_InputDisplay();
+	if (result == MENU_RET_SAVE) 
+	{
+		if (Operation.operationClerk == OPER_FLOATING)
+		{
+			if (!customer_no) SetClerkCustomerNo(clerkid, (INT16U)res);
+			else 
+			{
+				if (customer_no != (INT16U)res) BuzOn(2); 
+			}
+		}
+		else //label mode
+		{
+			if (!customer_no) set_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO + clerkid*2, (INT16U)res);
+			else 
+			{
+				if (customer_no != (INT16U)res) BuzOn(2); 
+			}
+		}
+	}
+	RET_END:
+			DspLoadFont1(old_font);
+	KEY_SetMode(key_mode);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	return;
+}
+
+void kayapp_customer_close(void)
+{
+	INT16U	customer_no = 0;
+	
+	customer_no = get_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO);
+	
+	if (!customer_no || Operation.operationClerk == OPER_FLOATING)
+	{
+		BuzOn(2);
+		return;
+	}
+	else set_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO, 0); 
+}
+
+//void kayapp_close_ticket(void)
+//{
+//	if(!status_scale.clerkid || Operation.operationClerk!=OPER_FLOATING)
+//	{
+//			BuzOn(2);
+//			return;
+//	}
+//	
+//	set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 1); 
+//	while(!network_ClerkDeleteTransaction(status_scale.clerkid));
+//	set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 0); 
+//
+//	ClerkDeleteTransaction(status_scale.clerkid);
+
+//}
+
+void keyapp_copy_ticket(void)
+{
+	INT16U	clerkid;
+	STRUCT_TOTAL_PRICE totalData;
+	
+	if(Operation.operationClerk != OPER_FLOATING) return;
+	clerkid = status_scale.clerkid;
+	ClerkTotalPrice(0, clerkid, &totalData);	
+	if(ethernet_list.status==2) 
+	{
+		totalData.TotalCount = ClerkSaleAmount.totalCount;
+		totalData.VoidCount =  ClerkSaleAmount.voidCount;
+	}
+	if (totalData.TotalCount || totalData.VoidCount)
+	{
+		BuzOn(2);
+		caption_split_by_code(0xCA07, &cap, 0);	//CLERK IS OPENED!
+		DisplayMsg(cap.form);
+		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+		return;
+	}
+	if (ethernet_list.status == 2)	//slave
+	{
+		network_reopen_start_send(0, clerkid, ON);			// TicketNum 0 이면 COPY TICKET
+	}
+	else
+	{
+		GetClerkReopenTransaction(0, clerkid);
+	}
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	keyapp_total(1);	//total direct print
+	return;
+}
+
+//Added by JJANG 090908 (function key #140)
+void kayapp_reopen_ticket(void)
+{
+	INT8U	old_font;
+	INT8U	key_mode;
+	INT8U	result;
+	INT32U	res = 0;
+	INT16U	clerkid;
+	INT8U   error;
+	//	INT8U	ret = 0;
+	INT16U	customer_no = 0;
+	char string_buf[50];
+	STRUCT_TOTAL_PRICE totalData;
+	
+	if(Operation.operationClerk != OPER_FLOATING) return;
+	
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	clerkid = status_scale.clerkid;
+	ClerkTotalPrice(0, clerkid, &totalData);
+	
+	if(ethernet_list.status==2) 
+	{
+		totalData.TotalCount = ClerkSaleAmount.totalCount;
+		totalData.VoidCount =  ClerkSaleAmount.voidCount;
+	}
+	
+	if (totalData.TotalCount || totalData.VoidCount)
+	{
+		BuzOn(2);
+		caption_split_by_code(0xCA07, &cap, 0);	//CLERK IS OPENED!
+		DisplayMsg(cap.form);
+		goto RET_END;
+	}
+	
+	customer_no = get_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO + clerkid*2);
+	if (customer_no)
+	{
+		error = 4;
+		caption_split_by_code(0xCA08, &cap, 0);	//CAN NOT REOPEN! (04:CUSTOMER NUMBER IS EXIST!)
+#ifdef HEBREW_FONT
+		sprintf(string_buf, "%s )%d(", cap.form, error);
+#else
+		sprintf(string_buf, "%s (%d)", cap.form, error);
+#endif
+		DisplayMsg(string_buf);
+		goto RET_END;
+	}
+	
+	
+	Menu_Init();
+	caption_split_by_code(0x3745, &cap, 0);
+	caption_adjust(&cap,NULL);
+	
+	//	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+	//				cap.input_max, cap.input_min, 0, &res, NULL, NULL, NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, 0, 0, &res, NULL, NULL, NULL);
+	
+	result = Menu_InputDisplay();
+	if (result == MENU_RET_SAVE) 
+	{
 		if (ethernet_list.status == 2)	//slave
 		{
-			network_reopen_start_send(0, clerkid, ON);			// TicketNum 0 이면 COPY TICKET
+			network_reopen_start_send(res, clerkid, OFF);			
 		}
 		else
 		{
-			GetClerkReopenTransaction(0, clerkid);
-		}
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-		keyapp_total(1);	//total direct print
-		return;
-	}
-	
-	//Added by JJANG 090908 (function key #140)
-	void kayapp_reopen_ticket(void)
-	{
-		INT8U	old_font;
-		INT8U	key_mode;
-		INT8U	result;
-		INT32U	res = 0;
-		INT16U	clerkid;
-		INT8U   error;
-		//	INT8U	ret = 0;
-		INT16U	customer_no = 0;
-		char string_buf[50];
-		STRUCT_TOTAL_PRICE totalData;
-		
-		if(Operation.operationClerk != OPER_FLOATING) return;
-		
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		clerkid = status_scale.clerkid;
-		ClerkTotalPrice(0, clerkid, &totalData);
-		
-		if(ethernet_list.status==2) 
-		{
-			totalData.TotalCount = ClerkSaleAmount.totalCount;
-			totalData.VoidCount =  ClerkSaleAmount.voidCount;
-		}
-		
-		if (totalData.TotalCount || totalData.VoidCount)
-		{
-			BuzOn(2);
-			caption_split_by_code(0xCA07, &cap, 0);	//CLERK IS OPENED!
-			DisplayMsg(cap.form);
-			goto RET_END;
-		}
-		
-		customer_no = get_nvram_wparam(NVRAM_CLERK_CUSTOMER_NO + clerkid*2);
-		if (customer_no)
-		{
-			error = 4;
-			caption_split_by_code(0xCA08, &cap, 0);	//CAN NOT REOPEN! (04:CUSTOMER NUMBER IS EXIST!)
-#ifdef HEBREW_FONT
-			sprintf(string_buf, "%s )%d(", cap.form, error);
-#else
-			sprintf(string_buf, "%s (%d)", cap.form, error);
-#endif
-			DisplayMsg(string_buf);
-			goto RET_END;
-		}
-		
-		
-		Menu_Init();
-		caption_split_by_code(0x3745, &cap, 0);
-		caption_adjust(&cap,NULL);
-		
-		//	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-		//				cap.input_max, cap.input_min, 0, &res, NULL, NULL, NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, 0, 0, &res, NULL, NULL, NULL);
-		
-		result = Menu_InputDisplay();
-		if (result == MENU_RET_SAVE) 
-		{
-			if (ethernet_list.status == 2)	//slave
+			error = GetClerkReopenTransaction(res, clerkid);
+			if (error)
 			{
-				network_reopen_start_send(res, clerkid, OFF);			
+				caption_split_by_code(0xCA08, &cap, 0);	//CAN NOT REOPEN!
+#ifdef HEBREW_FONT
+				sprintf(string_buf, "%s )%d(", cap.form, error);
+#else
+				sprintf(string_buf, "%s (%d)", cap.form, error);
+#endif
+				DisplayMsg(string_buf);
 			}
 			else
 			{
-				error = GetClerkReopenTransaction(res, clerkid);
-				if (error)
-				{
-					caption_split_by_code(0xCA08, &cap, 0);	//CAN NOT REOPEN!
-#ifdef HEBREW_FONT
-					sprintf(string_buf, "%s )%d(", cap.form, error);
-#else
-					sprintf(string_buf, "%s (%d)", cap.form, error);
-#endif
-					DisplayMsg(string_buf);
-				}
-				else
-				{
-					caption_split_by_code(0xCA09, &cap, 0);	//REOPEN OK!
-					DisplayMsg(cap.form);
+				caption_split_by_code(0xCA09, &cap, 0);	//REOPEN OK!
+				DisplayMsg(cap.form);
 #if defined(USE_INDIA_FUNCTION) || defined(USE_SEND_TICKET_DATA)
-					// Ticket Reopne 성공
-					reopenCheck = ON;
+				// Ticket Reopne 성공
+				reopenCheck = ON;
 #endif
-				}
 			}
 		}
-		RET_END:
-				DspLoadFont1(old_font);
-		KEY_SetMode(key_mode);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	}
+	RET_END:
+			DspLoadFont1(old_font);
+	KEY_SetMode(key_mode);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	return;
+}
+
+void keyapp_g_total()
+{
+	long	tPrice;
+	INT16S	tCount;
+	long	tWeight;
+	INT16S	tQty;
+	long	tNetWeight;
+	long	tPerTWeight;
+	long	tGrossWeight;
+	char	priceBuf[15],tpriceStr[20];
+	INT16U	tempKey;
+	INT16U	clerkNum = status_scale.clerkid;
+	INT8U result;
+	CAPTION_STRUCT 	cap;
+	PREPACK_STATUS_TYPE PrepackStatus;
+	
+	PutXStringOffsetX = DSP_SALE_INFO_AREA_X1;
+	PutXStringOffsetY = DSP_SALE_INFO_AREA_Y1;
+	//BuzOn(1);
+	tPrice = get_nvram_lparam(NVRAM_GTOTAL_PRICE+clerkNum*4);
+	tCount = get_nvram_wparam(NVRAM_GTOTAL_COUNT+clerkNum*2);
+	tWeight = get_nvram_lparam(NVRAM_GTOTAL_WEIGHT+clerkNum*4);
+	tQty = get_nvram_wparam(NVRAM_GTOTAL_QTY+clerkNum*2);
+	
+	tNetWeight = 0;
+	tPerTWeight = 0;
+	tGrossWeight = 0;
+	if (!clerkNum)
+	{
+		tNetWeight = get_nvram_lparam(NVRAM_GTOTAL_NET_WEIGHT);
+		tPerTWeight = get_nvram_lparam(NVRAM_GTOTAL_PER_TARE_WEIGHT);
+		tGrossWeight = get_nvram_lparam(NVRAM_GTOTAL_GROSS_WEIGHT);
+	}
+	if (!tCount) {
+		caption_split_by_code(0xc903,&cap,0);//"No grand total price"
+		DisplayMsg(cap.form);
+		Key_DelaySec(5,0);
 		return;
 	}
+	ClearDisp7();
+	display_lcd_clear();
+	FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&tPrice,0,1);
+	caption_split_by_code(0xc01f,&cap,0);//"G Total %s"
+	display_string_pos(10, (INT8U*)cap.form);
+	display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
+	//	cap.form[13] = 0;
+	//	strcat(cap.form," %s");
+	//	GetPriceString(tpriceStr,priceBuf,ON,PRICE_PRINTER);
 	
-	void keyapp_g_total()
+	VFD7_Diffuse();
+	//	sprintf(gmsg,cap.form,tpriceStr);
+	//	PutNMediumString(1, 0,gmsg, 25);
+	tempKey = KeyWait(0,0,0,0,0);
+	
+	if(tempKey==KP_SAVE || tempKey==KP_ENTER || tempKey==KS_CLEAR || tempKey==KS_EXT_PRINT)
 	{
-		long	tPrice;
-		INT16S	tCount;
-		long	tWeight;
-		INT16S	tQty;
-		long	tNetWeight;
-		long	tPerTWeight;
-		long	tGrossWeight;
-		char	priceBuf[15],tpriceStr[20];
-		INT16U	tempKey;
-		INT16U	clerkNum = status_scale.clerkid;
-		INT8U result;
-		CAPTION_STRUCT 	cap;
-		PREPACK_STATUS_TYPE PrepackStatus;
-		
-		PutXStringOffsetX = DSP_SALE_INFO_AREA_X1;
-		PutXStringOffsetY = DSP_SALE_INFO_AREA_Y1;
-		//BuzOn(1);
-		tPrice = get_nvram_lparam(NVRAM_GTOTAL_PRICE+clerkNum*4);
-		tCount = get_nvram_wparam(NVRAM_GTOTAL_COUNT+clerkNum*2);
-		tWeight = get_nvram_lparam(NVRAM_GTOTAL_WEIGHT+clerkNum*4);
-		tQty = get_nvram_wparam(NVRAM_GTOTAL_QTY+clerkNum*2);
-		
-		tNetWeight = 0;
-		tPerTWeight = 0;
-		tGrossWeight = 0;
-		if (!clerkNum)
+		//DisplayMsg("PRINT GRAND TOTAL");
+		if(tempKey!=KS_CLEAR)
 		{
-			tNetWeight = get_nvram_lparam(NVRAM_GTOTAL_NET_WEIGHT);
-			tPerTWeight = get_nvram_lparam(NVRAM_GTOTAL_PER_TARE_WEIGHT);
-			tGrossWeight = get_nvram_lparam(NVRAM_GTOTAL_GROSS_WEIGHT);
+			result = PrintGrandTotal(clerkNum, tCount, tPrice, tWeight, tQty, tNetWeight, tPerTWeight, tGrossWeight);
 		}
-		if (!tCount) {
-			caption_split_by_code(0xc903,&cap,0);//"No grand total price"
-			DisplayMsg(cap.form);
-			Key_DelaySec(5,0);
-			return;
-		}
-		ClearDisp7();
-		display_lcd_clear();
-		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&tPrice,0,1);
-		caption_split_by_code(0xc01f,&cap,0);//"G Total %s"
-		display_string_pos(10, (INT8U*)cap.form);
-		display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
-		//	cap.form[13] = 0;
-		//	strcat(cap.form," %s");
-		//	GetPriceString(tpriceStr,priceBuf,ON,PRICE_PRINTER);
-		
-		VFD7_Diffuse();
-		//	sprintf(gmsg,cap.form,tpriceStr);
-		//	PutNMediumString(1, 0,gmsg, 25);
-		tempKey = KeyWait(0,0,0,0,0);
-		
-		if(tempKey==KP_SAVE || tempKey==KP_ENTER || tempKey==KS_CLEAR || tempKey==KS_EXT_PRINT)
-		{
-			//DisplayMsg("PRINT GRAND TOTAL");
-			if(tempKey!=KS_CLEAR)
+		else
+			result = ON;
+		if(result == ON) {	// Added by CJK 20040907
+			if(tempKey!=KP_CLEAR)	Key_DelaySec(20,0);
+			set_nvram_lparam(NVRAM_GTOTAL_PRICE+clerkNum*4, 0);
+			set_nvram_wparam(NVRAM_GTOTAL_COUNT+clerkNum*2, 0);
+			set_nvram_lparam(NVRAM_GTOTAL_WEIGHT+clerkNum*4, 0);
+			set_nvram_wparam(NVRAM_GTOTAL_QTY+clerkNum*2, 0);
+			if (!clerkNum)
 			{
-				result = PrintGrandTotal(clerkNum, tCount, tPrice, tWeight, tQty, tNetWeight, tPerTWeight, tGrossWeight);
+				set_nvram_lparam(NVRAM_GTOTAL_NET_WEIGHT, 0);
+				set_nvram_lparam(NVRAM_GTOTAL_PER_TARE_WEIGHT, 0);
+				set_nvram_lparam(NVRAM_GTOTAL_GROSS_WEIGHT, 0);
 			}
-			else
-				result = ON;
-			if(result == ON) {	// Added by CJK 20040907
-				if(tempKey!=KP_CLEAR)	Key_DelaySec(20,0);
-				set_nvram_lparam(NVRAM_GTOTAL_PRICE+clerkNum*4, 0);
-				set_nvram_wparam(NVRAM_GTOTAL_COUNT+clerkNum*2, 0);
-				set_nvram_lparam(NVRAM_GTOTAL_WEIGHT+clerkNum*4, 0);
-				set_nvram_wparam(NVRAM_GTOTAL_QTY+clerkNum*2, 0);
-				if (!clerkNum)
-				{
-					set_nvram_lparam(NVRAM_GTOTAL_NET_WEIGHT, 0);
-					set_nvram_lparam(NVRAM_GTOTAL_PER_TARE_WEIGHT, 0);
-					set_nvram_lparam(NVRAM_GTOTAL_GROSS_WEIGHT, 0);
-				}
-				get_PrepackStatus(&PrepackStatus);
-				PrepackStatus.OneItem_Grand = ON;
-				PrepackStatus.PrevSubPluNo = 0;
-				set_PrepackStatus(&PrepackStatus);
-			}
+			get_PrepackStatus(&PrepackStatus);
+			PrepackStatus.OneItem_Grand = ON;
+			PrepackStatus.PrevSubPluNo = 0;
+			set_PrepackStatus(&PrepackStatus);
 		}
-		Operation.salePluClearWait = ON;
-		Operation.directClearWeight = ON;
-		display_string_pos_clear(5,20);
-		PutXStringOffsetX = 0;
-		PutXStringOffsetY = 0;
+	}
+	Operation.salePluClearWait = ON;
+	Operation.directClearWeight = ON;
+	display_string_pos_clear(5,20);
+	PutXStringOffsetX = 0;
+	PutXStringOffsetY = 0;
 #if defined(USE_ARAB_FONT) || defined(HEBREW_FONT)
 #ifndef _USE_LCD37D_40DOT_
-		sale_pluclear(ON);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	sale_pluclear(ON);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
 #endif
 #endif
-	}
+}
+
+void keyapp_cash_open(INT16S beepFlag)
+{
+	INT16U temp;
+	INT8U scaleNum;
 	
-	void keyapp_cash_open(INT16S beepFlag)
+	scaleNum = status_scale.scaleid;
+	if (scaleNum > MAX_SCALE - 1) scaleNum = MAX_SCALE - 1;	// scale no 32~255는 scale 31로 정산함
+	
+	// input clerk number or password
+	if(!Operation.openCash)
 	{
-		INT16U temp;
-		INT8U scaleNum;
-		
-		scaleNum = status_scale.scaleid;
-		if (scaleNum > MAX_SCALE - 1) scaleNum = MAX_SCALE - 1;	// scale no 32~255는 scale 31로 정산함
-		
-		// input clerk number or password
-		if(!Operation.openCash)
+		Cash_open();
+		if(beepFlag)
 		{
-			Cash_open();
-			if(beepFlag)
-			{
-				//scale
-				temp = get_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4);	// period 1
-				temp++;
-				set_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4, temp);
+			//scale
+			temp = get_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4);	// period 1
+			temp++;
+			set_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4, temp);
 #ifndef DISABLE_X2Z2_REPORT
-				temp = get_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4+2);	// period 2
-				temp++;
-				set_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4+2, temp);
+			temp = get_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4+2);	// period 2
+			temp++;
+			set_nvram_wparam(NVRAM_CASH_SCALE+scaleNum*4+2, temp);
 #endif
-				
-				//clerk
-				temp = get_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4);	// period 1
-				temp++;
-				set_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4, temp);
+			
+			//clerk
+			temp = get_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4);	// period 1
+			temp++;
+			set_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4, temp);
 #ifndef DISABLE_X2Z2_REPORT
-				temp = get_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4+2);	// period 2
-				temp++;
-				set_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4+2, temp);
+			temp = get_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4+2);	// period 2
+			temp++;
+			set_nvram_wparam(NVRAM_CASH_CLERK+status_scale.clerkid*4+2, temp);
 #endif
-			}
 		}
 	}
-	
-	
-	void keyapp_pay(INT16S beep)
-	{
-		//	INT16S print=OFF;
-		//	char    old_font;
-		INT8U	lastClerk=0;
-		STRUCT_TOTAL_PRICE totalData;
-		INT16S	ret;
+}
+
+
+void keyapp_pay(INT16S beep)
+{
+	//	INT16S print=OFF;
+	//	char    old_font;
+	INT8U	lastClerk=0;
+	STRUCT_TOTAL_PRICE totalData;
+	INT16S	ret;
 #ifdef USE_TAX_RATE
-		long priceInExtTax = 0;
+	long priceInExtTax = 0;
 #endif
-		
-		//if(beep) BuzOn(1);
+	
+	//if(beep) BuzOn(1);
 #ifdef USE_INDIA_FUNCTION
-		if (UseAreaScaleMode == 2) // 0:NormalScale(STD), 1:DualModeScale, 2:AreaScale
-		{
-			BuzOn(2);
-			return;
-		}
-#endif
-		
-		lastClerk = status_scale.clerkid;
-		
-		//memset(&totalData, 0, sizeof(STRUCT_TOTAL_PRICE));
-		//SG060706
-		//        if(ethernet_list.status == 2) 
-		//        {
-		//		if( NetworkGetTransactionData() != 1 )  return;
-		//	}
-		
-		ret = NetClerkLock(lastClerk);
-		if (ret == 3) goto ESC_PAY;	// timeout
-		else if (ret == 0) return;	// clerk lock
-		
-		//	if( !NetClerkLock(lastClerk)) 	goto ESC_PAY;		//Modified by JJANG 20080716
-		//	if( NetClerkLock(lastClerk) ) //SG061129
-		//	{
-		
-		if(lastClerk && !get_nvram_lparam(NVRAM_TRANS_HEAD+lastClerk*4)) {
-			if(ethernet_list.status != 2)
-				goto IGNORE;
-		}
-		
-		ClerkTotalPrice(0, lastClerk, &totalData);
-		
-		//SG060706
-		//SG061129		if(ethernet_list.status == 2) {
-		//SG061129			totalData.TotalCount = ClerkSaleAmount.totalCount;
-		//SG061129			totalData.TotalPrice = ClerkSaleAmount.totalPrice;
-		//SG061129			totalData.VoidCount =  ClerkSaleAmount.voidCount;
-		//SG061129			totalData.VoidPrice =  ClerkSaleAmount.voidPrice;
-		//SG061129		}
-		
-		if(totalData.TotalCount+totalData.VoidCount<1) goto IGNORE;
-		
-		////	ClearDisp7();
-		////	display_lcd_clear();
-		////	old_font=DspStruct.Id1;
-		////	DspLoadFont1(DSP_SYSTEM_FONT_ID);
-		KEY_SetMode(1);
-		CalcPay(lastClerk, totalData.TotalPrice, 0, beep); // beep : function key id
-		KEY_SetMode(0);
-		
-		//	}
-		goto ESC_PAY;
-		//NetClerkLockRelease(lastClerk);  //SG061129
-		
-		////	DspLoadFont1(old_font);
-		////	sale_pluclear(ON);
-		////	display_lcd_clear();
-		////	sale_display_update(0x0fff);
-		//	return;
-		IGNORE:
-				DisplayMsg(global_message[MSG_NO_TOTAL]);
-		ESC_PAY:
-				NetClerkLockRelease(lastClerk);  //SG061129
+	if (UseAreaScaleMode == 2) // 0:NormalScale(STD), 1:DualModeScale, 2:AreaScale
+	{
+		BuzOn(2);
 		return;
-		
+	}
+#endif
+	
+	lastClerk = status_scale.clerkid;
+	
+	//memset(&totalData, 0, sizeof(STRUCT_TOTAL_PRICE));
+	//SG060706
+	//        if(ethernet_list.status == 2) 
+	//        {
+	//		if( NetworkGetTransactionData() != 1 )  return;
+	//	}
+	
+	ret = NetClerkLock(lastClerk);
+	if (ret == 3) goto ESC_PAY;	// timeout
+	else if (ret == 0) return;	// clerk lock
+	
+	//	if( !NetClerkLock(lastClerk)) 	goto ESC_PAY;		//Modified by JJANG 20080716
+	//	if( NetClerkLock(lastClerk) ) //SG061129
+	//	{
+	
+	if(lastClerk && !get_nvram_lparam(NVRAM_TRANS_HEAD+lastClerk*4)) {
+		if(ethernet_list.status != 2)
+			goto IGNORE;
 	}
 	
-	void keyapp_edit_store(void)
-	{
-		INT8U old_mode;
+	ClerkTotalPrice(0, lastClerk, &totalData);
+	
+	//SG060706
+	//SG061129		if(ethernet_list.status == 2) {
+	//SG061129			totalData.TotalCount = ClerkSaleAmount.totalCount;
+	//SG061129			totalData.TotalPrice = ClerkSaleAmount.totalPrice;
+	//SG061129			totalData.VoidCount =  ClerkSaleAmount.voidCount;
+	//SG061129			totalData.VoidPrice =  ClerkSaleAmount.voidPrice;
+	//SG061129		}
+	
+	if(totalData.TotalCount+totalData.VoidCount<1) goto IGNORE;
+	
+	////	ClearDisp7();
+	////	display_lcd_clear();
+	////	old_font=DspStruct.Id1;
+	////	DspLoadFont1(DSP_SYSTEM_FONT_ID);
+	KEY_SetMode(1);
+	CalcPay(lastClerk, totalData.TotalPrice, 0, beep); // beep : function key id
+	KEY_SetMode(0);
+	
+	//	}
+	goto ESC_PAY;
+	//NetClerkLockRelease(lastClerk);  //SG061129
+	
+	////	DspLoadFont1(old_font);
+	////	sale_pluclear(ON);
+	////	display_lcd_clear();
+	////	sale_display_update(0x0fff);
+	//	return;
+	IGNORE:
+			DisplayMsg(global_message[MSG_NO_TOTAL]);
+	ESC_PAY:
+			NetClerkLockRelease(lastClerk);  //SG061129
+	return;
+	
+}
 
-	#ifdef _USE_LCD20848_
-			Dsp_Clear();
-	#endif
-		old_mode = KEY_GetMode();
-		KEY_SetMode(1);
-		Dsp_ChangeMode(DSP_PGM_MODE);
+void keyapp_edit_store(void)
+{
+	INT8U old_mode;
 
-		store_name_create();
-
-		KEY_SetMode(old_mode);
+#ifdef _USE_LCD20848_
 		Dsp_Clear();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		sale_display_update(UPDATE_STATUS);
-	}
-	
-	void keyapp_change_prefix(void)
-	{
-		INT8U uctemp,swedish_barcode;
-		INT8U buf[22];
+#endif
+	old_mode = KEY_GetMode();
+	KEY_SetMode(1);
+	Dsp_ChangeMode(DSP_PGM_MODE);
 
-		uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG2); 
-		swedish_barcode = (uctemp>>6) & 0x03;
+	store_name_create();
 
-		swedish_barcode %= 2;
-		swedish_barcode += 1;
+	KEY_SetMode(old_mode);
+	Dsp_Clear();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	sale_display_update(UPDATE_STATUS);
+}
 
-		uctemp &= (~0xc0);
-		uctemp |= ((swedish_barcode << 6) & 0xc0);
-		set_global_bparam(GLOBAL_SALE_SETUP_FLAG2, uctemp);
+void keyapp_change_prefix(void)
+{
+	INT8U uctemp,swedish_barcode;
+	INT8U buf[22];
 
-		sprintf((char *)buf, "Swedish Auto Bar.:[%d]",swedish_barcode);
-		DisplayMsg(buf);
-		sale_display_update(UPDATE_STATUS);
-	}
+	uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG2); 
+	swedish_barcode = (uctemp>>6) & 0x03;
+
+	swedish_barcode %= 2;
+	swedish_barcode += 1;
+
+	uctemp &= (~0xc0);
+	uctemp |= ((swedish_barcode << 6) & 0xc0);
+	set_global_bparam(GLOBAL_SALE_SETUP_FLAG2, uctemp);
+
+	sprintf((char *)buf, "Swedish Auto Bar.:[%d]",swedish_barcode);
+	DisplayMsg(buf);
+	sale_display_update(UPDATE_STATUS);
+}
 
 #ifdef USE_LOT_NUMBER_FUNCTION	//(function key #147)
 void keyapp_edit_lot(void)
@@ -7563,3042 +7563,3057 @@ void keyapp_edit_lot(void)
 	sale_display_update(UPDATE_STATUS);
 }
 #endif
+
+extern SALE_G_FLOAT_TYPE	GlbFloat;
+extern SALE_G_ADD_TYPE		GlbAddup;
+
+
+long total_minus_disc(long totalPrice)
+{
+	long	result;
+	long	tPrice;
+	INT16S     decpoint=DecimalPointPrice();
+	char    old;
+	long    ret;
+	INT8U   old_key;
+	char    char_w;
+	CAPTION_STRUCT	cap;
 	
-	extern SALE_G_FLOAT_TYPE	GlbFloat;
-	extern SALE_G_ADD_TYPE		GlbAddup;
+	ret = 0;
+	tPrice = 0;
 	
+	old_key = KEY_GetMode();
+	KEY_SetMode(1);
 	
-	long total_minus_disc(long totalPrice)
+	old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	
+	//PutNSmallString(0,0,global_message[MSG_DC_MINUS],35);
+	caption_split_by_code(0xc01c,&cap,0);
+	//	strcat(cap.form, "(-)");
+	cap.input_length = 7;
+	caption_adjust(&cap, NULL);
+	display_clear(DISPLAY_WEIGHT);
+	display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
+	VFD7_Diffuse();
+	//old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	char_w = display_font_get_width();
+	result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
+	
+	DspLoadFont1(old);
+	if(result==KP_ENTER || result==KP_SAVE)
 	{
-		long	result;
-		long	tPrice;
-		INT16S     decpoint=DecimalPointPrice();
-		char    old;
-		long    ret;
-		INT8U   old_key;
-		char    char_w;
-		CAPTION_STRUCT	cap;
-		
-		ret = 0;
-		tPrice = 0;
-		
-		old_key = KEY_GetMode();
-		KEY_SetMode(1);
-		
-		old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		
-		//PutNSmallString(0,0,global_message[MSG_DC_MINUS],35);
-		caption_split_by_code(0xc01c,&cap,0);
-		//	strcat(cap.form, "(-)");
-		cap.input_length = 7;
-		caption_adjust(&cap, NULL);
-		display_clear(DISPLAY_WEIGHT);
-		display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
-		VFD7_Diffuse();
-		//old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		char_w = display_font_get_width();
-		result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, decpoint,(long*)&tPrice, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
-		
-		DspLoadFont1(old);
-		if(result==KP_ENTER || result==KP_SAVE)
+		if(0<totalPrice-tPrice)
 		{
-			if(0<totalPrice-tPrice)
-			{
-				ret = tPrice;
-				//return	tPrice;
-			}
-		}
-		
-		KEY_SetMode(old_key);
-		return ret;
-	}
-	
-	long total_sale_percent(void)
-	{
-		long result;
-		long tPer;
-		char old;
-		long ret;
-		INT8U old_key;
-		char    char_w;
-		CAPTION_STRUCT	cap;
-		
-		ret = 0;
-		tPer = 0;
-		
-		old_key = KEY_GetMode();	
-		KEY_SetMode(1);
-		
-		old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		
-		//PutNSmallString(0,0,global_message[MSG_DC_PERCENT],35);
-		caption_split_by_code(0xc01d,&cap,0);
-		//	strcat(cap.form, "(%)");
-		cap.input_length = 2;
-		caption_adjust(&cap, NULL);
-		display_clear(DISPLAY_WEIGHT);
-		display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
-		VFD7_Diffuse();
-		
-		//old=DspStruct.Id1;
-		DspLoadFont1(DSP_MSG_FONT_ID);
-		char_w = display_font_get_width();
-		result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, 0,(long*)&tPer, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
-		DspLoadFont1(old);
-		if(result==KP_ENTER || result==KP_SAVE)
-		{
-			ret = tPer;//return tPer;
-		}
-		//
-		KEY_SetMode(old_key);
-		return ret;
-	}
-	
-	INT16S	LoadDefaultCurrency(void)
-	{
-		if(CurrencyPrice.CurrencyUseDefault)//OPTION: default currency
-		{
-			if(CurrencyPrice.CurrencyIndex!=1)
-				keyapp_currency(0,0,0,0,KS_CURRENCY_01);
-			if(CurrencyPrice.CurrencyRate == 0)
-				return 0;
-		}
-		return 1;
-	}
-	
-	INT16S	ClearCurrencyPrice(void)
-	{
-		CurrencyPrice.CurrencyKeyCode	= 0;
-		CurrencyPrice.CurrencyIndex	= 0;
-		////	CurrencyPrice.CurrencyPrice	= 0;
-		////	CurrencyPrice.CurrencyUnitPrice	= 0;
-		CurrencyPrice.CurrencyPriceH8	= 0;
-		CurrencyPrice.CurrencyPriceL8	= 0;
-		CurrencyPrice.CurrencyUnitPriceH8	= 0;
-		CurrencyPrice.CurrencyUnitPriceL8	= 0;
-		CurrencyPrice.CurrencyRate	= 0;
-		
-		LoadDefaultCurrency();
-		
-		return 1;
-	}
-	
-	void	ComputeCurrency(INT16S dipslayMsg,INT16S y,INT16S x,long price,long unitprice)// display,y,x
-	{
-		char	priceBuf[20];//, tempBuf[20];
-		char 	dec_ch;
-		
-		if(CurrencyPrice.CurrencyUseDefault && !CurrencyPrice.CurrencyKeyCode)
-		{
-			CurrencyPrice.CurrencyKeyCode = KS_CURRENCY_01;
-		}
-		
-		if(CurrencyPrice.CurrencyKeyCode)
-		{
-			keyapp_currency(0,0,price,unitprice,CurrencyPrice.CurrencyKeyCode);// beep off, display off
-			if(dipslayMsg)
-			{
-				////			////if(CurrencyPrice.CurrencyPrice == 0xffffffff) priceBuf[0] = 0;
-				////			////else {
-				////				if(CurrencyPrice.CurrencyPriceDiv)
-				////					FloatToString(TO_STR,priceBuf,9,DISPLAY_PRICE,&CurrencyPrice.CurrencyPrice,CurrencyPrice.CurrencyPriceDiv);
-				////				else
-				////					sprintf(priceBuf,"%ld",CurrencyPrice.CurrencyPrice);
-				dec_ch = get_global_bparam(GLOBAL_DECIMAL_SIGN);
-				format_value_2long((HUGEDATA INT8U *)priceBuf, CurrencyPrice.CurrencyPriceH8, CurrencyPrice.CurrencyPriceL8, CurrencyPrice.CurrencyPriceDiv, dec_ch);
-				//				if(CurrencyPrice.CurrencyPriceH8) {
-				//					sprintf(priceBuf, "%ld", CurrencyPrice.CurrencyPriceH8);
-				//					len = strlen(priceBuf);
-				//					if(CurrencyPrice.CurrencyPriceDiv) {
-				//						//FloatToString(TO_STR,priceBuf+len,9,DISPLAY_PRICE,&CurrencyPrice.CurrencyPriceL8,CurrencyPrice.CurrencyPriceDiv);
-				//						format_value(tempBuf,CurrencyPrice.CurrencyPriceL8, CurrencyPrice.CurrencyPriceDiv,'.');
-				//						memset(priceBuf+len, '0', 9 - strlen(tempBuf));
-				//						len += (9 - strlen(tempBuf));
-				//						sprintf(priceBuf+len, "%s", tempBuf);
-				//					} else {
-				//						sprintf(priceBuf+len,"%08ld",CurrencyPrice.CurrencyPriceL8);
-				//					}
-				//				} else {
-				//					if(CurrencyPrice.CurrencyPriceDiv)
-				//						FloatToString(TO_STR,priceBuf,9,DISPLAY_PRICE,&CurrencyPrice.CurrencyPriceL8,CurrencyPrice.CurrencyPriceDiv);
-				//					else
-				//						sprintf(priceBuf,"%ld",CurrencyPrice.CurrencyPriceL8);
-				//				}
-				////			////}
-				//			caption_split_by_code(0xc050,&cap,1);//"Total %s %s"
-				sprintf(gmsg,global_message[MSG_CURRENCY_CHANGE],CurrencyPrice.CurrencyString1,str_trimleft(priceBuf));
-				PutSmallString(y,x,gmsg);
-			}
+			ret = tPrice;
+			//return	tPrice;
 		}
 	}
 	
-	void CheckGrandTotalStatus(void)
+	KEY_SetMode(old_key);
+	return ret;
+}
+
+long total_sale_percent(void)
+{
+	long result;
+	long tPer;
+	char old;
+	long ret;
+	INT8U old_key;
+	char    char_w;
+	CAPTION_STRUCT	cap;
+	
+	ret = 0;
+	tPer = 0;
+	
+	old_key = KEY_GetMode();	
+	KEY_SetMode(1);
+	
+	old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	
+	//PutNSmallString(0,0,global_message[MSG_DC_PERCENT],35);
+	caption_split_by_code(0xc01d,&cap,0);
+	//	strcat(cap.form, "(%)");
+	cap.input_length = 2;
+	caption_adjust(&cap, NULL);
+	display_clear(DISPLAY_WEIGHT);
+	display_string(DISPLAY_WEIGHT,(INT8U *)cap.form);
+	VFD7_Diffuse();
+	
+	//old=DspStruct.Id1;
+	DspLoadFont1(DSP_MSG_FONT_ID);
+	char_w = display_font_get_width();
+	result = keyin_ulong(KI_UNIT, KI_FORM_NORMAL, 0,(long*)&tPer, cap.input_length, DSP_MSG_Y,  DSP_MSG_X+cap.input_x*char_w, 0,KI_NOPASS );
+	DspLoadFont1(old);
+	if(result==KP_ENTER || result==KP_SAVE)
 	{
-		PREPACK_STATUS_TYPE PrepackStatus;
-		
-		if (Operation.operationClerk != OPER_NORMAL) return;
-		
-		get_PrepackStatus(&PrepackStatus);
-		if(PrepackStatus.PrevSubPluNo == 0 && PrepackStatus.OneItem_Sub) 
-		{
-			PrepackStatus.OneItem_Grand = ON;
-		}
-		else if(PrepackStatus.PrevSubPluNo != PrepackStatus.CurPluNo)
-		{
-			PrepackStatus.OneItem_Grand = OFF;
-		}
-		PrepackStatus.PrevSubPluNo = PrepackStatus.CurPluNo;
-		PrepackStatus.PrevPluNo = 0;
-		set_PrepackStatus(&PrepackStatus);
+		ret = tPer;//return tPer;
+	}
+	//
+	KEY_SetMode(old_key);
+	return ret;
+}
+
+INT16S	LoadDefaultCurrency(void)
+{
+	if(CurrencyPrice.CurrencyUseDefault)//OPTION: default currency
+	{
+		if(CurrencyPrice.CurrencyIndex!=1)
+			keyapp_currency(0,0,0,0,KS_CURRENCY_01);
+		if(CurrencyPrice.CurrencyRate == 0)
+			return 0;
+	}
+	return 1;
+}
+
+INT16S	ClearCurrencyPrice(void)
+{
+	CurrencyPrice.CurrencyKeyCode	= 0;
+	CurrencyPrice.CurrencyIndex	= 0;
+	////	CurrencyPrice.CurrencyPrice	= 0;
+	////	CurrencyPrice.CurrencyUnitPrice	= 0;
+	CurrencyPrice.CurrencyPriceH8	= 0;
+	CurrencyPrice.CurrencyPriceL8	= 0;
+	CurrencyPrice.CurrencyUnitPriceH8	= 0;
+	CurrencyPrice.CurrencyUnitPriceL8	= 0;
+	CurrencyPrice.CurrencyRate	= 0;
+	
+	LoadDefaultCurrency();
+	
+	return 1;
+}
+
+void	ComputeCurrency(INT16S dipslayMsg,INT16S y,INT16S x,long price,long unitprice)// display,y,x
+{
+	char	priceBuf[20];//, tempBuf[20];
+	char 	dec_ch;
+	
+	if(CurrencyPrice.CurrencyUseDefault && !CurrencyPrice.CurrencyKeyCode)
+	{
+		CurrencyPrice.CurrencyKeyCode = KS_CURRENCY_01;
 	}
 	
-	void CheckSubTotalStatus(void)
+	if(CurrencyPrice.CurrencyKeyCode)
 	{
-		PREPACK_STATUS_TYPE PrepackStatus;
-		
-		get_PrepackStatus(&PrepackStatus);
-		PrepackStatus.CurDeptNo = status_scale.Plu.deptid;
-		PrepackStatus.CurPluNo = status_scale.cur_pluid;
-		if(PrepackStatus.PrevPluNo == 0) 
+		keyapp_currency(0,0,price,unitprice,CurrencyPrice.CurrencyKeyCode);// beep off, display off
+		if(dipslayMsg)
 		{
-			PrepackStatus.OneItem_Sub = ON;
+			////			////if(CurrencyPrice.CurrencyPrice == 0xffffffff) priceBuf[0] = 0;
+			////			////else {
+			////				if(CurrencyPrice.CurrencyPriceDiv)
+			////					FloatToString(TO_STR,priceBuf,9,DISPLAY_PRICE,&CurrencyPrice.CurrencyPrice,CurrencyPrice.CurrencyPriceDiv);
+			////				else
+			////					sprintf(priceBuf,"%ld",CurrencyPrice.CurrencyPrice);
+			dec_ch = get_global_bparam(GLOBAL_DECIMAL_SIGN);
+			format_value_2long((HUGEDATA INT8U *)priceBuf, CurrencyPrice.CurrencyPriceH8, CurrencyPrice.CurrencyPriceL8, CurrencyPrice.CurrencyPriceDiv, dec_ch);
+			//				if(CurrencyPrice.CurrencyPriceH8) {
+			//					sprintf(priceBuf, "%ld", CurrencyPrice.CurrencyPriceH8);
+			//					len = strlen(priceBuf);
+			//					if(CurrencyPrice.CurrencyPriceDiv) {
+			//						//FloatToString(TO_STR,priceBuf+len,9,DISPLAY_PRICE,&CurrencyPrice.CurrencyPriceL8,CurrencyPrice.CurrencyPriceDiv);
+			//						format_value(tempBuf,CurrencyPrice.CurrencyPriceL8, CurrencyPrice.CurrencyPriceDiv,'.');
+			//						memset(priceBuf+len, '0', 9 - strlen(tempBuf));
+			//						len += (9 - strlen(tempBuf));
+			//						sprintf(priceBuf+len, "%s", tempBuf);
+			//					} else {
+			//						sprintf(priceBuf+len,"%08ld",CurrencyPrice.CurrencyPriceL8);
+			//					}
+			//				} else {
+			//					if(CurrencyPrice.CurrencyPriceDiv)
+			//						FloatToString(TO_STR,priceBuf,9,DISPLAY_PRICE,&CurrencyPrice.CurrencyPriceL8,CurrencyPrice.CurrencyPriceDiv);
+			//					else
+			//						sprintf(priceBuf,"%ld",CurrencyPrice.CurrencyPriceL8);
+			//				}
+			////			////}
+			//			caption_split_by_code(0xc050,&cap,1);//"Total %s %s"
+			sprintf(gmsg,global_message[MSG_CURRENCY_CHANGE],CurrencyPrice.CurrencyString1,str_trimleft(priceBuf));
+			PutSmallString(y,x,gmsg);
 		}
-		else if(PrepackStatus.PrevPluNo != PrepackStatus.CurPluNo)
-		{
-			PrepackStatus.OneItem_Sub = OFF;
-		}
-		PrepackStatus.PrevPluNo = PrepackStatus.CurPluNo;
-		set_PrepackStatus(&PrepackStatus);
 	}
+}
+
+void CheckGrandTotalStatus(void)
+{
+	PREPACK_STATUS_TYPE PrepackStatus;
 	
-	extern long LocalPayTotalSummaries(TRANSACTION_PAY Pay,INT8U recvmode, INT8U reopen_flag);
-	//extern INT16S CreditAddPay(INT16S creditCustomerNo,TRANSACTION_PAY transPay,INT16S creditFlag);
-	extern	SALE_G_PRICE_TYPE	GlbPrice;
-	extern INT8U ClerkTransactionSaleStore(INT8U clerkNum);
-	//extern INT8U ClerkTransactionSaleSend(HUGEDATA COMM_BUF *CBuf, INT8U clerkNum);
-	extern INT8U CloseTicketWithoutPrint;
-	void	PrintTotalLabelTicket(INT8U trtType,INT16U lastClerk,long resultPrice,long payPrice, long savedPrice)
+	if (Operation.operationClerk != OPER_NORMAL) return;
+	
+	get_PrepackStatus(&PrepackStatus);
+	if(PrepackStatus.PrevSubPluNo == 0 && PrepackStatus.OneItem_Sub) 
 	{
-		////	INT16S totalCount;
-		////	INT16S voidCount;
-		////	long totalPrice;
-		////	long voidPrice;
-		INT8U	result;
-		INT8U 	ret_value=0;
-		INT16U 	bufdata_count=0;
-		INT8U 	totalDisplayTime, i;
-		INT8U	prt_total_conti;
-		INT8U	escape_prt = 0;
+		PrepackStatus.OneItem_Grand = ON;
+	}
+	else if(PrepackStatus.PrevSubPluNo != PrepackStatus.CurPluNo)
+	{
+		PrepackStatus.OneItem_Grand = OFF;
+	}
+	PrepackStatus.PrevSubPluNo = PrepackStatus.CurPluNo;
+	PrepackStatus.PrevPluNo = 0;
+	set_PrepackStatus(&PrepackStatus);
+}
+
+void CheckSubTotalStatus(void)
+{
+	PREPACK_STATUS_TYPE PrepackStatus;
+	
+	get_PrepackStatus(&PrepackStatus);
+	PrepackStatus.CurDeptNo = status_scale.Plu.deptid;
+	PrepackStatus.CurPluNo = status_scale.cur_pluid;
+	if(PrepackStatus.PrevPluNo == 0) 
+	{
+		PrepackStatus.OneItem_Sub = ON;
+	}
+	else if(PrepackStatus.PrevPluNo != PrepackStatus.CurPluNo)
+	{
+		PrepackStatus.OneItem_Sub = OFF;
+	}
+	PrepackStatus.PrevPluNo = PrepackStatus.CurPluNo;
+	set_PrepackStatus(&PrepackStatus);
+}
+
+extern long LocalPayTotalSummaries(TRANSACTION_PAY Pay,INT8U recvmode, INT8U reopen_flag);
+//extern INT16S CreditAddPay(INT16S creditCustomerNo,TRANSACTION_PAY transPay,INT16S creditFlag);
+extern	SALE_G_PRICE_TYPE	GlbPrice;
+extern INT8U ClerkTransactionSaleStore(INT8U clerkNum);
+//extern INT8U ClerkTransactionSaleSend(HUGEDATA COMM_BUF *CBuf, INT8U clerkNum);
+extern INT8U CloseTicketWithoutPrint;
+void	PrintTotalLabelTicket(INT8U trtType,INT16U lastClerk,long resultPrice,long payPrice, long savedPrice)
+{
+	////	INT16S totalCount;
+	////	INT16S voidCount;
+	////	long totalPrice;
+	////	long voidPrice;
+	INT8U	result;
+	INT8U 	ret_value=0;
+	INT16U 	bufdata_count=0;
+	INT8U 	totalDisplayTime, i;
+	INT8U	prt_total_conti;
+	INT8U	escape_prt = 0;
 #ifdef USE_DISCOUNTED_TAX_FOR_DISCOUNTED_TOTAL
-		float discountRate;
+	float discountRate;
 #endif
-		prt_total_conti = get_global_bparam(GLOBAL_PRINT_OPER_FLAG2) & 0x20;	//1872 Prt total label conti
-		totalDisplayTime = get_global_bparam(GLOBAL_SALE_SETUP_FLAG12);
-		totalDisplayTime = totalDisplayTime & 0x0f;
-		totalDisplayTime *= 10;		//key delay sec 는 systimer100ms 사용 함. 
-		ClerkTotalPrice(0, lastClerk, &TotalData);
-		TotalData.SummaryTotalPrice = resultPrice;
-		TotalData.SummarySavedPrice = savedPrice;
-		TotalData.PayPrice = payPrice;
-		TotalData.SummaryRound = transPay.summaryround;
-		if(trtType == TRANS_TYPE_PAY_TOTAL_NOPAY)
-		{
-			TotalData.PayPrice = 0;
-			DiscSale.saleCreditCustomer = 0;
-		}
-		/////////////////////////
-		
-		// Modified by CJK 20041112
-		//result = PrintTotal(lastClerk, discountPer,discountPrice);
-		transPay.trtType = trtType;// 일반적 total은 cash지불로 인정X
-		transPay.scaleid = status_scale.scaleid;
-		transPay.clerkid = lastClerk;
-		transPay.summarydiscount = savedPrice;	//Added by JJANG 20080529
+	prt_total_conti = get_global_bparam(GLOBAL_PRINT_OPER_FLAG2) & 0x20;	//1872 Prt total label conti
+	totalDisplayTime = get_global_bparam(GLOBAL_SALE_SETUP_FLAG12);
+	totalDisplayTime = totalDisplayTime & 0x0f;
+	totalDisplayTime *= 10;		//key delay sec 는 systimer100ms 사용 함. 
+	ClerkTotalPrice(0, lastClerk, &TotalData);
+	TotalData.SummaryTotalPrice = resultPrice;
+	TotalData.SummarySavedPrice = savedPrice;
+	TotalData.PayPrice = payPrice;
+	TotalData.SummaryRound = transPay.summaryround;
+	if(trtType == TRANS_TYPE_PAY_TOTAL_NOPAY)
+	{
+		TotalData.PayPrice = 0;
+		DiscSale.saleCreditCustomer = 0;
+	}
+	/////////////////////////
+	
+	// Modified by CJK 20041112
+	//result = PrintTotal(lastClerk, discountPer,discountPrice);
+	transPay.trtType = trtType;// 일반적 total은 cash지불로 인정X
+	transPay.scaleid = status_scale.scaleid;
+	transPay.clerkid = lastClerk;
+	transPay.summarydiscount = savedPrice;	//Added by JJANG 20080529
 #ifdef USE_INDIA_FUNCTION
-		transPay.ticketNo = get_TicketTransactionNumber(lastClerk);
-		transPay.transCount= TotalData.TotalCount;
+	transPay.ticketNo = get_TicketTransactionNumber(lastClerk);
+	transPay.transCount= TotalData.TotalCount;
 #endif
 #ifdef USE_DISCOUNTED_TAX_FOR_DISCOUNTED_TOTAL
-		if (TotalData.TotalPrice == 0) discountRate = 1;
+	if (TotalData.TotalPrice == 0) discountRate = 1;
+	else
+	{
+		discountRate = (float)TotalData.SummaryTotalPrice / (float)TotalData.TotalPrice;
+	}
+	for (i = 0; i < MAX_TAX_NO; i++)
+	{
+		if (TotalData.taxPrice[i] > 0)
+			TotalData.taxPrice[i] = ((float)TotalData.taxPrice[i] * discountRate + 0.5);
 		else
-		{
-			discountRate = (float)TotalData.SummaryTotalPrice / (float)TotalData.TotalPrice;
-		}
-		for (i = 0; i < MAX_TAX_NO; i++)
-		{
-			if (TotalData.taxPrice[i] > 0)
-				TotalData.taxPrice[i] = ((float)TotalData.taxPrice[i] * discountRate + 0.5);
-			else
-				TotalData.taxPrice[i] = ((float)TotalData.taxPrice[i] * discountRate - 0.5);
-			if (TotalData.taxGross[i] > 0)
-				TotalData.taxGross[i] = ((float)TotalData.taxGross[i] * discountRate + 0.5);
-			else
-				TotalData.taxGross[i] = ((float)TotalData.taxGross[i] * discountRate - 0.5);
-			transPay.taxPrice[i] = TotalData.taxPrice[i];
-			transPay.taxGross[i] = TotalData.taxGross[i];
-		}
-		if (TotalData.InTaxPrice > 0)
-			TotalData.InTaxPrice = ((float)TotalData.InTaxPrice * discountRate + 0.5);
+			TotalData.taxPrice[i] = ((float)TotalData.taxPrice[i] * discountRate - 0.5);
+		if (TotalData.taxGross[i] > 0)
+			TotalData.taxGross[i] = ((float)TotalData.taxGross[i] * discountRate + 0.5);
 		else
-			TotalData.InTaxPrice = ((float)TotalData.InTaxPrice * discountRate - 0.5);
-		if (TotalData.ExTaxPrice > 0)
-			TotalData.ExTaxPrice= ((float)TotalData.ExTaxPrice * discountRate + 0.5);
-		else
-			TotalData.ExTaxPrice= ((float)TotalData.ExTaxPrice * discountRate - 0.5);
+			TotalData.taxGross[i] = ((float)TotalData.taxGross[i] * discountRate - 0.5);
+		transPay.taxPrice[i] = TotalData.taxPrice[i];
+		transPay.taxGross[i] = TotalData.taxGross[i];
+	}
+	if (TotalData.InTaxPrice > 0)
+		TotalData.InTaxPrice = ((float)TotalData.InTaxPrice * discountRate + 0.5);
+	else
+		TotalData.InTaxPrice = ((float)TotalData.InTaxPrice * discountRate - 0.5);
+	if (TotalData.ExTaxPrice > 0)
+		TotalData.ExTaxPrice= ((float)TotalData.ExTaxPrice * discountRate + 0.5);
+	else
+		TotalData.ExTaxPrice= ((float)TotalData.ExTaxPrice * discountRate - 0.5);
 #endif
-		//{
-		//	INT16S i;
-		//	for(i=0;i<MAX_PAID_TYPE;i++)
-		//	{
-		//	sprintf(gmsg,"[%d][%7ld]",i,transPay.paidprice[i]);
-		//	PutSmallString(0,0,gmsg);
-		//	Key_DelaySec(10,0);
-		//	}
-		//}
+	//{
+	//	INT16S i;
+	//	for(i=0;i<MAX_PAID_TYPE;i++)
+	//	{
+	//	sprintf(gmsg,"[%d][%7ld]",i,transPay.paidprice[i]);
+	//	PutSmallString(0,0,gmsg);
+	//	Key_DelaySec(10,0);
+	//	}
+	//}
 #ifdef USE_TAX_RATE
-		TotalData.SummaryTotalPrice += TotalData.ExTaxPrice; 
+	TotalData.SummaryTotalPrice += TotalData.ExTaxPrice; 
 #endif
-		
-		if(ethernet_list.status==4)	//Modified by JJANG 20080313
+	
+	if(ethernet_list.status==4)	//Modified by JJANG 20080313
+	{
+		bufdata_count = GetClerkTransactionCount(lastClerk);
+		ret_value = GetCheckAddTransactionData(0,bufdata_count,AUDIT_MODE_LINEAR);		//mode : sale
+	}
+	else ret_value = 1;
+	
+	if(ret_value)
+	{
+		if(CloseTicketWithoutPrint)
 		{
-	        bufdata_count = GetClerkTransactionCount(lastClerk);
-			ret_value = GetCheckAddTransactionData(0,bufdata_count,AUDIT_MODE_LINEAR);		//mode : sale
+			result = 1;
+			//			caption_split_by_code(0x9C86, &cap, 0);		//TICKET CLOSED
+			//			DisplayMsg(cap.form);
+			BuzOn(1);					//Buzzer 거래 성공 타입으로 변경 필요(Long buzzer). 
+			//		   	Key_DelaySec(20,0);
+			CloseTicketWithoutPrint = OFF;
 		}
-		else ret_value = 1;
-		
-		if(ret_value)
+		else
 		{
-			if(CloseTicketWithoutPrint)
-			{
-				result = 1;
-				//			caption_split_by_code(0x9C86, &cap, 0);		//TICKET CLOSED
-				//			DisplayMsg(cap.form);
-				BuzOn(1);					//Buzzer 거래 성공 타입으로 변경 필요(Long buzzer). 
-				//		   	Key_DelaySec(20,0);
-				CloseTicketWithoutPrint = OFF;
-			}
-			else
-			{
-				result = Prt_PrintStart(PRT_TOTAL_NORMAL_MODE, PrtStruct.Mode, lastClerk, ON, 0, 0);
-			}
-			
+			result = Prt_PrintStart(PRT_TOTAL_NORMAL_MODE, PrtStruct.Mode, lastClerk, ON, 0, 0);
+		}
+		
 #ifdef USE_CHN_CART_SCALE
-			result = 1; // 인쇄에러와 상관없이 정상처리
+		result = 1; // 인쇄에러와 상관없이 정상처리
 #else
-			//Added by JJANG 20080131 프린트 출력 오류났을 때 에러메시지 출력 (print error, YES/NO?) 
-			if(result == 2)	//paper end err
+		//Added by JJANG 20080131 프린트 출력 오류났을 때 에러메시지 출력 (print error, YES/NO?) 
+		if(result == 2)	//paper end err
+		{
+			BuzOn(2);
+			//VFD7_all_char(0x00);
+			display_alloff_primary_indication();
+			VFD7_Diffuse();
+			if(display_message_printerr_page(0xCA01,0xCA02))	//Modified by JJANG 20080221 함수교체
 			{
-				BuzOn(2);
-				//VFD7_all_char(0x00);
-				display_alloff_primary_indication();
-				VFD7_Diffuse();
-				if(display_message_printerr_page(0xCA01,0xCA02))	//Modified by JJANG 20080221 함수교체
-				{
-					set_nvram_bparam(NVRAM_SLAVECHECK_FLAG,1);
-					result = ON;		
-				}
+				set_nvram_bparam(NVRAM_SLAVECHECK_FLAG,1);
+				result = ON;		
 			}
+		}
 #endif
-			if(result == 1) 
+		if(result == 1) 
+		{
+			if (Operation.operationClerk == OPER_NORMAL)
 			{
-				if (Operation.operationClerk == OPER_NORMAL)
-				{
-					ClerkGrandTotalSum(lastClerk, &TotalData);// , 0);	//CJK20040909
-					CheckGrandTotalStatus();
-				}
-				//if(directPrint)	// DEL CJK070321
-				//{
-				LocalPayTotalSummaries(transPay,0,OFF);
-				//}
+				ClerkGrandTotalSum(lastClerk, &TotalData);// , 0);	//CJK20040909
+				CheckGrandTotalStatus();
+			}
+			//if(directPrint)	// DEL CJK070321
+			//{
+			LocalPayTotalSummaries(transPay,0,OFF);
+			//}
 #ifdef USE_TAX_RATE
-				Get_PLUSaleSummaryRenewal(1, discountRate, lastClerk, status_scale.scaleid, OFF);
+			Get_PLUSaleSummaryRenewal(1, discountRate, lastClerk, status_scale.scaleid, OFF);
 #endif
-				
-				ClerkTransactionSaleStore(lastClerk);
-				//		network_ClerkDeleteTransaction(lastClerk);
+			
+			ClerkTransactionSaleStore(lastClerk);
+			//		network_ClerkDeleteTransaction(lastClerk);
 #if defined(USE_INDIA_FUNCTION) || defined(USE_SEND_TICKET_DATA)
 //#ifdef USE_QR_ADDTOTAL
-				if (!RealtimeAddDataFlag)
-				{
-					Operation.transAddup = OFF;
+			if (!RealtimeAddDataFlag)
+			{
+				Operation.transAddup = OFF;
 #ifdef USE_SEND_TICKET_DATA
-					transactionSendTicketData(lastClerk);
+				transactionSendTicketData(lastClerk);
 #endif
-					TransactionSendWithoutVoid(lastClerk);
-					DeleteAdditionalData(lastClerk);
-				}
+				TransactionSendWithoutVoid(lastClerk);
+				DeleteAdditionalData(lastClerk);
+			}
 //#endif
 #endif
-				//Added by JJANG 20080130
-				//Slave와 Master가 다시 연결될 때까지 기다렸다가 DATA전송
-				set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 1); 
-				while(!network_ClerkDeleteTransaction(lastClerk));
-				set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 0); 
-				
-				ReopenedTransPay = transPay;
-				ClerkDeleteTransaction(lastClerk);
-				memset(&ReopenedTransPay, 0, sizeof(TRANSACTION_PAY));
-				TareOper.addupWeight = 0;
-				if(DiscSale.saleCreditCustomer && transPay.paidprice[PAY_CREDIT])
+			//Added by JJANG 20080130
+			//Slave와 Master가 다시 연결될 때까지 기다렸다가 DATA전송
+			set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 1); 
+			while(!network_ClerkDeleteTransaction(lastClerk));
+			set_nvram_bparam(NVRAM_SLAVECHECK_FLAG, 0); 
+			
+			ReopenedTransPay = transPay;
+			ClerkDeleteTransaction(lastClerk);
+			memset(&ReopenedTransPay, 0, sizeof(TRANSACTION_PAY));
+			TareOper.addupWeight = 0;
+			if(DiscSale.saleCreditCustomer && transPay.paidprice[PAY_CREDIT])
+			{
+				// Don't Erase! Need Check! It will be used later.(CJK)
+				//CreditAddPay(DiscSale.saleCreditCustomer,transPay,1);
+				///////
+			}
+			if(prt_total_conti && (PrtStruct.Mode == LABEL))		//Menu 1872 Print total label continuously
+			{
+				if(Startup.country != COUNTRY_KR)
 				{
-					// Don't Erase! Need Check! It will be used later.(CJK)
-					//CreditAddPay(DiscSale.saleCreditCustomer,transPay,1);
-					///////
+					caption_split_by_code(0x97A3, &cap, 0);	//"[ESC]=escape"
+					PutSmallString(3,0,cap.form);
+					Dsp_Diffuse();
 				}
-				if(prt_total_conti && (PrtStruct.Mode == LABEL))		//Menu 1872 Print total label continuously
+				while(!escape_prt) 
 				{
-					if(Startup.country != COUNTRY_KR)
+					while(!KEY_Read());
+					switch(KeyDrv.CnvCode) 
 					{
-						caption_split_by_code(0x97A3, &cap, 0);	//"[ESC]=escape"
-						PutSmallString(3,0,cap.form);
-						Dsp_Diffuse();
+						case KS_PRINT :
+							result = Prt_PrintStart(PRT_TOTAL_NORMAL_MODE, PrtStruct.Mode, lastClerk, ON, 0, 0);
+							if(result != 1) escape_prt = ON;
+							break;
+						case KS_CLEAR : 
+						case KS_MULTI : 
+							escape_prt = ON;
+							break;
+						default :
+							BuzOn(2);
+							break;
 					}
-					while(!escape_prt) 
-					{
-						while(!KEY_Read());
-						switch(KeyDrv.CnvCode) 
-						{
-							case KS_PRINT :
-								result = Prt_PrintStart(PRT_TOTAL_NORMAL_MODE, PrtStruct.Mode, lastClerk, ON, 0, 0);
-								if(result != 1) escape_prt = ON;
-								break;
-							case KS_CLEAR : 
-							case KS_MULTI : 
-								escape_prt = ON;
-								break;
-							default :
-								BuzOn(2);
-								break;
-						}
-					}
+				}
 #ifdef USE_QR_ADDTOTAL
-				// QrAddTotal Data 삭제
-				nvram_set(NVRAM_QR_ADD_DATA, 0x00, 1000);
-				set_nvram_bparam(NVRAM_QR_ADD_COUNT, 0);
-				TotalQRFlag = 0;
+			// QrAddTotal Data 삭제
+			nvram_set(NVRAM_QR_ADD_DATA, 0x00, 1000);
+			set_nvram_bparam(NVRAM_QR_ADD_COUNT, 0);
+			TotalQRFlag = 0;
 #endif
-				}
-				else
-				{
+			}
+			else
+			{
 #ifdef USE_QR_ADDTOTAL
-				// QrAddTotal Data 삭제
-				nvram_set(NVRAM_QR_ADD_DATA, 0x00, 1000);
-				set_nvram_bparam(NVRAM_QR_ADD_COUNT, 0);
-				TotalQRFlag = 0;
+			// QrAddTotal Data 삭제
+			nvram_set(NVRAM_QR_ADD_DATA, 0x00, 1000);
+			set_nvram_bparam(NVRAM_QR_ADD_COUNT, 0);
+			TotalQRFlag = 0;
 #endif
 #ifdef USE_CHN_CART_SCALE
 #else
-					Key_DelaySec((INT16S)totalDisplayTime, 0);	//totalDisplayTime 0 인경우 키 입력시 까지 멈춰있음.
+				Key_DelaySec((INT16S)totalDisplayTime, 0);	//totalDisplayTime 0 인경우 키 입력시 까지 멈춰있음.
 #endif
-				}
 			}
 		}
 	}
-	
-	
-	void keyapp_total(INT16S directPrint)
-	{
-		char priceBuf[15];
-		char	tPriceStr[20];
-		INT16S	tempKey;
-		INT16U	lastClerk=0;
-		long	resultPrice;	//rounded price
+}
+
+
+void keyapp_total(INT16S directPrint)
+{
+	char priceBuf[15];
+	char	tPriceStr[20];
+	INT16S	tempKey;
+	INT16U	lastClerk=0;
+	long	resultPrice;	//rounded price
 #ifdef USE_AU_ROUND
-		long	notRoundedPrice;	//not rounded price
-		INT8U 	roundFlag = OFF;
+	long	notRoundedPrice;	//not rounded price
+	INT8U 	roundFlag = OFF;
 #endif
-		static long	discountPrice_copyticket[MAX_CLERK_NO];
-		long	discountPrice=0;
-		INT16S		discountPer=0;
-		INT16S printFlag = OFF;
-		INT8U  keyMode;
-		char   tempBuf[50];
-		STRUCT_TOTAL_PRICE totalData;
-		long roundDifference;
-		char weightBuf[15];	
-		char w_sign1[5];
+	static long	discountPrice_copyticket[MAX_CLERK_NO];
+	long	discountPrice=0;
+	INT16S		discountPer=0;
+	INT16S printFlag = OFF;
+	INT8U  keyMode;
+	char   tempBuf[50];
+	STRUCT_TOTAL_PRICE totalData;
+	long roundDifference;
+	char weightBuf[15];	
+	char w_sign1[5];
 #if !defined(USE_SINGLE_LINE_GRAPHIC)
-		INT8U	totalinfo_disp = 0;
+	INT8U	totalinfo_disp = 0;
 #endif
-		INT8U	v8_1;
-		INT8U	dec_ch;
-		INT8U	use_unit;
-		INT16S	ret;
-		INT32U curPluTemp = 0;
+	INT8U	v8_1;
+	INT8U	dec_ch;
+	INT8U	use_unit;
+	INT16S	ret;
+	INT32U curPluTemp = 0;
 #ifdef USE_TAX_RATE
-		long	discountTax = 0;
+	long	discountTax = 0;
 #endif
-		
-		lastClerk = status_scale.clerkid;
-		ret = NetClerkLock(lastClerk);
-		if (ret == 3) goto END_RELEASE;	// timeout
-		else if (ret == 0) return;	// clerk lock
-		
-		PutXStringOffsetX = DSP_SALE_INFO_AREA_X1;
-		PutXStringOffsetY = DSP_SALE_INFO_AREA_Y1;
-		dec_ch  = get_global_bparam(GLOBAL_DECIMAL_SIGN);
+	
+	lastClerk = status_scale.clerkid;
+	ret = NetClerkLock(lastClerk);
+	if (ret == 3) goto END_RELEASE;	// timeout
+	else if (ret == 0) return;	// clerk lock
+	
+	PutXStringOffsetX = DSP_SALE_INFO_AREA_X1;
+	PutXStringOffsetY = DSP_SALE_INFO_AREA_Y1;
+	dec_ch  = get_global_bparam(GLOBAL_DECIMAL_SIGN);
 #if !defined(USE_SINGLE_LINE_GRAPHIC)
-		totalinfo_disp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG7)& 0x10;
-		if (ethernet_list.status == 2)
-		{
-			totalinfo_disp = 0;	// total weight 정보를 master로 부터 받을 수 없으므로 무게 정보 디스플레이 안함(필요시 수정)
-		}
+	totalinfo_disp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG7)& 0x10;
+	if (ethernet_list.status == 2)
+	{
+		totalinfo_disp = 0;	// total weight 정보를 master로 부터 받을 수 없으므로 무게 정보 디스플레이 안함(필요시 수정)
+	}
 #endif
-		
-		memset(&totalData, 0, sizeof(STRUCT_TOTAL_PRICE));
+	
+	memset(&totalData, 0, sizeof(STRUCT_TOTAL_PRICE));
 
 #ifdef USE_AU_ROUND	
-		if (transPay.summaryround)
-		{
-			roundFlag = ON; //summaryround 값이 있을 경우 플래그 ON
-		}
+	if (transPay.summaryround)
+	{
+		roundFlag = ON; //summaryround 값이 있을 경우 플래그 ON
+	}
 #endif
+	
+	ClearCurrencyPrice();
+	ClearPayment(TRANS_TYPE_PAY_TOTAL_NOPAY);
+	// SummaryRound
+	while(1)
+	{
+		ClerkTotalPrice(0, lastClerk, &totalData);
 		
-		ClearCurrencyPrice();
-		ClearPayment(TRANS_TYPE_PAY_TOTAL_NOPAY);
-		// SummaryRound
-		while(1)
+		if(totalData.TotalCount + totalData.VoidCount < 1)
 		{
-			ClerkTotalPrice(0, lastClerk, &totalData);
-			
-			if(totalData.TotalCount + totalData.VoidCount < 1)
+			if(lastClerk)
 			{
-				if(lastClerk)
-				{
 #ifdef HEBREW_FONT
-					strcpy(tempBuf,")%d#( ");
+				strcpy(tempBuf,")%d#( ");
 #else
-					strcpy(tempBuf,"(#%d) ");
+				strcpy(tempBuf,"(#%d) ");
 #endif
-					strcat(tempBuf,global_message[MSG_NO_TOTAL]);//"No total price"
-					sprintf(gmsg,tempBuf,lastClerk);
-				}
-				else
-				{
-					strcpy(gmsg,global_message[MSG_NO_TOTAL]);//"No total price"
-				}
-				DisplayMsg(gmsg);
-				Key_DelaySec(5,0);
-				goto END_RELEASE;
+				strcat(tempBuf,global_message[MSG_NO_TOTAL]);//"No total price"
+				sprintf(gmsg,tempBuf,lastClerk);
 			}
-			ClearDisp7();
-			display_lcd_clear();
-			///////////////////////////////////////////////////////////////
+			else
+			{
+				strcpy(gmsg,global_message[MSG_NO_TOTAL]);//"No total price"
+			}
+			DisplayMsg(gmsg);
+			Key_DelaySec(5,0);
+			goto END_RELEASE;
+		}
+		ClearDisp7();
+		display_lcd_clear();
+		///////////////////////////////////////////////////////////////
 #if defined(USE_SINGLE_LINE_GRAPHIC)
-			sprintf(tempBuf, "n%4d", totalData.TotalCount);
-			display_string(DISPLAY_TARE, (INT8U*)tempBuf);
-			
+		sprintf(tempBuf, "n%4d", totalData.TotalCount);
+		display_string(DISPLAY_TARE, (INT8U*)tempBuf);
+		
+		use_unit = ADM_Status.UseUnit;
+		if(use_unit == WEIGHT_UNIT_KG) {
+			if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G) use_unit = WEIGHT_UNIT_G;
+		}
+		v8_1=get_decimal_pt(3, use_unit);	// UseUnit 사용
+		format_value((HUGEDATA INT8U *)weightBuf, totalData.TotalWeight, v8_1, dec_ch);
+		display_string(DISPLAY_WEIGHT, (INT8U*)weightBuf);
+		
+		caption_split_by_code(0xc013,&cap,0);
+		display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
+		
+		if(flagcopy_ticket != OFF){ // Copy Ticket
+			discountPrice = discountPrice_copyticket[lastClerk];
+		}
+		else{
+			if(discountPrice==0)discountPrice_copyticket[lastClerk] = 0;
+		}
+		resultPrice = totalData.TotalPrice - discountPrice;
+#ifdef USE_AU_ROUND
+		notRoundedPrice = resultPrice;
+#endif
+		if(GlbPrice.roundApply == ROUND_TOTAL_OR_PLU)
+		{
+			resultPrice = PriceRounds(resultPrice,ROUND_TOTAL_OR_PLU,ON, &roundDifference);
+			transPay.summaryround = roundDifference;
+		}
+		else if((GlbPrice.roundApply == ROUND_ONLY_TOTAL_SUM) && (PrtStruct.Mode == RECEIPT))
+		{
+			resultPrice = PriceRounds(resultPrice,ROUND_ONLY_TOTAL_SUM,ON, &roundDifference);
+			transPay.summaryround = roundDifference;
+		}
+#ifdef USE_AU_ROUND	//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
+		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&notRoundedPrice,0,1);
+#else
+		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&resultPrice,0,1);
+#endif
+		display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
+		VFD7_Diffuse();
+#ifdef USE_AU_ROUND		//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
+		ComputeCurrency(0,3,0,notRoundedPrice,0);// display,y,x
+#else
+		ComputeCurrency(0,3,0,resultPrice,0);// display,y,x
+#endif
+#else //#if defined(USE_SINGLE_LINE_GRAPHIC)
+		///////////////////////////////////////////////////////////////
+		sprintf(gmsg,global_message[MSG_TOTALCNT],totalData.TotalCount,totalData.VoidCount);//"Total Count %d, Void Count %d"
+		if(lastClerk)
+		{
+			char	tempBuf[100];
+#if defined(USE_ARAB_FONT) || defined(HEBREW_FONT)
+			sprintf(tempBuf," %d #",lastClerk);
+#else
+			sprintf(tempBuf,"# %d ",lastClerk);
+#endif
+			strcat(tempBuf,gmsg);
+			strcpy(gmsg,tempBuf);
+		}
+		PutNSmallString(0, 0,gmsg, 40);
+		if(flagcopy_ticket != OFF){ // Copy Ticket
+			discountPrice = discountPrice_copyticket;
+		}
+		else{
+			if(discountPrice==0)discountPrice_copyticket = 0;
+		}
+		resultPrice = totalData.TotalPrice - discountPrice;
+#ifdef USE_AU_ROUND
+		notRoundedPrice = resultPrice;
+#endif
+		if(GlbPrice.roundApply == ROUND_TOTAL_OR_PLU)
+		{
+			resultPrice = PriceRounds(resultPrice,ROUND_TOTAL_OR_PLU,ON, &roundDifference);
+			transPay.summaryround = roundDifference;
+		}
+		else if((GlbPrice.roundApply == ROUND_ONLY_TOTAL_SUM) && (PrtStruct.Mode == RECEIPT))
+		{
+			resultPrice = PriceRounds(resultPrice,ROUND_ONLY_TOTAL_SUM,ON, &roundDifference);
+			transPay.summaryround = roundDifference;
+		}
+#ifdef USE_AU_ROUND	//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
+		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&notRoundedPrice,0,0);
+#else
+		FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&resultPrice,0,0);
+#endif
+		GetPriceString(tPriceStr,priceBuf,ON,PRICE_PRINTER);
+		//		caption_split_by_code(0xc022,&cap,0);//"Total %s"
+		caption_split_by_code(0xc013,&cap,0);//"SubTotal %s"
+		strcat(cap.form," %s");
+		sprintf(gmsg,cap.form,tPriceStr);
+		PutNMediumString(1, 0,gmsg, 30);
+		if(totalinfo_disp)	
+		{
 			use_unit = ADM_Status.UseUnit;
 			if(use_unit == WEIGHT_UNIT_KG) {
 				if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G) use_unit = WEIGHT_UNIT_G;
 			}
 			v8_1=get_decimal_pt(3, use_unit);	// UseUnit 사용
+			GetWeightSymbol(use_unit, w_sign1);
 			format_value((HUGEDATA INT8U *)weightBuf, totalData.TotalWeight, v8_1, dec_ch);
-			display_string(DISPLAY_WEIGHT, (INT8U*)weightBuf);
-			
-			caption_split_by_code(0xc013,&cap,0);
+			strcat(weightBuf, w_sign1);
+			caption_split_by_code(0x2035,&cap,0);//"Weight" 
+			sprintf(gmsg,"%s %s", cap.form, weightBuf);
+			PutSmallString(3,0,gmsg);
+		}
+#ifdef USE_AU_ROUND		//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
+		else ComputeCurrency(1,3,0,notRoundedPrice,0);// display,y,x
+#else
+		else ComputeCurrency(1,3,0,resultPrice,0);// display,y,x
+#endif
+		///////////////////////////////////////////////////////////////
+#endif //#if defined(USE_SINGLE_LINE_GRAPHIC)
+		
+		if(directPrint)
+		{
+			tempKey = KS_SAVE;
+			if(flagcopy_ticket != OFF){ // Copy ticket
+				flagcopy_ticket = OFF;
+			}
+		}
+		else
+		{
+			tempKey = KeyWait(KS_SALE_PER,KS_MINUS,KS_PAY,KS_VOID, KS_TTL);
+		}
+		if (get_global_bparam(GLOBAL_SALE_SETUP_FLAG4)&0x40)	//20090406 Parameter 724 : total에서 discount 동작안함
+		{
+			if(tempKey==KS_SALE_PER || tempKey==KS_MINUS) goto END_RELEASE;
+		}
+		else
+		{
+			if(tempKey==KS_SALE_PER)
+			{
+				discountPer    	= (INT16S)total_sale_percent();
+				discountPrice	= CalcPercentPrice(totalData.TotalPrice,discountPer*100);
+				discountPrice_copyticket[lastClerk] = discountPrice;
+#ifdef USE_TAX_RATE
+				discountTax = totalData.ExTaxPrice * discountPer / 100;
+#endif
+				continue;
+			}
+			if(tempKey==KS_MINUS)
+			{
+				discountPrice	= total_minus_disc(totalData.TotalPrice);
+				discountPer = 0;
+				discountPrice_copyticket[lastClerk] = discountPrice;
+#ifdef USE_TAX_RATE
+				discountTax = (float)discountPrice/(float)totalData.TotalPrice * totalData.ExTaxPrice + 0.5;
+#endif
+				continue;
+			}
+		}
+		
+		if(tempKey==KS_VOID)
+		{
+			keyMode=KEY_GetMode();
+			KEY_SetMode(1);
+			keyapp_void();
+			KEY_SetMode(keyMode);
+			continue;
+		}
+		if(tempKey==KS_SAVE || tempKey==KS_PRINT || tempKey==KS_EXT_PRINT)
+		{
+			printFlag = ON;
+			break;
+		}
+		if(tempKey==KS_MULTI || tempKey==KS_CLEAR)
+		{
+			printFlag = OFF;
+			break;
+		}
+		if((tempKey==KS_PAY) || ((tempKey >= KS_PAY_1) && (tempKey <= KS_PAY_7)))
+		{
+#ifdef USE_INDIA_FUNCTION
+			if (UseAreaScaleMode == 2) // 0:NormalScale(STD), 1:DualModeScale, 2:AreaScale
+			{
+				BuzOn(2);
+				continue;
+			}
+#endif
+			break;
+		}
+		if(tempKey == KS_TTL)		//SUBTOTAL에서 TOTAL 키를 한번 더 누르면 Close ticket without print 됨.(독일요청)
+		{
+			printFlag = ON;
+			CloseTicketWithoutPrint = ON;
+			break;
+		}
+	}
+	if(tempKey==KP_SAVE || tempKey==KP_ENTER || tempKey==KS_PAY || ((tempKey >= KS_PAY_1) && (tempKey <= KS_PAY_7)) || printFlag || tempKey==KS_EXT_PRINT)
+	{
+		if (!directPrint)
+		{
+			if (NetClerkLock(lastClerk) != 3)	// 3:timeout
+				ClerkTotalPrice(0, lastClerk, &totalData);
+			else goto END_RELEASE;
+		}
+#ifdef USE_TAX_RATE
+		if(!discountTax)
+			discountTax = totalData.ExTaxPrice;
+		resultPrice = totalData.TotalPrice - discountPrice + discountTax;
+#else
+		resultPrice = totalData.TotalPrice - discountPrice;
+#endif
+		if(GlbPrice.roundApply == ROUND_TOTAL_OR_PLU)
+		{
+			resultPrice = PriceRounds(resultPrice,ROUND_TOTAL_OR_PLU,ON, &roundDifference);
+			transPay.summaryround = roundDifference;
+		}
+		else if((GlbPrice.roundApply == ROUND_ONLY_TOTAL_SUM) && (PrtStruct.Mode == RECEIPT))
+		{
+			resultPrice = PriceRounds(resultPrice,ROUND_ONLY_TOTAL_SUM,ON, &roundDifference);
+			transPay.summaryround = roundDifference;
+		}
+		transPay.paidprice[PAY_CASH] = resultPrice;	// NoPay는 Cash로 간주
+		
+#if !defined(USE_SINGLE_LINE_GRAPHIC)
+#ifdef USE_AU_ROUND		//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
+		ComputeCurrency(1,3,0,notRoundedPrice,0);// display,y,x
+		ComputeCurrency(0,0,0,resultPrice,0);// display,y,x
+#else
+		ComputeCurrency(1,3,0,resultPrice,0);// display,y,x
+#endif
+#endif
+		if(tempKey==KS_PAY)
+		{
+			KEY_SetMode(1);
+			CalcPay(lastClerk, totalData.TotalPrice, discountPrice, 0);
+			KEY_SetMode(0);
+		}
+		else if((tempKey >= KS_PAY_1) && (tempKey <= KS_PAY_7))
+		{
+			KEY_SetMode(1);
+			CalcPay(lastClerk, totalData.TotalPrice, discountPrice, tempKey-KS_PAY_1+1);
+			KEY_SetMode(0);
+		}
+		else
+		{
+#ifdef USE_TAX_RATE
+			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&resultPrice,0,1);
+			GetPriceString(tPriceStr,priceBuf,ON,PRICE_PRINTER);
+#endif
+			caption_split_by_code(0xc022,&cap,0);//"Total %s"
+#if defined(USE_SINGLE_LINE_GRAPHIC)
+			display_clear(DISPLAY_UNITPRICE);
 			display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
 			
-			if(flagcopy_ticket != OFF){ // Copy Ticket
-				discountPrice = discountPrice_copyticket[lastClerk];
-			}
-			else{
-				if(discountPrice==0)discountPrice_copyticket[lastClerk] = 0;
-			}
-			resultPrice = totalData.TotalPrice - discountPrice;
-#ifdef USE_AU_ROUND
-			notRoundedPrice = resultPrice;
-#endif
-			if(GlbPrice.roundApply == ROUND_TOTAL_OR_PLU)
-			{
-				resultPrice = PriceRounds(resultPrice,ROUND_TOTAL_OR_PLU,ON, &roundDifference);
-				transPay.summaryround = roundDifference;
-			}
-			else if((GlbPrice.roundApply == ROUND_ONLY_TOTAL_SUM) && (PrtStruct.Mode == RECEIPT))
-			{
-				resultPrice = PriceRounds(resultPrice,ROUND_ONLY_TOTAL_SUM,ON, &roundDifference);
-				transPay.summaryround = roundDifference;
-			}
-#ifdef USE_AU_ROUND	//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
-			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&notRoundedPrice,0,1);
-#else
-			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&resultPrice,0,1);
-#endif
+			display_clear(DISPLAY_PRICE);
 			display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
 			VFD7_Diffuse();
-#ifdef USE_AU_ROUND		//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
-			ComputeCurrency(0,3,0,notRoundedPrice,0);// display,y,x
 #else
-			ComputeCurrency(0,3,0,resultPrice,0);// display,y,x
-#endif
-#else //#if defined(USE_SINGLE_LINE_GRAPHIC)
-			///////////////////////////////////////////////////////////////
-			sprintf(gmsg,global_message[MSG_TOTALCNT],totalData.TotalCount,totalData.VoidCount);//"Total Count %d, Void Count %d"
-			if(lastClerk)
-			{
-				char	tempBuf[100];
-#if defined(USE_ARAB_FONT) || defined(HEBREW_FONT)
-				sprintf(tempBuf," %d #",lastClerk);
-#else
-				sprintf(tempBuf,"# %d ",lastClerk);
-#endif
-				strcat(tempBuf,gmsg);
-				strcpy(gmsg,tempBuf);
-			}
-			PutNSmallString(0, 0,gmsg, 40);
-			if(flagcopy_ticket != OFF){ // Copy Ticket
-				discountPrice = discountPrice_copyticket;
-			}
-			else{
-				if(discountPrice==0)discountPrice_copyticket = 0;
-			}
-			resultPrice = totalData.TotalPrice - discountPrice;
-#ifdef USE_AU_ROUND
-			notRoundedPrice = resultPrice;
-#endif
-			if(GlbPrice.roundApply == ROUND_TOTAL_OR_PLU)
-			{
-				resultPrice = PriceRounds(resultPrice,ROUND_TOTAL_OR_PLU,ON, &roundDifference);
-				transPay.summaryround = roundDifference;
-			}
-			else if((GlbPrice.roundApply == ROUND_ONLY_TOTAL_SUM) && (PrtStruct.Mode == RECEIPT))
-			{
-				resultPrice = PriceRounds(resultPrice,ROUND_ONLY_TOTAL_SUM,ON, &roundDifference);
-				transPay.summaryround = roundDifference;
-			}
-#ifdef USE_AU_ROUND	//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
-			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&notRoundedPrice,0,0);
-#else
-			FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&resultPrice,0,0);
-#endif
-			GetPriceString(tPriceStr,priceBuf,ON,PRICE_PRINTER);
-			//		caption_split_by_code(0xc022,&cap,0);//"Total %s"
-			caption_split_by_code(0xc013,&cap,0);//"SubTotal %s"
 			strcat(cap.form," %s");
 			sprintf(gmsg,cap.form,tPriceStr);
 			PutNMediumString(1, 0,gmsg, 30);
-			if(totalinfo_disp)	
-			{
-				use_unit = ADM_Status.UseUnit;
-				if(use_unit == WEIGHT_UNIT_KG) {
-					if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G) use_unit = WEIGHT_UNIT_G;
-				}
-				v8_1=get_decimal_pt(3, use_unit);	// UseUnit 사용
-				GetWeightSymbol(use_unit, w_sign1);
-				format_value((HUGEDATA INT8U *)weightBuf, totalData.TotalWeight, v8_1, dec_ch);
-				strcat(weightBuf, w_sign1);
-				caption_split_by_code(0x2035,&cap,0);//"Weight" 
-				sprintf(gmsg,"%s %s", cap.form, weightBuf);
-				PutSmallString(3,0,gmsg);
-			}
-#ifdef USE_AU_ROUND		//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
-			else ComputeCurrency(1,3,0,notRoundedPrice,0);// display,y,x
-#else
-			else ComputeCurrency(1,3,0,resultPrice,0);// display,y,x
 #endif
-			///////////////////////////////////////////////////////////////
-#endif //#if defined(USE_SINGLE_LINE_GRAPHIC)
-			
-			if(directPrint)
-			{
-				tempKey = KS_SAVE;
-				if(flagcopy_ticket != OFF){ // Copy ticket
-					flagcopy_ticket = OFF;
-				}
-			}
-			else
-			{
-				tempKey = KeyWait(KS_SALE_PER,KS_MINUS,KS_PAY,KS_VOID, KS_TTL);
-			}
-			if (get_global_bparam(GLOBAL_SALE_SETUP_FLAG4)&0x40)	//20090406 Parameter 724 : total에서 discount 동작안함
-			{
-				if(tempKey==KS_SALE_PER || tempKey==KS_MINUS) goto END_RELEASE;
-			}
-			else
-			{
-				if(tempKey==KS_SALE_PER)
-				{
-					discountPer    	= (INT16S)total_sale_percent();
-					discountPrice	= CalcPercentPrice(totalData.TotalPrice,discountPer*100);
-					discountPrice_copyticket[lastClerk] = discountPrice;
+			Cash_open();	//transaction 종료시 cash drawer open
+			GlbFlagPCnMasterConnection = NetCheckConnection();
 #ifdef USE_TAX_RATE
-					discountTax = totalData.ExTaxPrice * discountPer / 100;
-#endif
-					continue;
-				}
-				if(tempKey==KS_MINUS)
-				{
-					discountPrice	= total_minus_disc(totalData.TotalPrice);
-					discountPer = 0;
-					discountPrice_copyticket[lastClerk] = discountPrice;
-#ifdef USE_TAX_RATE
-					discountTax = (float)discountPrice/(float)totalData.TotalPrice * totalData.ExTaxPrice + 0.5;
-#endif
-					continue;
-				}
-			}
-			
-			if(tempKey==KS_VOID)
-			{
-				keyMode=KEY_GetMode();
-				KEY_SetMode(1);
-				keyapp_void();
-				KEY_SetMode(keyMode);
-				continue;
-			}
-			if(tempKey==KS_SAVE || tempKey==KS_PRINT || tempKey==KS_EXT_PRINT)
-			{
-				printFlag = ON;
-				break;
-			}
-			if(tempKey==KS_MULTI || tempKey==KS_CLEAR)
-			{
-				printFlag = OFF;
-				break;
-			}
-			if((tempKey==KS_PAY) || ((tempKey >= KS_PAY_1) && (tempKey <= KS_PAY_7)))
-			{
-#ifdef USE_INDIA_FUNCTION
-				if (UseAreaScaleMode == 2) // 0:NormalScale(STD), 1:DualModeScale, 2:AreaScale
-				{
-					BuzOn(2);
-					continue;
-				}
-#endif
-				break;
-			}
-			if(tempKey == KS_TTL)		//SUBTOTAL에서 TOTAL 키를 한번 더 누르면 Close ticket without print 됨.(독일요청)
-			{
-				printFlag = ON;
-				CloseTicketWithoutPrint = ON;
-				break;
-			}
-		}
-		if(tempKey==KP_SAVE || tempKey==KP_ENTER || tempKey==KS_PAY || ((tempKey >= KS_PAY_1) && (tempKey <= KS_PAY_7)) || printFlag || tempKey==KS_EXT_PRINT)
-		{
-			if (!directPrint)
-			{
-				if (NetClerkLock(lastClerk) != 3)	// 3:timeout
-					ClerkTotalPrice(0, lastClerk, &totalData);
-				else goto END_RELEASE;
-			}
-#ifdef USE_TAX_RATE
-			if(!discountTax)
-				discountTax = totalData.ExTaxPrice;
-			resultPrice = totalData.TotalPrice - discountPrice + discountTax;
-#else
-			resultPrice = totalData.TotalPrice - discountPrice;
-#endif
-			if(GlbPrice.roundApply == ROUND_TOTAL_OR_PLU)
-			{
-				resultPrice = PriceRounds(resultPrice,ROUND_TOTAL_OR_PLU,ON, &roundDifference);
-				transPay.summaryround = roundDifference;
-			}
-			else if((GlbPrice.roundApply == ROUND_ONLY_TOTAL_SUM) && (PrtStruct.Mode == RECEIPT))
-			{
-				resultPrice = PriceRounds(resultPrice,ROUND_ONLY_TOTAL_SUM,ON, &roundDifference);
-				transPay.summaryround = roundDifference;
-			}
-			transPay.paidprice[PAY_CASH] = resultPrice;	// NoPay는 Cash로 간주
-			
-#if !defined(USE_SINGLE_LINE_GRAPHIC)
-#ifdef USE_AU_ROUND		//호주의 경우 반올림 되지 않은 값을 display에 표시한다.
-			ComputeCurrency(1,3,0,notRoundedPrice,0);// display,y,x
-			ComputeCurrency(0,0,0,resultPrice,0);// display,y,x
-#else
-			ComputeCurrency(1,3,0,resultPrice,0);// display,y,x
-#endif
-#endif
-			if(tempKey==KS_PAY)
-			{
-				KEY_SetMode(1);
-				CalcPay(lastClerk, totalData.TotalPrice, discountPrice, 0);
-				KEY_SetMode(0);
-			}
-			else if((tempKey >= KS_PAY_1) && (tempKey <= KS_PAY_7))
-			{
-				KEY_SetMode(1);
-				CalcPay(lastClerk, totalData.TotalPrice, discountPrice, tempKey-KS_PAY_1+1);
-				KEY_SetMode(0);
-			}
-			else
-			{
-#ifdef USE_TAX_RATE
-				FloatToString(TO_STR,priceBuf,display_parameter.mode_len[DISPLAY_PRICE],DISPLAY_PRICE,&resultPrice,0,1);
-				GetPriceString(tPriceStr,priceBuf,ON,PRICE_PRINTER);
-#endif
-				caption_split_by_code(0xc022,&cap,0);//"Total %s"
-#if defined(USE_SINGLE_LINE_GRAPHIC)
-				display_clear(DISPLAY_UNITPRICE);
-				display_string(DISPLAY_UNITPRICE, (INT8U*)cap.form);
-				
-				display_clear(DISPLAY_PRICE);
-				display_string(DISPLAY_PRICE, (INT8U*)priceBuf);
-				VFD7_Diffuse();
-#else
-				strcat(cap.form," %s");
-				sprintf(gmsg,cap.form,tPriceStr);
-				PutNMediumString(1, 0,gmsg, 30);
-#endif
-				Cash_open();	//transaction 종료시 cash drawer open
-				GlbFlagPCnMasterConnection = NetCheckConnection();
-#ifdef USE_TAX_RATE
-				resultPrice -= discountTax;
+			resultPrice -= discountTax;
 #endif
 #ifdef USE_AU_ROUND
-				if(Operation.operationClerk != OPER_FLOATING)	//Total Label일 경우에 Display와 동일한 값을 출력
-					PrintTotalLabelTicket(TRANS_TYPE_PAY_TOTAL_NOPAY,lastClerk,notRoundedPrice,0, discountPrice);
-				else if(roundFlag == OFF)	//Round 처리 Flag가 OFF인 경우 Round 처리 안한 가격으로 출력
-				{
-					transPay.summaryround = 0;	
-					PrintTotalLabelTicket(TRANS_TYPE_PAY_TOTAL_NOPAY,lastClerk,notRoundedPrice,0, discountPrice);
-				}
-				else
-#endif
-				PrintTotalLabelTicket(TRANS_TYPE_PAY_TOTAL_NOPAY,lastClerk,resultPrice,0, discountPrice);
-				GlbFlagPCnMasterConnection = ON;
+			if(Operation.operationClerk != OPER_FLOATING)	//Total Label일 경우에 Display와 동일한 값을 출력
+				PrintTotalLabelTicket(TRANS_TYPE_PAY_TOTAL_NOPAY,lastClerk,notRoundedPrice,0, discountPrice);
+			else if(roundFlag == OFF)	//Round 처리 Flag가 OFF인 경우 Round 처리 안한 가격으로 출력
+			{
+				transPay.summaryround = 0;	
+				PrintTotalLabelTicket(TRANS_TYPE_PAY_TOTAL_NOPAY,lastClerk,notRoundedPrice,0, discountPrice);
 			}
-		}
-		END_RELEASE:
-								curPluTemp = status_scale.cur_pluid;
-		sale_pluclear(ON);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-		PutXStringOffsetX = 0;
-		PutXStringOffsetY = 0;
-		if(Operation.wSave && Operation.wPrepack)	//save 와 prepack 동시 적용시 마지막 PLU 유지됨.
-		{
-			keyapp_pluno((INT8U)status_scale.departmentid,curPluTemp,OFF);
+			else
+#endif
+			PrintTotalLabelTicket(TRANS_TYPE_PAY_TOTAL_NOPAY,lastClerk,resultPrice,0, discountPrice);
+			GlbFlagPCnMasterConnection = ON;
 		}
 	}
-	
-	void keyapp_add(INT16S beep)
+	END_RELEASE:
+							curPluTemp = status_scale.cur_pluid;
+	sale_pluclear(ON);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+	PutXStringOffsetX = 0;
+	PutXStringOffsetY = 0;
+	if(Operation.wSave && Operation.wPrepack)	//save 와 prepack 동시 적용시 마지막 PLU 유지됨.
 	{
-		CAPTION_STRUCT cap;
-		INT16U clerk_cnt;
-		
-		if(beep)	BuzOn(1);
-		
-		if(Operation.operationClerk==OPER_STD_CLERK || Operation.wPrepack)	// add 를 동작하지 않고 total sum에 대한 계산 flag를 설정한다
-		{
-			if(Operation.addStandatdClerk)
-				Operation.addStandatdClerk = OFF;
-			else
-				Operation.addStandatdClerk = ON;
-			if(Operation.addStandatdClerk) {
-				caption_split_by_code(0xc040,&cap,0);
-				//			strcpy(gmsg,"CLERK SUMMERY ON");
-			} else {
-				caption_split_by_code(0xc041,&cap,0);
-				//			strcpy(gmsg,"CLERK SUMMERY OFF");
-			}
-			DisplayMsg(cap.form);
-			return;
+		keyapp_pluno((INT8U)status_scale.departmentid,curPluTemp,OFF);
+	}
+}
+
+void keyapp_add(INT16S beep)
+{
+	CAPTION_STRUCT cap;
+	INT16U clerk_cnt;
+	
+	if(beep)	BuzOn(1);
+	
+	if(Operation.operationClerk==OPER_STD_CLERK || Operation.wPrepack)	// add 를 동작하지 않고 total sum에 대한 계산 flag를 설정한다
+	{
+		if(Operation.addStandatdClerk)
+			Operation.addStandatdClerk = OFF;
+		else
+			Operation.addStandatdClerk = ON;
+		if(Operation.addStandatdClerk) {
+			caption_split_by_code(0xc040,&cap,0);
+			//			strcpy(gmsg,"CLERK SUMMERY ON");
+		} else {
+			caption_split_by_code(0xc041,&cap,0);
+			//			strcpy(gmsg,"CLERK SUMMERY OFF");
 		}
-		if(Operation.operationClerk==OPER_NORMAL && (Operation.wAuto || Operation.wPrepack))
-			return;
-		
+		DisplayMsg(cap.form);
+		return;
+	}
+	if(Operation.operationClerk==OPER_NORMAL && (Operation.wAuto || Operation.wPrepack))
+		return;
+	
 #ifdef USE_QR_ADDTOTAL
-		if(QrAddTotalFlag)
+	if(QrAddTotalFlag)
+	{
+		clerk_cnt = ClerkTransactionCnt(0);
+		if(clerk_cnt >= MAX_QR_ADDCOUNT)
 		{
-			clerk_cnt = ClerkTransactionCnt(0);
-			if(clerk_cnt >= MAX_QR_ADDCOUNT)
-			{
-				caption_split_by_code(0xC90D,&cap,0);
-				DisplayMsg(cap.form);
+			caption_split_by_code(0xC90D,&cap,0);
+			DisplayMsg(cap.form);
+			BuzOn(2);
+			return;
+		}
+	}
+#endif
+	if(ClerkSearchEmpty() == -1) {
+		caption_split_by_code(0xC90D,&cap,0);
+		DisplayMsg(cap.form);
+		Key_DelaySec(10,0);
+		return;
+	}
+	//DipslayMsg("Add 1");
+	if(!CheckPluPrint(0))	return;
+	//DipslayMsg("Add 2");
+	//if(!permission_check(PMS_ADDUP))	return;
+	if(Operation.operationClerk == OPER_FLOATING)
+	{
+		caption_split_by_code(0xc904,&cap,0);
+		DisplayMsg(cap.form);//"No sale in floating"
+		return;
+	}
+	if(TareOper.addupWeightZero && PluType()==PLU_BY_WEIGHT)
+	{
+		if(ad_get_capa()< (TareOper.addupWeight+status_scale.Weight))
+		{
+			caption_split_by_code(0xc02a,&cap,0);
+			DisplayMsg(cap.form);//"Overflow Addup weight"
+			return;
+		}
+	}
+	StartPrintFlag = ON;
+	Operation.transAddup=ON;	// add
+	//status_scale.clerkid = 0;
+	status_scale.print_multiple=1;
+	PrintLabelWait();
+	Operation.directClearWeight = ON;
+}
+
+void display_message_page(char *str)
+{
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+	
+	old_font = DspStruct.Id1;
+	old_page = DspStruct.Page;
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	DspLoadFont1(DSP_PLU_FONT_ID);
+	Dsp_FontSize(DSP_PLU_NAME_MAGX, DSP_PLU_NAME_MAGY);
+	
+	//Dsp_Fill_Buffer(0);
+	display_lcd_clear_buf();	// Clear buf PLU Name Area
+	
+	disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
+#ifdef HEBREW_FONT
+	Convert_HebrewPreview((INT8U *)str, strlen(str), 0, 0); 
+	hebrew_codetemp[strlen(str)] = 0;
+	disp_p.x = 202 - disp_p.x;
+	Dsp_Write_1stringLong(disp_p, hebrew_codetemp);
+#elif defined(USE_ARAB_CONVERT)
+	Convert_ArabPreview((INT8U *)str, strlen(str), 0, 0, 0); 
+	arab_codetemp[strlen(str)] = 0;
+	disp_p.x = LCD_Y_MARGIN_REAL - DspStruct.Hbits1 - disp_p.x;
+	Dsp_Write_1stringLong(disp_p, arab_codetemp);
+#else
+	Dsp_Write_String(disp_p,(HUGEDATA char*)str);
+#endif
+	Dsp_Diffuse();
+	display_lcd_diffuse();	// Redraw PLU Name Area
+	Key_DelaySec(10, 0);
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+}
+
+//extern INT16S FontSizeChange(INT16S fontSize);
+void display_message_page_mid(char *str)
+{
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+	
+#ifdef USE_CL5200_DISPLAY_DEFAULT  //_USE_LCD20848_
+	Dsp_Clear();
+#endif
+	
+	old_font = DspStruct.Id1;
+	old_page = DspStruct.Page;
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	FontSizeChange(FONT_MEDIUM);
+	//DspLoadFont1(DSP_PLU_FONT_ID);
+	//Dsp_FontSize(DSP_PLU_NAME_MAGX, DSP_PLU_NAME_MAGY);
+	
+	//Dsp_Fill_Buffer(0);
+	display_lcd_clear_buf();	// Clear buf PLU Name Area
+	
+	disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
+#ifdef HEBREW_FONT
+	Convert_HebrewPreview((INT8U *)str, strlen(str), 0, 0); 
+	hebrew_codetemp[strlen(str)] = 0;
+	disp_p.x = 202 - disp_p.x;
+	Dsp_Write_1stringLong(disp_p, hebrew_codetemp);
+#elif defined(USE_ARAB_CONVERT)
+	Convert_ArabPreview((INT8U *)str, strlen(str), 0, 0, 0); 
+	arab_codetemp[strlen(str)] = 0;
+	disp_p.x = LCD_Y_MARGIN_REAL - DspStruct.Hbits1 - disp_p.x;
+	Dsp_Write_1stringLong(disp_p, arab_codetemp);
+#else
+	Dsp_Write_String(disp_p,(HUGEDATA char*)str);
+#endif
+	Dsp_Diffuse();
+	display_lcd_diffuse();	// Redraw PLU Name Area
+	Key_DelaySec(10, 0);
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+#ifdef USE_CL5200_DISPLAY_DEFAULT
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+#endif
+}
+
+void display_message_page_mid_delay(char *str, INT8U delay)
+{
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+	
+	old_font = DspStruct.Id1;
+	old_page = DspStruct.Page;
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	FontSizeChange(FONT_MEDIUM);
+	
+	display_lcd_clear_buf();	// Clear buf PLU Name Area
+	
+	disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
+#ifdef HEBREW_FONT
+	Convert_HebrewPreview((INT8U *)str, strlen(str), 0, 0); 
+	hebrew_codetemp[strlen(str)] = 0;
+	disp_p.x = 202 - disp_p.x;
+	Dsp_Write_1stringLong(disp_p, hebrew_codetemp);
+#elif defined(USE_ARAB_CONVERT)
+	Convert_ArabPreview((INT8U *)str, strlen(str), 0, 0, 0); 
+	arab_codetemp[strlen(str)] = 0;
+	disp_p.x = LCD_Y_MARGIN_REAL - DspStruct.Hbits1 - disp_p.x;
+	Dsp_Write_1stringLong(disp_p, arab_codetemp);
+#else
+	Dsp_Write_String(disp_p,(HUGEDATA char*)str);
+#endif
+	Dsp_Diffuse();
+	display_lcd_diffuse();	// Redraw PLU Name Area
+	Key_DelaySec(delay, 0);
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+}
+
+//Added by JJANG 20080131 Print error Message
+//Modified by JJANG 20080221 함수를 공용으로 사용할수 있게 변경.
+INT8U display_message_printerr_page(INT16U L_msg, INT16U S_msg)
+{
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	Dsp_Fill_Buffer(0);
+	
+	caption_split_by_code(L_msg, &cap,0);
+	PutNLargeString(0,0,(char *)cap.form,20);
+	caption_split_by_code(S_msg, &cap,0);
+	PutNSmallString(3,0,(char *)cap.form,35);
+	
+	Dsp_Diffuse();
+	while(1) 
+	{
+		while(!KEY_Read());
+		switch(KeyDrv.CnvCode) 
+		{
+			case KEY_NUM_1 :
+			case KP_ASC_Y :
+				BuzOn(1);
+				Dsp_SetPage(DSP_DEFAULT_PAGE);
+				Dsp_Diffuse();
+				return 1;
+			case KEY_NUM_0 :
+			case KP_ASC_N :
+			case KP_ESC :
+				BuzOn(1);
+				Dsp_SetPage(DSP_DEFAULT_PAGE);
+				Dsp_Diffuse();
+				return 0;
+			default :
 				BuzOn(2);
-				return;
+				break;
+		}
+	}
+}
+
+//Added by JJANG 20090421, 문자열 받아서 찍어주는 함수 
+INT8U display_message_check_page(char *S_msg1, char *S_msg2, INT8U mode)
+{
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	Dsp_Fill_Buffer(0);
+	
+	if (mode == 1)
+	{
+		PutNSmallString(0,0,(char *)S_msg1,35);
+		PutNSmallString(2,0,(char *)S_msg2,35);
+	}
+	else if (mode == 2)
+	{
+		PutNMediumString(0,0,(char *)S_msg1,30);
+		PutNMediumString(2,0,(char *)S_msg2,30);
+	}  
+	Dsp_Diffuse();
+	while(1) 
+	{
+		while(!KEY_Read());
+		switch(KeyDrv.CnvCode) 
+		{
+			case KEY_NUM_1 :
+			case KP_ASC_Y :
+				BuzOn(1);
+				Dsp_SetPage(DSP_DEFAULT_PAGE);
+				Dsp_Diffuse();
+				return 1;
+			case KEY_NUM_0 :
+			case KP_ASC_N :
+			case KP_ESC :
+				BuzOn(1);
+				Dsp_SetPage(DSP_DEFAULT_PAGE);
+				Dsp_Diffuse();
+				return 0;
+			default :
+				BuzOn(2);
+				break;
+		}
+	}
+}
+
+INT8U 	Send_reason_Code = 0;
+INT8U display_reason_code_input_page(void)	//Added by JJANG 20090528
+{
+	INT8U   result,old_font,key_mode;
+	INT32U	res = 0;
+	INT8U	ret;
+	INT8U old_page;
+	
+	old_page = DspStruct.Page;
+	
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	Dsp_Fill_Buffer(0);
+	
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	Menu_Init();
+	
+	caption_split_by_code(0x1BD2, &cap,0);
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &res, NULL, NULL, NULL);
+	
+	result = Menu_InputDisplay();
+	if (result == MENU_RET_SAVE) 
+	{
+		Send_reason_Code = (INT8U)res;	
+		ret = ON;
+	}
+	else if (result == MENU_RET_ESC) ret = OFF;
+	
+	Dsp_Fill_Buffer(0);
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+	KEY_SetMode(key_mode);
+	sale_display_update(0x0fff);
+	
+	return ret;
+}
+#ifdef USE_CONTROL_CHANGING_PRICE
+
+//divisor 1 : 쪼개기 없음, 2 : 1/2 쪼개기, 3 : 1/3 쪼개기, 4 : 1/4 쪼개기, else는 1로 고정됨.
+//return 0: 매가 변경 허용, 1: 상한 넘김, 2: 하한 넘김
+INT8U check_changed_price_range(INT8U divisor, long* upperPrice, long* lowerPrice)
+{
+	INT16U pluIndex;
+	INT32U basePrice;
+	INT16S size;
+	INT8U splitTemp;
+	plu_table_search(status_scale.departmentid, status_scale.cur_pluid, &pluIndex, 0);
+	if(pluIndex == 0)
+	{
+		return 0;
+	}
+	basePrice = status_scale.Plu.special_price;	//special price를 기준 가격으로 사용. 
+	if(!basePrice) return 0;		//기준가격이 없는 경우 매가 변경 허용?
+	if(status_scale.Plu.ctrlPriceChange == 1)		//매가 통제 함.
+	{
+		if(divisor < 5 && divisor > 1)
+		{
+			splitTemp = divisor;
+		}
+		else
+		{
+			splitTemp = 1;
+		}
+		*upperPrice = ((100 + status_scale.Plu.upperLimit) * basePrice) / splitTemp / 100; //기준매가 소수점 절사함
+		*lowerPrice = ((100 - status_scale.Plu.lowerLimit) * basePrice) / splitTemp / 100; //기준매가 소수점 절사함
+		if(Price.UnitPrice[PRICE_RESULT] > *upperPrice)	
+		{
+			return 1;
+		}
+		else if(Price.UnitPrice[PRICE_RESULT] < *lowerPrice)
+		{
+			return 2;
+		}
+		else
+		{
+			return 0;	
+		}
+	}
+	else	//매가 통제 안 함
+	{
+		return 0;
+	}
+}
+#endif
+INT8U MultiPrintFlag = OFF;
+INT8U Multi_PeelEnable;
+INT8U Multi_RewindEnable;
+INT8U keyapp_print(INT16S beep)
+{
+	INT8U ret_value = 0;
+	INT8U	changeFlag;
+	INT8U prtpapertype;
+	
+	prtpapertype = get_global_bparam(GLOBAL_PAPER_TYPE); // Print Mode 설정값 끌고오는 변수
+	char S_msg1[32];
+	char S_msg2[32];
+	char string_buf[50];
+#ifdef USE_CHECK_CHANGE_REASON
+	INT8U askReason;
+#endif
+#ifdef USE_IMPORT_MEAT_PROTOCOL
+#ifdef USE_EXT_CHECKING_HARMFULNESS
+	INT8U use_rs232;
+	INT8U flag;
+	HUGEDATA COMM_BUF *CBuf;
+	
+	use_rs232 = OFF;
+	flag=get_global_bparam(GLOBAL_SALE_SETUP_FLAG4);
+	if( flag&0x80 ) use_rs232 = ON;
+	if (!use_rs232) CBuf = &CommBufEthData[0];
+	else CBuf = &CommBuf;
+#endif
+#endif
+	
+#ifdef USE_INDIA_FUNCTION
+	if (UseAreaScaleMode == 2) // 0:NormalScale(STD), 1:DualModeScale, 2:AreaScale
+	{
+		BuzOn(2);
+		return OFF;
+	}
+#endif
+	
+	if (beep)	BuzOn(1);
+#ifdef USE_TRACE_STANDALONE
+	if (FlagLotMultiStart) 
+	{
+		Prt_LotList(0);
+		MultiIndex = 0;
+		LotListMultiIndex = 0;
+		FlagMultiStart = 0;//묶음장부 인쇄 후 복수개체 시작키로 초기화
+		FlagLotMultiStart = OFF;
+		return 0;
+	}
+#endif
+	if(Startup.country == COUNTRY_US && !GlbPrint.printNoRewind)	//Added by JJANG 20090421, 미국전용, 여러장 발행 시 임시로 센서와 모터를 끌 수 있다.
+	{
+		if(Operation.multiply && prtpapertype == 0) //라벨 모드잃 때만 하기 프롬프트 출력함
+		{
+			strcpy(S_msg1, "RWND MTR OFF");
+			strcpy(S_msg2,"& REWIND MOTOR? (1=Y/0=N)");
+			ret_value = display_message_check_page(S_msg1,S_msg2,1);
+			if (ret_value)
+			{
+				MultiPrintFlag = ON;
+				Operation.rewindReady = ON;
+				Multi_PeelEnable = PrtDrvStruct.PeelEnable;
+				Multi_RewindEnable = PrtDrvStruct.RewindEnable;
+				PrtDrvStruct.PeelEnable = DISABLE;
+				PrtDrvStruct.RewindEnable = DISABLE;
 			}
 		}
+	}
+	if ((Operation.operationClerk==OPER_STD_CLERK && Operation.addStandatdClerk) || Operation.operationClerk==OPER_FLOATING)
+	{
+		if(Operation.multiply)	return 0xa1;
+		keyapp_total(ON);
+		return 0xa2;
+	}
+	else
+	{
+		if(PrtStruct.Mode == RECEIPT)//new
+		{
+#ifdef USE_CHN_CART_SCALE
+			Operation.oneTouchTicketPrint = ON;
+			keyapp_add(OFF);
+			return 0;
+#else
+			caption_split_by_code(0xC80C,&cap,0);//"Select label mode"
+			DisplayMsg(cap.form);
+			return 0xa3;
 #endif
+		}
+	}
+	if(ADM_GetData.Overload || PercentTareOver) return 0xa4;// (For NMi) Added by CJK 20050713
+	DirectWeightMode();
+	DirectCountMode();  //SG070227
+	
+	if(!CheckPluPrint(0))	 return 0xa5;
+	
+#ifdef USE_IMPORT_MEAT_PROTOCOL
+#ifdef USE_EXT_CHECKING_HARMFULNESS
+	if(FlagDisplayIndividual)
+	{
+		if(command_import_meat_data(CBuf, use_rs232))
+		{
+			BuzOn(4);
+			//sprintf(string_buf, "위해 쇠고기입니다");
+			sprintf(string_buf, "담당자 확인 필요 상품");
+			display_message_page_mid_delay(string_buf, 50);
+			sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
+			sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+			return OFF;
+		}
+	}	
+#endif
+#endif
+#ifdef USE_CHECK_INDIV_INFO
+	if(!CheckIndivInfo()) return OFF;
+#endif
+	//chg_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG8) & 0x40;	//parameter 723
+#ifdef USE_CHECK_CHANGE_REASON
+	askReason = get_global_bparam(GLOBAL_SALE_SETUP_FLAG12) & 0x10;
+	if(askReason)
+	{
+		changeFlag = GetChangeFlag(PluType(), status_scale.Plu.ptype, Price.UnitPrice[PRICE_RESULT], status_scale.Plu.unitprice, Operation.fixedPrice, status_scale.Plu.fixed_price, Price.TotalPrice[PRICE_SAVED]);
+		if (UseEmartNetwork && changeFlag)
+		{
+			if(!display_reason_code_input_page()) return OFF;
+		}
+	}
+#endif
+	
+	Operation.transAddup = OFF;
+	if (Operation.addStandatdClerk )
+	{
 		if(ClerkSearchEmpty() == -1) {
 			caption_split_by_code(0xC90D,&cap,0);
 			DisplayMsg(cap.form);
 			Key_DelaySec(10,0);
+			return 0xa7;
+		}
+		Operation.transAddup = ON;
+	}
+	if(Operation.multiply)	// Multi print
+	{
+		if (Operation.multiplyEdit && status_scale.print_multiple > 0)
+		{
+			Operation.multiplyEdit = OFF;
+			//status_scale.print_multiple = status_scale.cur_keyvalue;
+		}
+		else
+		{
+			return 0xa6;
+		}
+	}
+	else
+	{
+		if(GlbOper.autoDoublePrint && Operation.wAuto)//OPTION: double print
+		{
+			status_scale.print_multiple = GlbOper.autoDoublePrint;                     //yoo 080605
+			Operation.autoDoublePrint = ON;
+		}
+		else
+			status_scale.print_multiple = 1;
+	}
+	Operation.salePluClearWait = OFF;	// Added by CJK 20060425
+	StartPrintFlag = ON;
+	if(status_scale.print_multiple)
+		PrintLabelWait();
+	if(GlbPrint.printNoRewind && PrtFlashStruct.RewindEnable && Operation.multiply && 1 < status_scale.print_multiple)
+	{
+		char	string_buf[20];
+		Operation.rewindReady = ON;
+		sprintf(string_buf, "%cM", GS);
+		PutDataRxBuf(&CommBufPrt,string_buf,2);
+		string_buf[0] = OFF;
+		PutDataRxBuf(&CommBufPrt,string_buf,1);
+	}
+	//	if (Operation.salePluClearWait==OFF) {
+	//		keyapp_cleardiscount();
+	//		if (status_scale.Plu.fixed_price==0) Operation.fixedPrice=0;
+	//	}
+	
+	return 0;
+}
+
+extern INT8U	ClerkLastIndex;
+extern INT8U	ClerkLastNumber;
+extern INT32U	ClerkLastHead;
+extern PRINT_OPER_TYPE		PrtOper;	// Added by CJK 20051226
+
+//DEL070705extern void sale_display_multiply(INT16S dispFlsg);
+void keyapp_multi(void)
+{
+#ifdef USE_SCALE_POS_PROTOCOL	 //SG060410
+	if(network_status.service_bflag2){
+		BuzOn(2);
+		return;
+	}
+#endif
+	if(!Operation.multiply && Operation.negative)
+	{
+		caption_split_by_code(0xc909,&cap,0);
+		DisplayMsg(cap.form);//"No X key on negative"
+		return;
+	}
+	
+	if(Operation.autoDoublePrint && Operation.wAuto)
+	{
+		Operation.multiply = OFF;
+		caption_split_by_code(0xC90B,&cap,0);//"Double print(auto)"
+		DisplayMsg(cap.form);
+		return;
+	}
+	
+	if(!GlbOper.byWeightMulti)
+	{
+		//if(!CheckPluPrint())	return;	// Deleted by CJK 20051031
+		if(status_scale.cur_pluid && PluType()==PLU_BY_WEIGHT)
+		{
+			Operation.multiply = OFF;
 			return;
 		}
-		//DipslayMsg("Add 1");
-		if(!CheckPluPrint(0))	return;
-		//DipslayMsg("Add 2");
-		//if(!permission_check(PMS_ADDUP))	return;
+	}
+	
+	if(Operation.multiply) 
+	{
+		//		if(status_scale.print_multiple > 0) return;
+		Operation.multiply = OFF;
+		status_scale.print_multiple = 0;
+		PrtDrvStruct.PrtLoadFormFlag=ON;
+		label_load(status_scale.cur_labelid);
+		Operation.salePrintWait = OFF;
+		//DEL070705		sale_display_multiply(OFF);
+		//DEL070705		sale_display_discount(ON);
+	} 
+	else 
+	{
+		if(!status_scale.cur_pluid)
+		{
+			////DEL090910//			INT8U	byte;
+			////DEL090910
+			////DEL090910			//byte = get_global_bparam(GLOBAL_REPORT_FLAG);//599 Print last ticket
+			////DEL090910			//if(OnOff(byte&0x10) && ClerkLastIndex && ClerkLastNumber)	// floating
+			////DEL090910#ifndef USE_TRACE_STANDALONE	// 개체기억기능 영역공유
+			////DEL090910			if(status_scale.clerkid && PrtOper.PrtLastTicket)
+			////DEL090910			{
+			////DEL090910				if(ClerkLastIndex && (ClerkLastNumber == status_scale.clerkid))	// floating
+			////DEL090910				{
+			////DEL090910					//new
+			////DEL090910					// Modified by CJK 20041112
+			////DEL090910					//PrintClerkLastTicket();
+			////DEL090910					Prt_PrintStart(PRT_TOTAL_LAST_MODE, PrtStruct.Mode, ClerkLastNumber, ON, 0, 0);
+			////DEL090910				}
+			////DEL090910				else
+			////DEL090910				{
+			////DEL090910					caption_split_by_code(0xC90E,&cap,0);//"Copy ticket is erased"
+			////DEL090910					DisplayMsg(cap.form);
+			////DEL090910				}
+			////DEL090910			}
+			////DEL090910#endif
+			return ;
+		}
+		//sale_display_multiply(OFF);
+		//DEL070705		sale_display_multiply(ON);
+		
+		//Added by JJANG 20080602
+		//네덜란드 요청, floating clerk일 때, 'X' key 동작 안하도록 수정
 		if(Operation.operationClerk == OPER_FLOATING)
 		{
-			caption_split_by_code(0xc904,&cap,0);
-			DisplayMsg(cap.form);//"No sale in floating"
-			return;
-		}
-		if(TareOper.addupWeightZero && PluType()==PLU_BY_WEIGHT)
-		{
-			if(ad_get_capa()< (TareOper.addupWeight+status_scale.Weight))
-			{
-				caption_split_by_code(0xc02a,&cap,0);
-				DisplayMsg(cap.form);//"Overflow Addup weight"
-				return;
-			}
-		}
-		StartPrintFlag = ON;
-		Operation.transAddup=ON;	// add
-		//status_scale.clerkid = 0;
-		status_scale.print_multiple=1;
-		PrintLabelWait();
-		Operation.directClearWeight = ON;
-	}
-	
-	void display_message_page(char *str)
-	{
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-		
-		old_font = DspStruct.Id1;
-		old_page = DspStruct.Page;
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		DspLoadFont1(DSP_PLU_FONT_ID);
-		Dsp_FontSize(DSP_PLU_NAME_MAGX, DSP_PLU_NAME_MAGY);
-		
-		//Dsp_Fill_Buffer(0);
-		display_lcd_clear_buf();	// Clear buf PLU Name Area
-		
-		disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
-#ifdef HEBREW_FONT
-		Convert_HebrewPreview((INT8U *)str, strlen(str), 0, 0); 
-		hebrew_codetemp[strlen(str)] = 0;
-		disp_p.x = 202 - disp_p.x;
-		Dsp_Write_1stringLong(disp_p, hebrew_codetemp);
-#elif defined(USE_ARAB_CONVERT)
-	Convert_ArabPreview((INT8U *)str, strlen(str), 0, 0, 0); 
-	arab_codetemp[strlen(str)] = 0;
-	disp_p.x = LCD_Y_MARGIN_REAL - DspStruct.Hbits1 - disp_p.x;
-	Dsp_Write_1stringLong(disp_p, arab_codetemp);
-#else
-		Dsp_Write_String(disp_p,(HUGEDATA char*)str);
-#endif
-		Dsp_Diffuse();
-		display_lcd_diffuse();	// Redraw PLU Name Area
-		Key_DelaySec(10, 0);
-		Dsp_SetPage(old_page);
-		Dsp_Diffuse();
-		DspLoadFont1(old_font);
-	}
-	
-	//extern INT16S FontSizeChange(INT16S fontSize);
-	void display_message_page_mid(char *str)
-	{
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-		
-#ifdef USE_CL5200_DISPLAY_DEFAULT  //_USE_LCD20848_
-		Dsp_Clear();
-#endif
-		
-		old_font = DspStruct.Id1;
-		old_page = DspStruct.Page;
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		FontSizeChange(FONT_MEDIUM);
-		//DspLoadFont1(DSP_PLU_FONT_ID);
-		//Dsp_FontSize(DSP_PLU_NAME_MAGX, DSP_PLU_NAME_MAGY);
-		
-		//Dsp_Fill_Buffer(0);
-		display_lcd_clear_buf();	// Clear buf PLU Name Area
-		
-		disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
-#ifdef HEBREW_FONT
-		Convert_HebrewPreview((INT8U *)str, strlen(str), 0, 0); 
-		hebrew_codetemp[strlen(str)] = 0;
-		disp_p.x = 202 - disp_p.x;
-		Dsp_Write_1stringLong(disp_p, hebrew_codetemp);
-#elif defined(USE_ARAB_CONVERT)
-		Convert_ArabPreview((INT8U *)str, strlen(str), 0, 0, 0); 
-		arab_codetemp[strlen(str)] = 0;
-		disp_p.x = LCD_Y_MARGIN_REAL - DspStruct.Hbits1 - disp_p.x;
-		Dsp_Write_1stringLong(disp_p, arab_codetemp);
-#else
-		Dsp_Write_String(disp_p,(HUGEDATA char*)str);
-#endif
-		Dsp_Diffuse();
-		display_lcd_diffuse();	// Redraw PLU Name Area
-		Key_DelaySec(10, 0);
-		Dsp_SetPage(old_page);
-		Dsp_Diffuse();
-		DspLoadFont1(old_font);
-#ifdef USE_CL5200_DISPLAY_DEFAULT
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-#endif
-	}
-	
-	void display_message_page_mid_delay(char *str, INT8U delay)
-	{
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-		
-		old_font = DspStruct.Id1;
-		old_page = DspStruct.Page;
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		FontSizeChange(FONT_MEDIUM);
-		
-		display_lcd_clear_buf();	// Clear buf PLU Name Area
-		
-		disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
-#ifdef HEBREW_FONT
-		Convert_HebrewPreview((INT8U *)str, strlen(str), 0, 0); 
-		hebrew_codetemp[strlen(str)] = 0;
-		disp_p.x = 202 - disp_p.x;
-		Dsp_Write_1stringLong(disp_p, hebrew_codetemp);
-#elif defined(USE_ARAB_CONVERT)
-	Convert_ArabPreview((INT8U *)str, strlen(str), 0, 0, 0); 
-	arab_codetemp[strlen(str)] = 0;
-	disp_p.x = LCD_Y_MARGIN_REAL - DspStruct.Hbits1 - disp_p.x;
-	Dsp_Write_1stringLong(disp_p, arab_codetemp);
-#else
-		Dsp_Write_String(disp_p,(HUGEDATA char*)str);
-#endif
-		Dsp_Diffuse();
-		display_lcd_diffuse();	// Redraw PLU Name Area
-		Key_DelaySec(delay, 0);
-		Dsp_SetPage(old_page);
-		Dsp_Diffuse();
-		DspLoadFont1(old_font);
-	}
-	
-	//Added by JJANG 20080131 Print error Message
-	//Modified by JJANG 20080221 함수를 공용으로 사용할수 있게 변경.
-	INT8U display_message_printerr_page(INT16U L_msg, INT16U S_msg)
-	{
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		Dsp_Fill_Buffer(0);
-		
-		caption_split_by_code(L_msg, &cap,0);
-		PutNLargeString(0,0,(char *)cap.form,20);
-		caption_split_by_code(S_msg, &cap,0);
-		PutNSmallString(3,0,(char *)cap.form,35);
-		
-		Dsp_Diffuse();
-		while(1) 
-		{
-			while(!KEY_Read());
-			switch(KeyDrv.CnvCode) 
-			{
-				case KEY_NUM_1 :
-				case KP_ASC_Y :
-					BuzOn(1);
-					Dsp_SetPage(DSP_DEFAULT_PAGE);
-					Dsp_Diffuse();
-					return 1;
-				case KEY_NUM_0 :
-				case KP_ASC_N :
-				case KP_ESC :
-					BuzOn(1);
-					Dsp_SetPage(DSP_DEFAULT_PAGE);
-					Dsp_Diffuse();
-					return 0;
-				default :
-					BuzOn(2);
-					break;
-			}
-		}
-	}
-	
-	//Added by JJANG 20090421, 문자열 받아서 찍어주는 함수 
-	INT8U display_message_check_page(char *S_msg1, char *S_msg2, INT8U mode)
-	{
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		Dsp_Fill_Buffer(0);
-		
-		if (mode == 1)
-		{
-			PutNSmallString(0,0,(char *)S_msg1,35);
-			PutNSmallString(2,0,(char *)S_msg2,35);
-		}
-		else if (mode == 2)
-		{
-			PutNMediumString(0,0,(char *)S_msg1,30);
-			PutNMediumString(2,0,(char *)S_msg2,30);
-		}  
-		Dsp_Diffuse();
-		while(1) 
-		{
-			while(!KEY_Read());
-			switch(KeyDrv.CnvCode) 
-			{
-				case KEY_NUM_1 :
-				case KP_ASC_Y :
-					BuzOn(1);
-					Dsp_SetPage(DSP_DEFAULT_PAGE);
-					Dsp_Diffuse();
-					return 1;
-				case KEY_NUM_0 :
-				case KP_ASC_N :
-				case KP_ESC :
-					BuzOn(1);
-					Dsp_SetPage(DSP_DEFAULT_PAGE);
-					Dsp_Diffuse();
-					return 0;
-				default :
-					BuzOn(2);
-					break;
-			}
-		}
-	}
-	
-	INT8U 	Send_reason_Code = 0;
-	INT8U display_reason_code_input_page(void)	//Added by JJANG 20090528
-	{
-		INT8U   result,old_font,key_mode;
-		INT32U	res = 0;
-		INT8U	ret;
-		INT8U old_page;
-		
-		old_page = DspStruct.Page;
-		
-		Dsp_SetPage(DSP_ERROR_PAGE);
-		Dsp_Fill_Buffer(0);
-		
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		Menu_Init();
-		
-		caption_split_by_code(0x1BD2, &cap,0);
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &res, NULL, NULL, NULL);
-		
-		result = Menu_InputDisplay();
-		if (result == MENU_RET_SAVE) 
-		{
-			Send_reason_Code = (INT8U)res;	
-			ret = ON;
-		}
-		else if (result == MENU_RET_ESC) ret = OFF;
-		
-		Dsp_Fill_Buffer(0);
-		Dsp_SetPage(old_page);
-		Dsp_Diffuse();
-		DspLoadFont1(old_font);
-		KEY_SetMode(key_mode);
-		sale_display_update(0x0fff);
-		
-		return ret;
-	}
-#ifdef USE_CONTROL_CHANGING_PRICE
-	
-	//divisor 1 : 쪼개기 없음, 2 : 1/2 쪼개기, 3 : 1/3 쪼개기, 4 : 1/4 쪼개기, else는 1로 고정됨.
-	//return 0: 매가 변경 허용, 1: 상한 넘김, 2: 하한 넘김
-	INT8U check_changed_price_range(INT8U divisor, long* upperPrice, long* lowerPrice)
-	{
-		INT16U pluIndex;
-		INT32U basePrice;
-		INT16S size;
-		INT8U splitTemp;
-		plu_table_search(status_scale.departmentid, status_scale.cur_pluid, &pluIndex, 0);
-		if(pluIndex == 0)
-		{
-			return 0;
-		}
-		basePrice = status_scale.Plu.special_price;	//special price를 기준 가격으로 사용. 
-    	if(!basePrice) return 0;		//기준가격이 없는 경우 매가 변경 허용?
-		if(status_scale.Plu.ctrlPriceChange == 1)		//매가 통제 함.
-		{
-			if(divisor < 5 && divisor > 1)
-			{
-				splitTemp = divisor;
-			}
-			else
-			{
-				splitTemp = 1;
-			}
-			*upperPrice = ((100 + status_scale.Plu.upperLimit) * basePrice) / splitTemp / 100; //기준매가 소수점 절사함
-			*lowerPrice = ((100 - status_scale.Plu.lowerLimit) * basePrice) / splitTemp / 100; //기준매가 소수점 절사함
-			if(Price.UnitPrice[PRICE_RESULT] > *upperPrice)	
-			{
-				return 1;
-			}
-			else if(Price.UnitPrice[PRICE_RESULT] < *lowerPrice)
-			{
-				return 2;
-			}
-			else
-			{
-				return 0;	
-			}
-		}
-		else	//매가 통제 안 함
-		{
-			return 0;
-		}
-	}
-#endif
-	INT8U MultiPrintFlag = OFF;
-	INT8U Multi_PeelEnable;
-	INT8U Multi_RewindEnable;
-	INT8U keyapp_print(INT16S beep)
-	{
-		INT8U ret_value = 0;
-		INT8U	changeFlag;
-		INT8U prtpapertype;
-		
-		prtpapertype = get_global_bparam(GLOBAL_PAPER_TYPE); // Print Mode 설정값 끌고오는 변수
-		char S_msg1[32];
-		char S_msg2[32];
-		char string_buf[50];
-#ifdef USE_CHECK_CHANGE_REASON
-		INT8U askReason;
-#endif
-#ifdef USE_IMPORT_MEAT_PROTOCOL
-#ifdef USE_EXT_CHECKING_HARMFULNESS
-		INT8U use_rs232;
-		INT8U flag;
-		HUGEDATA COMM_BUF *CBuf;
-		
-		use_rs232 = OFF;
-		flag=get_global_bparam(GLOBAL_SALE_SETUP_FLAG4);
-		if( flag&0x80 ) use_rs232 = ON;
-		if (!use_rs232) CBuf = &CommBufEthData[0];
-		else CBuf = &CommBuf;
-#endif
-#endif
-		
-#ifdef USE_INDIA_FUNCTION
-		if (UseAreaScaleMode == 2) // 0:NormalScale(STD), 1:DualModeScale, 2:AreaScale
-		{
-			BuzOn(2);
-			return OFF;
-		}
-#endif
-		
-		if (beep)	BuzOn(1);
-#ifdef USE_TRACE_STANDALONE
-		if (FlagLotMultiStart) 
-		{
-	    	Prt_LotList(0);
-	    	MultiIndex = 0;
-			LotListMultiIndex = 0;
-			FlagMultiStart = 0;//묶음장부 인쇄 후 복수개체 시작키로 초기화
-			FlagLotMultiStart = OFF;
- 	    	return 0;
-		}
-#endif
-		if(Startup.country == COUNTRY_US && !GlbPrint.printNoRewind)	//Added by JJANG 20090421, 미국전용, 여러장 발행 시 임시로 센서와 모터를 끌 수 있다.
-		{
-			if(Operation.multiply && prtpapertype == 0) //라벨 모드잃 때만 하기 프롬프트 출력함
-			{
-				strcpy(S_msg1, "RWND MTR OFF");
-				strcpy(S_msg2,"& REWIND MOTOR? (1=Y/0=N)");
-				ret_value = display_message_check_page(S_msg1,S_msg2,1);
-				if (ret_value)
-				{
-					MultiPrintFlag = ON;
-					Operation.rewindReady = ON;
-					Multi_PeelEnable = PrtDrvStruct.PeelEnable;
-					Multi_RewindEnable = PrtDrvStruct.RewindEnable;
-					PrtDrvStruct.PeelEnable = DISABLE;
-					PrtDrvStruct.RewindEnable = DISABLE;
-				}
-			}
-		}
-		if ((Operation.operationClerk==OPER_STD_CLERK && Operation.addStandatdClerk) || Operation.operationClerk==OPER_FLOATING)
-		{
-			if(Operation.multiply)	return 0xa1;
-			keyapp_total(ON);
-			return 0xa2;
-		}
-		else
-		{
-			if(PrtStruct.Mode == RECEIPT)//new
-			{
-#ifdef USE_CHN_CART_SCALE
-				Operation.oneTouchTicketPrint = ON;
-				keyapp_add(OFF);
-				return 0;
-#else
-				caption_split_by_code(0xC80C,&cap,0);//"Select label mode"
-				DisplayMsg(cap.form);
-				return 0xa3;
-#endif
-			}
-		}
-		if(ADM_GetData.Overload || PercentTareOver) return 0xa4;// (For NMi) Added by CJK 20050713
-		DirectWeightMode();
-		DirectCountMode();  //SG070227
-		
-		if(!CheckPluPrint(0))	 return 0xa5;
-		
-#ifdef USE_IMPORT_MEAT_PROTOCOL
-#ifdef USE_EXT_CHECKING_HARMFULNESS
-		if(FlagDisplayIndividual)
-		{
-			if(command_import_meat_data(CBuf, use_rs232))
-			{
-				BuzOn(4);
-				//sprintf(string_buf, "위해 쇠고기입니다");
-				sprintf(string_buf, "담당자 확인 필요 상품");
-				display_message_page_mid_delay(string_buf, 50);
-				sale_display_indivFlag_set(INDIV_DISP_MODE_INDIV_NO, OFF);
-				sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-				return OFF;
-			}
-		}	
-#endif
-#endif
-#ifdef USE_CHECK_INDIV_INFO
-		if(!CheckIndivInfo()) return OFF;
-#endif
-		//chg_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG8) & 0x40;	//parameter 723
-#ifdef USE_CHECK_CHANGE_REASON
-		askReason = get_global_bparam(GLOBAL_SALE_SETUP_FLAG12) & 0x10;
-		if(askReason)
-		{
-			changeFlag = GetChangeFlag(PluType(), status_scale.Plu.ptype, Price.UnitPrice[PRICE_RESULT], status_scale.Plu.unitprice, Operation.fixedPrice, status_scale.Plu.fixed_price, Price.TotalPrice[PRICE_SAVED]);
-			if (UseEmartNetwork && changeFlag)
-			{
-				if(!display_reason_code_input_page()) return OFF;
-			}
-		}
-#endif
-		
-		Operation.transAddup = OFF;
-		if (Operation.addStandatdClerk )
-		{
-			if(ClerkSearchEmpty() == -1) {
-				caption_split_by_code(0xC90D,&cap,0);
-				DisplayMsg(cap.form);
-				Key_DelaySec(10,0);
-				return 0xa7;
-			}
-			Operation.transAddup = ON;
-		}
-		if(Operation.multiply)	// Multi print
-		{
-			if (Operation.multiplyEdit && status_scale.print_multiple > 0)
-			{
-				Operation.multiplyEdit = OFF;
-				//status_scale.print_multiple = status_scale.cur_keyvalue;
-			}
-			else
-			{
-				return 0xa6;
-			}
-		}
-		else
-		{
-			if(GlbOper.autoDoublePrint && Operation.wAuto)//OPTION: double print
-			{
-				status_scale.print_multiple = GlbOper.autoDoublePrint;                     //yoo 080605
-				Operation.autoDoublePrint = ON;
-			}
-			else
-				status_scale.print_multiple = 1;
-		}
-		Operation.salePluClearWait = OFF;	// Added by CJK 20060425
-		StartPrintFlag = ON;
-		if(status_scale.print_multiple)
-			PrintLabelWait();
-		if(GlbPrint.printNoRewind && PrtFlashStruct.RewindEnable && Operation.multiply && 1 < status_scale.print_multiple)
-		{
-			char	string_buf[20];
-			Operation.rewindReady = ON;
-			sprintf(string_buf, "%cM", GS);
-			PutDataRxBuf(&CommBufPrt,string_buf,2);
-			string_buf[0] = OFF;
-			PutDataRxBuf(&CommBufPrt,string_buf,1);
-		}
-		//	if (Operation.salePluClearWait==OFF) {
-		//		keyapp_cleardiscount();
-		//		if (status_scale.Plu.fixed_price==0) Operation.fixedPrice=0;
-		//	}
-		
-		return 0;
-	}
-	
-	extern INT8U	ClerkLastIndex;
-	extern INT8U	ClerkLastNumber;
-	extern INT32U	ClerkLastHead;
-	extern PRINT_OPER_TYPE		PrtOper;	// Added by CJK 20051226
-	
-	//DEL070705extern void sale_display_multiply(INT16S dispFlsg);
-	void keyapp_multi(void)
-	{
-#ifdef USE_SCALE_POS_PROTOCOL	 //SG060410
-		if(network_status.service_bflag2){
-			BuzOn(2);
-			return;
-		}
-#endif
-		if(!Operation.multiply && Operation.negative)
-		{
-			caption_split_by_code(0xc909,&cap,0);
-			DisplayMsg(cap.form);//"No X key on negative"
-			return;
-		}
-		
-		if(Operation.autoDoublePrint && Operation.wAuto)
-		{
 			Operation.multiply = OFF;
-			caption_split_by_code(0xC90B,&cap,0);//"Double print(auto)"
-			DisplayMsg(cap.form);
 			return;
 		}
 		
-		if(!GlbOper.byWeightMulti)
-		{
-			//if(!CheckPluPrint())	return;	// Deleted by CJK 20051031
-			if(status_scale.cur_pluid && PluType()==PLU_BY_WEIGHT)
-			{
-				Operation.multiply = OFF;
-				return;
-			}
-		}
-		
-		if(Operation.multiply) 
-		{
-			//		if(status_scale.print_multiple > 0) return;
-			Operation.multiply = OFF;
-			status_scale.print_multiple = 0;
-			PrtDrvStruct.PrtLoadFormFlag=ON;
-			label_load(status_scale.cur_labelid);
-			Operation.salePrintWait = OFF;
-			//DEL070705		sale_display_multiply(OFF);
-			//DEL070705		sale_display_discount(ON);
-		} 
-		else 
-		{
-			if(!status_scale.cur_pluid)
-			{
-				////DEL090910//			INT8U	byte;
-				////DEL090910
-				////DEL090910			//byte = get_global_bparam(GLOBAL_REPORT_FLAG);//599 Print last ticket
-				////DEL090910			//if(OnOff(byte&0x10) && ClerkLastIndex && ClerkLastNumber)	// floating
-				////DEL090910#ifndef USE_TRACE_STANDALONE	// 개체기억기능 영역공유
-				////DEL090910			if(status_scale.clerkid && PrtOper.PrtLastTicket)
-				////DEL090910			{
-				////DEL090910				if(ClerkLastIndex && (ClerkLastNumber == status_scale.clerkid))	// floating
-				////DEL090910				{
-				////DEL090910					//new
-				////DEL090910					// Modified by CJK 20041112
-				////DEL090910					//PrintClerkLastTicket();
-				////DEL090910					Prt_PrintStart(PRT_TOTAL_LAST_MODE, PrtStruct.Mode, ClerkLastNumber, ON, 0, 0);
-				////DEL090910				}
-				////DEL090910				else
-				////DEL090910				{
-				////DEL090910					caption_split_by_code(0xC90E,&cap,0);//"Copy ticket is erased"
-				////DEL090910					DisplayMsg(cap.form);
-				////DEL090910				}
-				////DEL090910			}
-				////DEL090910#endif
-				return ;
-			}
-			//sale_display_multiply(OFF);
-			//DEL070705		sale_display_multiply(ON);
-			
-			//Added by JJANG 20080602
-			//네덜란드 요청, floating clerk일 때, 'X' key 동작 안하도록 수정
-			if(Operation.operationClerk == OPER_FLOATING)
-			{
-				Operation.multiply = OFF;
-				return;
-			}
-			
-			Operation.multiply = ON;
-			Operation.multiplyEdit = ON;
-			status_scale.cur_keyvalue=status_scale.print_multiple;
-		}
-		sale_display_update(UPDATE_TITLE);
+		Operation.multiply = ON;
+		Operation.multiplyEdit = ON;
+		status_scale.cur_keyvalue=status_scale.print_multiple;
+	}
+	sale_display_update(UPDATE_TITLE);
+}
+
+void keyapp_sale_special(void)
+{
+	//BuzOn(1);
+	
+	if (status_scale.cur_pluid==0) return;
+	if (GlbOper.useSpecialPriceForDisc) return;
+	if(status_scale.Plu.special_price)
+	{
+		Operation.specialPrice = ON;
 	}
 	
-	void keyapp_sale_special(void)
-	{
-		//BuzOn(1);
-		
-		if (status_scale.cur_pluid==0) return;
-		if (GlbOper.useSpecialPriceForDisc) return;
-		if(status_scale.Plu.special_price)
-		{
-			Operation.specialPrice = ON;
-		}
-		
-		sale_display_update(UPDATE_TITLE);
-		
-	}
+	sale_display_update(UPDATE_TITLE);
+	
+}
 #ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
 #ifndef USE_AUSTRALIA_COOL_FUNCTION //Refefence PLU 기능 사용 안 함
-	void keyapp_reference(void)
+void keyapp_reference(void)
+{
+	INT8U	dept;
+	INT32U	plu;
+	
+	if (Startup.disable_dept) {
+		status_scale.Plu.refer_dept=1;
+	}
+	if(status_scale.Plu.refer_dept && status_scale.Plu.refer_plu)
 	{
-		INT8U	dept;
-		INT32U	plu;
-		
-		if (Startup.disable_dept) {
-			status_scale.Plu.refer_dept=1;
-		}
-		if(status_scale.Plu.refer_dept && status_scale.Plu.refer_plu)
+		dept = status_scale.Plu.refer_dept;
+		plu =  status_scale.Plu.refer_plu;
+		sale_pluclear(ON);
+		sale_display_update(0x0fff);//061128
+		keyapp_pluno(dept,plu,OFF);
+	}
+	else
+	{
+		caption_split_by_code(0xc901,&cap,0);//"No reference"
+		DisplayMsg(cap.form);
+	}
+}
+#endif
+#endif
+
+
+void keyapp_sale_negative(void)
+{
+	//	char	priceBuf[15];
+	
+	//BuzOn(1);
+	//if(Operation.operationClerk!=OPER_FLOATING)	return;
+	if(!CheckPluPrint(0))	return;
+	// if(!Operation.negative)
+	//{
+	Operation.negative = ON;
+	caption_split_by_code(0xc02b,&cap,0);
+	DisplayMsg(cap.form);//"Negative ON"
+	//	}
+}
+
+extern long	WeightMaxDelta;
+//extern INT8U PLU_scroll_onoff;
+extern PLU_SCROLL_STRUCT PLU_SCROLL;
+#ifdef USE_DONT_SAVE_VALIDDATE_SALEDATE
+extern TEMP_SELLDATE_STRUCT	temp_selldate;
+#endif
+
+void sale_pluclear(INT16S keyFlag)
+{
+	//	if (status_scale.cur_pluid==0){
+	//		status_scale.cur_qty      = 1;
+	//		status_scale.cur_pcs      = 1;
+	//	}
+	
+			if (Clerk_Subtotal_List == 1)
+			{
+				Clerk_Subtotal_List = 0; //Modify by se-hyung for Clerk Subtotal List 20070727
+				sale_display_update(UPDATE_SUBTOTAL);
+			}
+	if (status_scale.clerkid) NetClerkLockRelease(status_scale.clerkid);
+	
+	status_scale.weight_stable = 0;
+	WeightMaxDelta = 0;
+	
+	status_scale.cur_ride     = 0;
+	status_scale.ride_max     = 1;
+	
+	status_scale.cur_pluid = 0;
+	status_scale.flag_input &=0xf1;
+	//DEL070130        status_scale.sale_type = 0;
+	//DEL070130	status_scale.sale_value= 0;
+	
+	status_scale.cur_unitprice= 0;
+	status_scale.cur_weightunit=get_defaultunit(CurPluWeightUnit);
+	status_scale.cur_qty= 0;
+	status_scale.cur_pcs= 0;
+#ifdef USE_PERCENT_WEIGHT
+	status_scale.cur_ptare= 0;
+#endif		
+#if defined(USE_GSMART_BARCODE) || defined(USE_PRT_CHNIA_DISCOUNT_RATE)
+	status_scale.discountflag = 0;
+	status_scale.discount_rate = 0;
+#endif
+	status_scale.divisor = 0;
+	Operation.useMultipleUnits = 0;
+	Price.TotalPrice[0]=0;
+	Price.TotalPrice[1]=0;
+	Price.TotalPrice[2]=0;
+	Price.TaxRate	= 0;
+	Price.TaxPrice	= 0;
+	Price.TaxNumber	=0;
+	Price.DisplayedPrice = 0;
+	//Price.RoundedPrice = 0;
+	Price.FixedDiscountPrice = 0;
+	// quick plu에서 숫자 입력중 없는 PLU가 호출될 때, 
+	// 단가가 0으로 되는것을 막기위해 InputQuickPluState가 0일때만 key값을 clear하게 함
+	if(!InputQuickPluState) status_scale.cur_keyvalue=0;	
+	status_scale.Plu.tare  = 0;
+	if(status_scale.Plu.fixed_weight)
+		status_scale.Weight=0;
+	status_scale.Plu.fixed_weight = 0;
+	status_scale.Plu.group = 0;
+	
+	status_scale.linked_plu[0] = 0;
+	status_scale.linked_plu[1] = 0;
+	
+	//DEL051229	Operation.keyInWeight = OFF;
+	Operation.specialPrice = OFF;
+	Operation.specialPriceDisc = OFF;
+	Operation.fixedPrice = OFF;
+	Operation.negative = OFF;
+	Operation.fixedDiscFlag = OFF;
+	Operation.insertLabelData = OFF;
+	Operation.discountInfo = OFF;
+	Operation.fixedAction=0;
+#ifdef USE_COPYKEY	
+	flagcopykey = OFF;
+#endif
+	PLU_SCROLL.state = PLU_SCROLL_TURNOFF;
+#ifdef USE_NHMART_SAFE_MEAT
+	network_status.indivCallCts = 0;
+#endif
+	// qty, pcs, unitprice 편집시 blink. 숫자키를 누를 때 마다 값이 표시되도록 함
+	Set7BlinkPrevTime = SysTimer100ms;
+	Seg7BlinkOn = 0;
+	
+	ClearCurrencyPrice();
+	// 무조건 off
+	//if(Operation.operationMode != MODE_MANAGER)//OPTION: manager mode가 아니면
+	{
+		Operation.override = OFF;
+		Netweight_flag=OFF;
+	}
+	//sale_discount();
+	// batch 작업이 없을때 reference를 수행
+#ifdef USE_CHN_EMART_TRACE
+	CHNEmart_TraceSelectionOrder = 0;
+	CHNEmart_CurTraceCode[0] = 0;
+#endif
+#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
+	if(keyFlag)
+	{
+		status_scale.Plu.coupled_dept = 0;
+		status_scale.Plu.coupled_plu = 0;
+		status_scale.Plu.refer_dept = 0;
+		status_scale.Plu.refer_plu = 0;
+	}
+	
+	if (Startup.disable_dept) {	// Added by CJK 20050809
+		status_scale.Plu.coupled_dept = 1;
+	}
+#endif
+	
+	//SG070322	if(!BatchCount && status_scale.Plu.coupled_dept && status_scale.Plu.coupled_plu)
+	//SG070322	{
+	//SG070322		if(keyFlag)
+	//SG070322		{
+	//SG070322			BatchCount	= 0;
+	//SG070322		}
+	//SG070322		else
+	//SG070322		{
+	//SG070322			BatchCount	= 1;
+	//SG070322			Batch[0].dept = status_scale.Plu.coupled_dept;
+	//SG070322			Batch[0].plu =  status_scale.Plu.coupled_plu;
+	//SG070322			BatchIndex = 0;
+	//SG070322		}
+	//SG070322	}
+	
+	TareClearPLU();
+	// return key tare
+	if(TareOper.saveKeyTareForPLU && TareOper.saveKeyTare)// continuous tare일때
+	{
+		keyapp_tare(TARE_TYPE_KEY,TareOper.saveKeyTare,OFF);
+		TareOper.saveKeyTare = 0;
+	}
+	
+	//no clerk mode에서는 plu clear 시점에서 level 권한 부여를 없앤다
+	if(Operation.operationMode != MODE_MANAGER && Operation.operationClerk==OPER_NORMAL)
+		logout();
+	//display_alloff_primary_indication();// override
+	sale_display_update(UPDATE_TARE|UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE);
+	//DEL070705	sale_display_discount(ON);
+	display_tare(1);
+	//sale_display_update(UPDATE_CENTER|UPDATE_TITLE|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
+	
+#ifdef USE_SCALE_POS_PROTOCOL
+	KorTrace_Flag.flagReceive = 0;
+	sale_display_update(UPDATE_TITLE);	// CJK070705
+#endif
+#ifdef USE_TRACE_STANDALONE
+	sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
+	sale_display_update(UPDATE_TITLE);	// CJK070705
+#elif defined(USE_CHN_CART_SCALE)
+	// current trace clear
+	memset((INT8U *)&CurCHNTrace, 0, sizeof(TRACE_STRUCT));
+	CurCHNTraceRemainWeight = 0;
+	CurCHNTraceLotNo = 0;
+#endif
+	
+	InputQuickPluState = OFF;
+	if (GlbOper.EnableQuickPlu) InputQuickPluState = ON;
+	//sale_display_update(0x0fff);	// Del by CJK 20061128
+	
+	DispUpdateAll = 1;
+#ifdef USE_DONT_SAVE_VALIDDATE_SALEDATE
+	temp_selldate.onoff=OFF; 
+#endif
+}
+
+//DEL070705extern void	DispClearPeelHeadMsg(void);
+extern char	PeelHeadMsgFlag;
+extern long InventoryUnitWeight;
+void keyapp_clear(void)
+{
+	INT8U smode,clearFlag=OFF;
+	//BuzOn(1);
+	
+	//smode=(status_scale.flag_input>>1)&0x07;
+	smode=PluType();
+	
+	if (DateTimeDispTime) // date/time 표시되고 있을 때
+	{
+		DateTimeDispTime = 0;
+		return;
+	}
+	
+	if(BatchCount)	BatchCount=0;
+	
+	if (Operation.multiply || Operation.autoDoublePrint)
+	{
+		//sale_print_cancel();
+		if (status_scale.print_multiple && KeyDrv.PrevType==KEY_TYPE_NUMERIC)
 		{
-			dept = status_scale.Plu.refer_dept;
-			plu =  status_scale.Plu.refer_plu;
-			sale_pluclear(ON);
-			sale_display_update(0x0fff);//061128
-			keyapp_pluno(dept,plu,OFF);
+			status_scale.print_multiple  = 0;
 		}
 		else
 		{
-			caption_split_by_code(0xc901,&cap,0);//"No reference"
-			DisplayMsg(cap.form);
-		}
-	}
-#endif
-#endif
-	
-	
-	void keyapp_sale_negative(void)
-	{
-		//	char	priceBuf[15];
-		
-		//BuzOn(1);
-		//if(Operation.operationClerk!=OPER_FLOATING)	return;
-		if(!CheckPluPrint(0))	return;
-		// if(!Operation.negative)
-		//{
-		Operation.negative = ON;
-		caption_split_by_code(0xc02b,&cap,0);
-		DisplayMsg(cap.form);//"Negative ON"
-		//	}
-	}
-	
-	extern long	WeightMaxDelta;
-	//extern INT8U PLU_scroll_onoff;
-	extern PLU_SCROLL_STRUCT PLU_SCROLL;
-#ifdef USE_DONT_SAVE_VALIDDATE_SALEDATE
-	extern TEMP_SELLDATE_STRUCT	temp_selldate;
-#endif
-	
-	void sale_pluclear(INT16S keyFlag)
-	{
-		//	if (status_scale.cur_pluid==0){
-		//		status_scale.cur_qty      = 1;
-		//		status_scale.cur_pcs      = 1;
-		//	}
-		
-				if (Clerk_Subtotal_List == 1)
-				{
-					Clerk_Subtotal_List = 0; //Modify by se-hyung for Clerk Subtotal List 20070727
-					sale_display_update(UPDATE_SUBTOTAL);
-				}
-		if (status_scale.clerkid) NetClerkLockRelease(status_scale.clerkid);
-		
-		status_scale.weight_stable = 0;
-		WeightMaxDelta = 0;
-		
-		status_scale.cur_ride     = 0;
-		status_scale.ride_max     = 1;
-		
-		status_scale.cur_pluid = 0;
-		status_scale.flag_input &=0xf1;
-		//DEL070130        status_scale.sale_type = 0;
-		//DEL070130	status_scale.sale_value= 0;
-		
-		status_scale.cur_unitprice= 0;
-		status_scale.cur_weightunit=get_defaultunit(CurPluWeightUnit);
-		status_scale.cur_qty= 0;
-		status_scale.cur_pcs= 0;
-#ifdef USE_PERCENT_WEIGHT
-		status_scale.cur_ptare= 0;
-#endif		
-#if defined(USE_GSMART_BARCODE) || defined(USE_PRT_CHNIA_DISCOUNT_RATE)
-		status_scale.discountflag = 0;
-		status_scale.discount_rate = 0;
-#endif
-		status_scale.divisor = 0;
-		Operation.useMultipleUnits = 0;
-		Price.TotalPrice[0]=0;
-		Price.TotalPrice[1]=0;
-		Price.TotalPrice[2]=0;
-		Price.TaxRate	= 0;
-		Price.TaxPrice	= 0;
-		Price.TaxNumber	=0;
-		Price.DisplayedPrice = 0;
-		//Price.RoundedPrice = 0;
-		Price.FixedDiscountPrice = 0;
-		// quick plu에서 숫자 입력중 없는 PLU가 호출될 때, 
-		// 단가가 0으로 되는것을 막기위해 InputQuickPluState가 0일때만 key값을 clear하게 함
-		if(!InputQuickPluState) status_scale.cur_keyvalue=0;	
-		status_scale.Plu.tare  = 0;
-		if(status_scale.Plu.fixed_weight)
-			status_scale.Weight=0;
-		status_scale.Plu.fixed_weight = 0;
-        status_scale.Plu.group = 0;
-		
-		status_scale.linked_plu[0] = 0;
-		status_scale.linked_plu[1] = 0;
-		
-		//DEL051229	Operation.keyInWeight = OFF;
-		Operation.specialPrice = OFF;
-		Operation.specialPriceDisc = OFF;
-		Operation.fixedPrice = OFF;
-		Operation.negative = OFF;
-		Operation.fixedDiscFlag = OFF;
-		Operation.insertLabelData = OFF;
-		Operation.discountInfo = OFF;
-		Operation.fixedAction=0;
-#ifdef USE_COPYKEY	
-		flagcopykey = OFF;
-#endif
-		PLU_SCROLL.state = PLU_SCROLL_TURNOFF;
-#ifdef USE_NHMART_SAFE_MEAT
-		network_status.indivCallCts = 0;
-#endif
-		// qty, pcs, unitprice 편집시 blink. 숫자키를 누를 때 마다 값이 표시되도록 함
-		Set7BlinkPrevTime = SysTimer100ms;
-		Seg7BlinkOn = 0;
-		
-		ClearCurrencyPrice();
-		// 무조건 off
-		//if(Operation.operationMode != MODE_MANAGER)//OPTION: manager mode가 아니면
-		{
-			Operation.override = OFF;
-			Netweight_flag=OFF;
-		}
-		//sale_discount();
-		// batch 작업이 없을때 reference를 수행
-#ifdef USE_CHN_EMART_TRACE
-		CHNEmart_TraceSelectionOrder = 0;
-		CHNEmart_CurTraceCode[0] = 0;
-#endif
+			Operation.multiply=OFF;
+			Operation.autoDoublePrint = OFF;
+			//DEL070705	    	sale_display_multiply(OFF);
+			status_scale.print_multiple  = 0;
 #ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
-		if(keyFlag)
-		{
-			status_scale.Plu.coupled_dept = 0;
-			status_scale.Plu.coupled_plu = 0;
-			status_scale.Plu.refer_dept = 0;
-			status_scale.Plu.refer_plu = 0;
-		}
-		
-		if (Startup.disable_dept) {	// Added by CJK 20050809
-			status_scale.Plu.coupled_dept = 1;
-		}
+			if(status_scale.Plu.refer_plu)	status_scale.Plu.refer_plu=0;
 #endif
-		
-		//SG070322	if(!BatchCount && status_scale.Plu.coupled_dept && status_scale.Plu.coupled_plu)
-		//SG070322	{
-		//SG070322		if(keyFlag)
-		//SG070322		{
-		//SG070322			BatchCount	= 0;
-		//SG070322		}
-		//SG070322		else
-		//SG070322		{
-		//SG070322			BatchCount	= 1;
-		//SG070322			Batch[0].dept = status_scale.Plu.coupled_dept;
-		//SG070322			Batch[0].plu =  status_scale.Plu.coupled_plu;
-		//SG070322			BatchIndex = 0;
-		//SG070322		}
-		//SG070322	}
-		
-		TareClearPLU();
-		// return key tare
-		if(TareOper.saveKeyTareForPLU && TareOper.saveKeyTare)// continuous tare일때
+			ClearAndStart();
+		}
+		sale_display_update(UPDATE_TITLE|UPDATE_PRICE|UPDATE_MODE|UPDATE_STATUS);
+		return;
+	}
+	else if(PeelHeadMsgFlag)
+	{
+		//DEL070705		DispClearPeelHeadMsg();
+		CheckPeelHead(OFF, ON);
+		Operation.salePrintWait=OFF;
+		status_scale.print_multiple  = 0;
+	}
+	//RESTART:
+	if (InputQuickPluState)
+	{
+		status_scale.cur_quickplu = 0;
+		clearFlag=ON;
+	}
+	else if(Operation.fixedPrice)
+	{
+		if(Operation.override)
 		{
-			keyapp_tare(TARE_TYPE_KEY,TareOper.saveKeyTare,OFF);
-			TareOper.saveKeyTare = 0;
+			if(status_scale.cur_ride)
+			{
+				if (status_scale.cur_unitprice==0) clearFlag=ON;
+				else status_scale.cur_unitprice=0;
+			}
+		}
+		else
+			clearFlag = ON;
+		//DEL070130		if(clearFlag)
+		//DEL070130		{
+		//DEL070130//			ChangePluType(PLU_BY_WEIGHT);
+		//DEL070130//			sale_display_update(UPDATE_WEIGHT);
+		//DEL070130//			display_ulongsimple(DISPLAY_WEIGHT,Price.Weight[PRICE_RESULT]);
+		//DEL070130			sale_pluclear(ON);
+		//DEL070130			sale_display_update(0x0fff);//061128
+		//DEL070130		}
+	}
+	else
+	{
+		switch (smode) {
+			case 0:
+				clearFlag = ON;
+				//DEL070130				if(TareOper.canadianTare && !Operation.transactionOK && status_scale.Tare)
+				//DEL070130				{
+				//DEL070130					MsgCanadianTare();
+				//DEL070130					return;
+				//DEL070130				}
+				//DEL070130				sale_pluclear(ON);
+				//DEL070130				sale_display_update(0x0fff);//061128
+				//DEL070130	//			sale_display_update(UPDATE_CENTER|UPDATE_TITLE|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
+				//DEL070130	//			if(status_scale.cur_keyvalue) {
+				//DEL070130	//				status_scale.cur_keyvalue = 0;
+				//DEL070130	//				sale_display_update(UPDATE_CENTER|UPDATE_UNIT|UPDATE_PRICE);
+				//DEL070130	//			}
+				//DEL070130				sale_display_update(UPDATE_MODE|UPDATE_STATUS|UPDATE_RIDE);
+				break;
+			case PLU_BY_WEIGHT:
+				if(Operation.override)
+				{
+					Netweight_flag=OFF;
+					if(status_scale.cur_ride)
+					{
+						if (status_scale.cur_unitprice==0) clearFlag=ON;
+						else status_scale.cur_unitprice=0;
+					}
+					Operation.useMultipleUnits = 0;	// Added by CJK 20060412
+					status_scale.cur_weightunit=get_defaultunit(ADM_GetData.CurUnit);
+				}
+				else
+					clearFlag=ON;
+				break;
+			case PLU_BY_PCS: switch (status_scale.cur_ride) {
+				case 1: if (status_scale.cur_qty==0) clearFlag=ON;
+				else status_scale.cur_qty=0;
+				break;
+				case 2: if (status_scale.cur_pcs==0) clearFlag=ON;
+				else status_scale.cur_pcs=0;
+				break;
+				case 3: if (status_scale.cur_unitprice==0) clearFlag=ON;
+				else status_scale.cur_unitprice=0;
+			}
+			break;
+			case PLU_BY_COUNT: switch (status_scale.cur_ride) {
+				case 1: if (status_scale.cur_qty==0) clearFlag=ON;
+				else status_scale.cur_qty=0;
+				break;
+				case 2: if (status_scale.cur_unitprice==0) clearFlag=ON;
+				else status_scale.cur_unitprice=0;
+			}
+			
+		}
+	}
+	//	sale_display_update(UPDATE_WEIGHT|UPDATE_MODE|UPDATE_UNIT);
+	//	return;
+	//SMODE_EXIT:
+	if(clearFlag)
+	{
+		if(DiscSale.saleGlobalOk){
+			keyapp_cleardiscount();
+#ifndef USE_PLU_MULTIPLE_PRICE
+			return;		//Direct Discount 경우 PLU 호출 한번에 취소되어야 함
+#endif
 		}
 		
-		//no clerk mode에서는 plu clear 시점에서 level 권한 부여를 없앤다
-		if(Operation.operationMode != MODE_MANAGER && Operation.operationClerk==OPER_NORMAL)
-			logout();
-		//display_alloff_primary_indication();// override
-		sale_display_update(UPDATE_TARE|UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE);
-		//DEL070705	sale_display_discount(ON);
-		display_tare(1);
-		//sale_display_update(UPDATE_CENTER|UPDATE_TITLE|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
-		
+		if(TareOper.canadianTare && !Operation.transactionOK && status_scale.Tare)
+		{
+			MsgCanadianTare();
+			return;
+		}
+#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
+		if(status_scale.Plu.refer_plu)	status_scale.Plu.refer_plu=0;
+#endif
+#ifdef USE_INVENTORY_LABEL
+		InventoryUnitWeight = 0;
+#endif
+
 #ifdef USE_SCALE_POS_PROTOCOL
 		KorTrace_Flag.flagReceive = 0;
 		sale_display_update(UPDATE_TITLE);	// CJK070705
 #endif
+
 #ifdef USE_TRACE_STANDALONE
 		sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
 		sale_display_update(UPDATE_TITLE);	// CJK070705
-#elif defined(USE_CHN_CART_SCALE)
-		// current trace clear
-		memset((INT8U *)&CurCHNTrace, 0, sizeof(TRACE_STRUCT));
-		CurCHNTraceRemainWeight = 0;
-		CurCHNTraceLotNo = 0;
 #endif
 		
 		InputQuickPluState = OFF;
 		if (GlbOper.EnableQuickPlu) InputQuickPluState = ON;
-    	//sale_display_update(0x0fff);	// Del by CJK 20061128
-		
-		DispUpdateAll = 1;
-#ifdef USE_DONT_SAVE_VALIDDATE_SALEDATE
-		temp_selldate.onoff=OFF; 
-#endif
-	}
-	
-	//DEL070705extern void	DispClearPeelHeadMsg(void);
-	extern char	PeelHeadMsgFlag;
-	extern long InventoryUnitWeight;
-	void keyapp_clear(void)
-	{
-		INT8U smode,clearFlag=OFF;
-		//BuzOn(1);
-		
-		//smode=(status_scale.flag_input>>1)&0x07;
-		smode=PluType();
-		
-		if (DateTimeDispTime) // date/time 표시되고 있을 때
-		{
-			DateTimeDispTime = 0;
-			return;
-		}
-		
-		if(BatchCount)	BatchCount=0;
-		
-		if (Operation.multiply || Operation.autoDoublePrint)
-		{
-			//sale_print_cancel();
-			if (status_scale.print_multiple && KeyDrv.PrevType==KEY_TYPE_NUMERIC)
-			{
-				status_scale.print_multiple  = 0;
-			}
-			else
-			{
-				Operation.multiply=OFF;
-				Operation.autoDoublePrint = OFF;
-				//DEL070705	    	sale_display_multiply(OFF);
-				status_scale.print_multiple  = 0;
-#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
-				if(status_scale.Plu.refer_plu)	status_scale.Plu.refer_plu=0;
-#endif
-				ClearAndStart();
-			}
-			sale_display_update(UPDATE_TITLE|UPDATE_PRICE|UPDATE_MODE|UPDATE_STATUS);
-			return;
-		}
-		else if(PeelHeadMsgFlag)
-		{
-			//DEL070705		DispClearPeelHeadMsg();
-			CheckPeelHead(OFF, ON);
-			Operation.salePrintWait=OFF;
-			status_scale.print_multiple  = 0;
-		}
-		//RESTART:
-		if (InputQuickPluState)
-		{
-			status_scale.cur_quickplu = 0;
-			clearFlag=ON;
-		}
-		else if(Operation.fixedPrice)
-		{
-			if(Operation.override)
-			{
-				if(status_scale.cur_ride)
-				{
-					if (status_scale.cur_unitprice==0) clearFlag=ON;
-					else status_scale.cur_unitprice=0;
-				}
-			}
-			else
-				clearFlag = ON;
-			//DEL070130		if(clearFlag)
-			//DEL070130		{
-			//DEL070130//			ChangePluType(PLU_BY_WEIGHT);
-			//DEL070130//			sale_display_update(UPDATE_WEIGHT);
-			//DEL070130//			display_ulongsimple(DISPLAY_WEIGHT,Price.Weight[PRICE_RESULT]);
-			//DEL070130			sale_pluclear(ON);
-			//DEL070130			sale_display_update(0x0fff);//061128
-			//DEL070130		}
-		}
-		else
-		{
-			switch (smode) {
-				case 0:
-					clearFlag = ON;
-					//DEL070130				if(TareOper.canadianTare && !Operation.transactionOK && status_scale.Tare)
-					//DEL070130				{
-					//DEL070130					MsgCanadianTare();
-					//DEL070130					return;
-					//DEL070130				}
-					//DEL070130				sale_pluclear(ON);
-					//DEL070130				sale_display_update(0x0fff);//061128
-					//DEL070130	//			sale_display_update(UPDATE_CENTER|UPDATE_TITLE|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
-					//DEL070130	//			if(status_scale.cur_keyvalue) {
-					//DEL070130	//				status_scale.cur_keyvalue = 0;
-					//DEL070130	//				sale_display_update(UPDATE_CENTER|UPDATE_UNIT|UPDATE_PRICE);
-					//DEL070130	//			}
-					//DEL070130				sale_display_update(UPDATE_MODE|UPDATE_STATUS|UPDATE_RIDE);
-					break;
-				case PLU_BY_WEIGHT:
-					if(Operation.override)
-					{
-						Netweight_flag=OFF;
-						if(status_scale.cur_ride)
-						{
-							if (status_scale.cur_unitprice==0) clearFlag=ON;
-							else status_scale.cur_unitprice=0;
-						}
-						Operation.useMultipleUnits = 0;	// Added by CJK 20060412
-						status_scale.cur_weightunit=get_defaultunit(ADM_GetData.CurUnit);
-					}
-					else
-						clearFlag=ON;
-					break;
-				case PLU_BY_PCS: switch (status_scale.cur_ride) {
-					case 1: if (status_scale.cur_qty==0) clearFlag=ON;
-					else status_scale.cur_qty=0;
-					break;
-					case 2: if (status_scale.cur_pcs==0) clearFlag=ON;
-					else status_scale.cur_pcs=0;
-					break;
-					case 3: if (status_scale.cur_unitprice==0) clearFlag=ON;
-					else status_scale.cur_unitprice=0;
-				}
-				break;
-				case PLU_BY_COUNT: switch (status_scale.cur_ride) {
-					case 1: if (status_scale.cur_qty==0) clearFlag=ON;
-					else status_scale.cur_qty=0;
-					break;
-					case 2: if (status_scale.cur_unitprice==0) clearFlag=ON;
-					else status_scale.cur_unitprice=0;
-				}
-				
-			}
-		}
-		//	sale_display_update(UPDATE_WEIGHT|UPDATE_MODE|UPDATE_UNIT);
-		//	return;
-		//SMODE_EXIT:
-		if(clearFlag)
-		{
-			if(DiscSale.saleGlobalOk){
-				keyapp_cleardiscount();
-#ifndef USE_PLU_MULTIPLE_PRICE
-				return;		//Direct Discount 경우 PLU 호출 한번에 취소되어야 함
-#endif
-			}
-			
-			if(TareOper.canadianTare && !Operation.transactionOK && status_scale.Tare)
-			{
-				MsgCanadianTare();
-				return;
-			}
-#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
-			if(status_scale.Plu.refer_plu)	status_scale.Plu.refer_plu=0;
-#endif
-#ifdef USE_INVENTORY_LABEL
-			InventoryUnitWeight = 0;
-#endif
-
-#ifdef USE_SCALE_POS_PROTOCOL
-			KorTrace_Flag.flagReceive = 0;
-			sale_display_update(UPDATE_TITLE);	// CJK070705
-#endif
-
+		sale_pluclear(ON);
 #ifdef USE_TRACE_STANDALONE
-			sale_display_indivFlag_set(INDIV_DISP_MODE_ALL, OFF);
-			sale_display_update(UPDATE_TITLE);	// CJK070705
+		indivMultiAndLotIndexInit();
 #endif
-			
-			InputQuickPluState = OFF;
-			if (GlbOper.EnableQuickPlu) InputQuickPluState = ON;
-			sale_pluclear(ON);
-#ifdef USE_TRACE_STANDALONE
-			indivMultiAndLotIndexInit();
-#endif
-			sale_display_update(0x0fff);//061128
-		}
-		sale_display_update(UPDATE_WEIGHT|UPDATE_MODE|UPDATE_UNIT|UPDATE_STATUS);
-		//	goto RESTART;
+		sale_display_update(0x0fff);//061128
 	}
-	
-	void keyapp_led(void)
-	{
+	sale_display_update(UPDATE_WEIGHT|UPDATE_MODE|UPDATE_UNIT|UPDATE_STATUS);
+	//	goto RESTART;
+}
+
+void keyapp_led(void)
+{
+}
+
+INT16S keyapp_nzero(void)
+{
+	INT16S r,n;
+	//BuzOn(1);
+	n=(INT16S)get_global_bparam(GLOBAL_KEY_NUMBERZERO_N);
+	if (n>4) n=4;
+	r=power10(n); // <=1000
+	if (r>10000) {
+		r=100;
+		n=2;
 	}
-	
-	INT16S keyapp_nzero(void)
-	{
-		INT16S r,n;
-		//BuzOn(1);
-		n=(INT16S)get_global_bparam(GLOBAL_KEY_NUMBERZERO_N);
-		if (n>4) n=4;
-		r=power10(n); // <=1000
-		if (r>10000) {
-			r=100;
-			n=2;
-		}
-		KeyDrv.CnvCode=r;
-		//	key_numeric();
-		//	for (i=0; i<n; i++) {
-		//		KEY_Write(status_scale.code00,0);
-		//	}
-		return n;	// Added by CJK 20040722
-	}
-	
-	void keyapp_zero(void)
-	{
-#ifdef USE_SRILANKA_ZERO
-		if(ad_set_zero() != 0) BuzOnAdd(1);
-#else
-		//BuzOn(1);
-		ADM_SendCommand(ADM_CMD_SET_ZERO, 0, ADM_PARAM_OFF);	// Set Zero
-#endif
-	}
-	
-	//void keyapp_keytare(void)
-	//{
-	//	tare=0;
-	//	ADM_SendCommand(ADM_CMD_SET_TARE, 0, ADM_PARAM_OFF);	// Set Tare
-	//}
-	
-	//INT8U preset_tare(long preset,INT8U reset)
-	//{
-	//	INT8U ret;
-	//	if (reset) {
-	//	    preset=0;
-	//	    ret=ad_set_presettare(preset);
-	//	} else {
-	//	    if (status_scale.Plu.tare) {
-	//		if (ad_get_tare_state()) return -1;
-	//		else {
-	//			ret=ad_set_presettare(preset);
-	//		}
-	//	    }
+	KeyDrv.CnvCode=r;
+	//	key_numeric();
+	//	for (i=0; i<n; i++) {
+	//		KEY_Write(status_scale.code00,0);
 	//	}
-	//	status_scale.Tare=preset;
-	//	keyapp_tare_error(ret);
-	//	return ret;
-	//}
-	
-	void keyapp_tare_error(INT8U ret)
-	{
-		INT16U capcode;
-		
-		if (ret==0) return;
-		switch (ret) {
-			case 1: capcode=0xE001; break;// Tare Overrange(+,-)
-			case 2: capcode=0xE002; break;// Invalid Value
-			case 3: capcode=0xE003; break;// Unstable
-			case 4: capcode=0xE004; break;// Already Tare
-			case 5: capcode=0xE005; break;// No Tare
-			case 9: capcode=0xE009; break;// Communication Error
-		}
-		//		if ((keytare==0) && (ret==4)) goto END;
-		BuzOn(2);
-		sale_display_update_error(capcode,0,0);
-	}
-	
-	//tare
-	INT16S TareClearKey(void)
-	{
-		INT16S stat;
-		
-		if(TareOper.tareKey)
-		{
-			if(TareOper.flagAutoClearTare)	return ON;
-			stat = keyapp_tare(TARE_TYPE_KEY,0, OFF);
-			if(stat)	TareOper.flagAutoClearTare = ON;
-			return ON;
-		}
-		
-		return OFF;
-	}
-	
-	INT16S TareClearWeight(void)
-	{
-		INT16S stat;
-		
-		if(!TareOper.clearWeightTare)	return OFF;
-		if(status_scale.cur_pluid)	return OFF;
-		if(TareOper.canadianTare && !Operation.transactionOK)	return OFF;
-		if(!status_scale.Tare)	TareOper.flagAutoClearTare = ON;
-		if(TareOper.flagAutoClearTare)	return ON;
-		
-		if(TareOper.tareWeight && (TareOper.tareWeight+status_scale.Weight) == 0)
-		{
-			//keyapp_tare(TARE_TYPE_WEIGHT,status_scale.Weight, OFF);
-			stat = keyapp_tare(TARE_TYPE_WEIGHT,0, OFF);
-			if(stat)	TareOper.flagAutoClearTare = ON;
-			return ON;
-		}
-		
-		return OFF;
-	}
-	
-	INT16S TareClearPLU(void)
-	{
-		if(TareOper.tarePLU)
-		{
-			keyapp_tare(TARE_TYPE_PLU,0, OFF);
-			return ON;
-		}
-		
-		return OFF;
-	}
-	
-	INT8U TareOverridePLUTare;
-	INT16S tare_operation(INT16S tareType, INT32U tareValue)
-	{
-		INT8U ret;
-		INT8U tareOK=OFF;
-		TARE_OPER_TYPE	backTare;
-		INT32U temp;   //se-hyung 20080325
-		INT32U tare_auto_zero; //se-hyung 20080325
-		long interval; //se-hyung 20080325
-		long e_value;  //se-hyung 20080325
-		
-		long	curTareValue=0;
-		INT8U cleartare;
-		INT16S count;
-		INT8U clerkTare = OFF;
-#ifdef USE_KENYA_TARELIMIT
-		INT32U tlimit = 0;
+	return n;	// Added by CJK 20040722
+}
+
+void keyapp_zero(void)
+{
+#ifdef USE_SRILANKA_ZERO
+	if(ad_set_zero() != 0) BuzOnAdd(1);
+#else
+	//BuzOn(1);
+	ADM_SendCommand(ADM_CMD_SET_ZERO, 0, ADM_PARAM_OFF);	// Set Zero
 #endif
-		
-		ret=0;
-		cleartare = OFF;
-		tare_auto_zero = 0;  //se-hyung 20080325
-		TareOverridePLUTare = OFF;
-		
-		backTare = TareOper;//data backup
-		switch (tareType)
-		{
-			case TARE_TYPE_WEIGHT:
-				
-				break;
-			case TARE_TYPE_KEY:
-			case TARE_TYPE_PLU:
-			case TARE_TYPE_PRESET:
-				curTareValue = tareValue;
-				break;
-		}
-		if (TareOper.addupWeightZero && Operation.operationClerk == OPER_FLOATING && status_scale.clerkid)
-		{
-			clerkTare = ON;
-		}
-		
-		switch(tareType) {
-			case TARE_TYPE_WEIGHT:
-				
-				interval = (long)ad_get_interval(0);	      //se-hyung 20080325
-				interval = ad_cnv_adm2main(interval);
-				temp = get_global_bparam(GLOBAL_TARE_SETITING);
-				e_value = temp&0x07;
-				e_value *= interval;
-				temp >>= 3;
-				tare_auto_zero = temp&0x01;
-				
-				if (TareOper.tareWeight) 
+}
+
+//void keyapp_keytare(void)
+//{
+//	tare=0;
+//	ADM_SendCommand(ADM_CMD_SET_TARE, 0, ADM_PARAM_OFF);	// Set Tare
+//}
+
+//INT8U preset_tare(long preset,INT8U reset)
+//{
+//	INT8U ret;
+//	if (reset) {
+//	    preset=0;
+//	    ret=ad_set_presettare(preset);
+//	} else {
+//	    if (status_scale.Plu.tare) {
+//		if (ad_get_tare_state()) return -1;
+//		else {
+//			ret=ad_set_presettare(preset);
+//		}
+//	    }
+//	}
+//	status_scale.Tare=preset;
+//	keyapp_tare_error(ret);
+//	return ret;
+//}
+
+void keyapp_tare_error(INT8U ret)
+{
+	INT16U capcode;
+	
+	if (ret==0) return;
+	switch (ret) {
+		case 1: capcode=0xE001; break;// Tare Overrange(+,-)
+		case 2: capcode=0xE002; break;// Invalid Value
+		case 3: capcode=0xE003; break;// Unstable
+		case 4: capcode=0xE004; break;// Already Tare
+		case 5: capcode=0xE005; break;// No Tare
+		case 9: capcode=0xE009; break;// Communication Error
+	}
+	//		if ((keytare==0) && (ret==4)) goto END;
+	BuzOn(2);
+	sale_display_update_error(capcode,0,0);
+}
+
+//tare
+INT16S TareClearKey(void)
+{
+	INT16S stat;
+	
+	if(TareOper.tareKey)
+	{
+		if(TareOper.flagAutoClearTare)	return ON;
+		stat = keyapp_tare(TARE_TYPE_KEY,0, OFF);
+		if(stat)	TareOper.flagAutoClearTare = ON;
+		return ON;
+	}
+	
+	return OFF;
+}
+
+INT16S TareClearWeight(void)
+{
+	INT16S stat;
+	
+	if(!TareOper.clearWeightTare)	return OFF;
+	if(status_scale.cur_pluid)	return OFF;
+	if(TareOper.canadianTare && !Operation.transactionOK)	return OFF;
+	if(!status_scale.Tare)	TareOper.flagAutoClearTare = ON;
+	if(TareOper.flagAutoClearTare)	return ON;
+	
+	if(TareOper.tareWeight && (TareOper.tareWeight+status_scale.Weight) == 0)
+	{
+		//keyapp_tare(TARE_TYPE_WEIGHT,status_scale.Weight, OFF);
+		stat = keyapp_tare(TARE_TYPE_WEIGHT,0, OFF);
+		if(stat)	TareOper.flagAutoClearTare = ON;
+		return ON;
+	}
+	
+	return OFF;
+}
+
+INT16S TareClearPLU(void)
+{
+	if(TareOper.tarePLU)
+	{
+		keyapp_tare(TARE_TYPE_PLU,0, OFF);
+		return ON;
+	}
+	
+	return OFF;
+}
+
+INT8U TareOverridePLUTare;
+INT16S tare_operation(INT16S tareType, INT32U tareValue)
+{
+	INT8U ret;
+	INT8U tareOK=OFF;
+	TARE_OPER_TYPE	backTare;
+	INT32U temp;   //se-hyung 20080325
+	INT32U tare_auto_zero; //se-hyung 20080325
+	long interval; //se-hyung 20080325
+	long e_value;  //se-hyung 20080325
+	
+	long	curTareValue=0;
+	INT8U cleartare;
+	INT16S count;
+	INT8U clerkTare = OFF;
+#ifdef USE_KENYA_TARELIMIT
+	INT32U tlimit = 0;
+#endif
+	
+	ret=0;
+	cleartare = OFF;
+	tare_auto_zero = 0;  //se-hyung 20080325
+	TareOverridePLUTare = OFF;
+	
+	backTare = TareOper;//data backup
+	switch (tareType)
+	{
+		case TARE_TYPE_WEIGHT:
+			
+			break;
+		case TARE_TYPE_KEY:
+		case TARE_TYPE_PLU:
+		case TARE_TYPE_PRESET:
+			curTareValue = tareValue;
+			break;
+	}
+	if (TareOper.addupWeightZero && Operation.operationClerk == OPER_FLOATING && status_scale.clerkid)
+	{
+		clerkTare = ON;
+	}
+	
+	switch(tareType) {
+		case TARE_TYPE_WEIGHT:
+			
+			interval = (long)ad_get_interval(0);	      //se-hyung 20080325
+			interval = ad_cnv_adm2main(interval);
+			temp = get_global_bparam(GLOBAL_TARE_SETITING);
+			e_value = temp&0x07;
+			e_value *= interval;
+			temp >>= 3;
+			tare_auto_zero = temp&0x01;
+			
+			if (TareOper.tareWeight) 
+			{
+				if (TareOper.tareWeight+status_scale.Weight >= -(e_value) && TareOper.tareWeight+status_scale.Weight <= e_value) // Gross Zero이면 se-hyung 20080325
 				{
-					if (TareOper.tareWeight+status_scale.Weight >= -(e_value) && TareOper.tareWeight+status_scale.Weight <= e_value) // Gross Zero이면 se-hyung 20080325
-					{
-						cleartare = ON;
-						break;	
-					}
-					if (clerkTare && TareOper.tareClerk)
-					{
-						break;
-					}
-					
-					if (!TareOper.continuousTareUp && !TareOper.continuousTareDn) 	// One Time Tare이면
-					{ 
-						DisplayMsg(global_message[MSG_WAR_WEIGHTTARE]);//"Check weight tare"
-						return OFF;
-					}
-					if (!TareOper.continuousTareDn && status_scale.Weight < 0) 
-					{
-						caption_split_by_code(0xC80A,&cap,0);
-						DisplayMsg(cap.form);//"No down tare"
-						return OFF;
-					}
-					if (!TareOper.continuousTareUp && status_scale.Weight > 0) 
-					{
-						caption_split_by_code(0xC80B,&cap,0);
-						DisplayMsg(cap.form);//"No up tare"
-						return OFF;
-					}
-					if (TareOper.continuousTareUp && TareOper.continuousTareDn) 
-					{
-						break;
-					}
+					cleartare = ON;
+					break;	
 				}
-				if (TareOper.tareKey) 
+				if (clerkTare && TareOper.tareClerk)
 				{
-					if (TareOper.tareKey+status_scale.Weight >= -(e_value) && TareOper.tareKey+status_scale.Weight <= e_value)
-					{
-						cleartare = ON;
-						break;
-					} 
-					else 
-					{
-						if (clerkTare && TareOper.tareClerk)
-						{
-							break;
-						}
-						DisplayMsg(global_message[MSG_WAR_KEYTARE]);//"Check key tare"
-						return OFF;
-					}
+					break;
 				}
-				if (TareOper.tarePLU) 
-				{
-					if (TareOper.useTareAfterPLUCall)
-					{
-						if (TareOper.tarePLU+status_scale.Weight >= -(e_value) && TareOper.tarePLU+status_scale.Weight <= e_value)
-						{
-							cleartare = ON;
-							break;
-						}
-					}
-					else
-					{
-						if (clerkTare && TareOper.tareClerk)
-						{
-							break;
-						}
-						DisplayMsg(global_message[MSG_WAR_PLUTARE]);//"Check PLU tare"
-						return OFF;
-					}
-					TareOverridePLUTare = ON;
-				}
-				break;
-			case TARE_TYPE_KEY:
-				if (TareOper.tareWeight) 
-				{
-					if (curTareValue == 0) 
-					{
-						cleartare = ON;
-						break;
-					}
-					if (clerkTare && TareOper.tareClerk)
-					{
-						break;
-					}
+				
+				if (!TareOper.continuousTareUp && !TareOper.continuousTareDn) 	// One Time Tare이면
+				{ 
 					DisplayMsg(global_message[MSG_WAR_WEIGHTTARE]);//"Check weight tare"
 					return OFF;
 				}
-				if (TareOper.tareKey) 
+				if (!TareOper.continuousTareDn && status_scale.Weight < 0) 
+				{
+					caption_split_by_code(0xC80A,&cap,0);
+					DisplayMsg(cap.form);//"No down tare"
+					return OFF;
+				}
+				if (!TareOper.continuousTareUp && status_scale.Weight > 0) 
+				{
+					caption_split_by_code(0xC80B,&cap,0);
+					DisplayMsg(cap.form);//"No up tare"
+					return OFF;
+				}
+				if (TareOper.continuousTareUp && TareOper.continuousTareDn) 
+				{
+					break;
+				}
+			}
+			if (TareOper.tareKey) 
+			{
+				if (TareOper.tareKey+status_scale.Weight >= -(e_value) && TareOper.tareKey+status_scale.Weight <= e_value)
+				{
+					cleartare = ON;
+					break;
+				} 
+				else 
+				{
+					if (clerkTare && TareOper.tareClerk)
+					{
+						break;
+					}
+					DisplayMsg(global_message[MSG_WAR_KEYTARE]);//"Check key tare"
+					return OFF;
+				}
+			}
+			if (TareOper.tarePLU) 
+			{
+				if (TareOper.useTareAfterPLUCall)
+				{
+					if (TareOper.tarePLU+status_scale.Weight >= -(e_value) && TareOper.tarePLU+status_scale.Weight <= e_value)
+					{
+						cleartare = ON;
+						break;
+					}
+				}
+				else
+				{
+					if (clerkTare && TareOper.tareClerk)
+					{
+						break;
+					}
+					DisplayMsg(global_message[MSG_WAR_PLUTARE]);//"Check PLU tare"
+					return OFF;
+				}
+				TareOverridePLUTare = ON;
+			}
+			break;
+		case TARE_TYPE_KEY:
+			if (TareOper.tareWeight) 
+			{
+				if (curTareValue == 0) 
+				{
+					cleartare = ON;
+					break;
+				}
+				if (clerkTare && TareOper.tareClerk)
+				{
+					break;
+				}
+				DisplayMsg(global_message[MSG_WAR_WEIGHTTARE]);//"Check weight tare"
+				return OFF;
+			}
+			if (TareOper.tareKey) 
+			{
+				if (curTareValue == 0) 
+				{
+					cleartare = ON;
+					break;
+				}
+				if (clerkTare && TareOper.tareClerk)
+				{
+					break;
+				}
+				if (!TareOper.continuousTareUp && !TareOper.continuousTareDn) 
+				{
+					DisplayMsg(global_message[MSG_WAR_KEYTARE]);//"Already key tare"
+					return OFF;
+				}
+				if (!TareOper.continuousTareDn && curTareValue < TareOper.tareKey) 
+				{
+					caption_split_by_code(0xC80A,&cap,0);
+					DisplayMsg(cap.form);//"No down tare"
+					return OFF;
+				}
+				if (!TareOper.continuousTareUp && curTareValue > TareOper.tareKey) 
+				{
+					caption_split_by_code(0xC80B,&cap,0);
+					DisplayMsg(cap.form);//"No up tare"
+					return OFF;
+				}
+			}
+			if (TareOper.tarePLU) 
+			{
+				if (TareOper.useTareAfterPLUCall)
 				{
 					if (curTareValue == 0) 
 					{
 						cleartare = ON;
 						break;
 					}
+				}
+				else
+				{
 					if (clerkTare && TareOper.tareClerk)
 					{
 						break;
 					}
-					if (!TareOper.continuousTareUp && !TareOper.continuousTareDn) 
-					{
-						DisplayMsg(global_message[MSG_WAR_KEYTARE]);//"Already key tare"
-						return OFF;
-					}
-					if (!TareOper.continuousTareDn && curTareValue < TareOper.tareKey) 
-					{
-						caption_split_by_code(0xC80A,&cap,0);
-						DisplayMsg(cap.form);//"No down tare"
-						return OFF;
-					}
-					if (!TareOper.continuousTareUp && curTareValue > TareOper.tareKey) 
-					{
-						caption_split_by_code(0xC80B,&cap,0);
-						DisplayMsg(cap.form);//"No up tare"
-						return OFF;
-					}
+					DisplayMsg(global_message[MSG_WAR_PLUTARE]);//"Check PLU tare"
+					return OFF;
 				}
-				if (TareOper.tarePLU) 
+				TareOverridePLUTare = ON;
+			}
+			break;
+		case TARE_TYPE_PLU:
+			if (TareOper.tareWeight) 
+			{
+				if (TareOper.overridePluTare)	// PLU Tare 우선
 				{
-					if (TareOper.useTareAfterPLUCall)
-					{
-						if (curTareValue == 0) 
-						{
-							cleartare = ON;
-							break;
-						}
-					}
-					else
-					{
-						if (clerkTare && TareOper.tareClerk)
-						{
-							break;
-						}
-						DisplayMsg(global_message[MSG_WAR_PLUTARE]);//"Check PLU tare"
-						return OFF;
-					}
-					TareOverridePLUTare = ON;
 				}
-				break;
-			case TARE_TYPE_PLU:
-				if (TareOper.tareWeight) 
+				else
+				{
+					DisplayMsg(global_message[MSG_WAR_WEIGHTTARE]);//"Check weight tare"
+					return OFF;
+				}
+			}
+			if (TareOper.tareKey) 
+			{
+				if (TareOper.saveKeyTareForPLU) 	// Key Tare 저장 기능
+				{
+					TareOper.saveKeyTare = TareOper.tareKey;
+				}
+				else
 				{
 					if (TareOper.overridePluTare)	// PLU Tare 우선
 					{
 					}
 					else
 					{
-						DisplayMsg(global_message[MSG_WAR_WEIGHTTARE]);//"Check weight tare"
+						DisplayMsg(global_message[MSG_WAR_KEYTARE]);//"Check key tare"
 						return OFF;
 					}
 				}
-				if (TareOper.tareKey) 
-				{
-					if (TareOper.saveKeyTareForPLU) 	// Key Tare 저장 기능
-					{
-						TareOper.saveKeyTare = TareOper.tareKey;
-					}
-					else
-					{
-						if (TareOper.overridePluTare)	// PLU Tare 우선
-						{
-						}
-						else
-						{
-							DisplayMsg(global_message[MSG_WAR_KEYTARE]);//"Check key tare"
-							return OFF;
-						}
-					}
-					
-				}
-				if (TareOper.tarePLU) 
-				{
-				}
-				break;
-			case TARE_TYPE_PRESET:	// 무조건 통과
-				break;
-		}
-		
-		if(cleartare == ON) {
-			curTareValue = 0;
-			tareType = TARE_TYPE_KEY;
-		}
-		count=0;
-		while(1) {
+				
+			}
+			if (TareOper.tarePLU) 
+			{
+			}
+			break;
+		case TARE_TYPE_PRESET:	// 무조건 통과
+			break;
+	}
+	
+	if(cleartare == ON) {
+		curTareValue = 0;
+		tareType = TARE_TYPE_KEY;
+	}
+	count=0;
+	while(1) {
 #ifdef USE_KENYA_TARELIMIT
-			switch(ADM_Status.Capa)
-			{
-				case 0:
-					tlimit = 40;
-					break;
-				case 1:
-					tlimit = 50;
-					break;
-				case 2:
-					tlimit = 80;
-					break;
-				default:
-					break;
-			}
-
-			if(tareType == TARE_TYPE_WEIGHT)
-			{
-				if(tlimit && status_scale.Weight >= tlimit)
-					ret = 1;
-				else
-					ret = adm_set_weighttare(&curTareValue);
-			}
-			else
-			{
-				if(tlimit && curTareValue >= tlimit)
-					ret = 1;
-				else
-					ret = ad_set_presettare(curTareValue);
-			}
-			if (5 < count++) {
-				caption_split_by_code(0xE009,&cap,0);
-				DisplayMsg(cap.form);//"Check AD Communication"
+		switch(ADM_Status.Capa)
+		{
+			case 0:
+				tlimit = 40;
 				break;
-			}
-#else
-			if(tareType == TARE_TYPE_WEIGHT)
+			case 1:
+				tlimit = 50;
+				break;
+			case 2:
+				tlimit = 80;
+				break;
+			default:
+				break;
+		}
+
+		if(tareType == TARE_TYPE_WEIGHT)
+		{
+			if(tlimit && status_scale.Weight >= tlimit)
+				ret = 1;
+			else
 				ret = adm_set_weighttare(&curTareValue);
+		}
+		else
+		{
+			if(tlimit && curTareValue >= tlimit)
+				ret = 1;
 			else
 				ret = ad_set_presettare(curTareValue);
-			
-			if (5 < count++) {
-				caption_split_by_code(0xE009,&cap,0);
-				DisplayMsg(cap.form);//"Check AD Communication"
-				break;
-			}
+		}
+		if (5 < count++) {
+			caption_split_by_code(0xE009,&cap,0);
+			DisplayMsg(cap.form);//"Check AD Communication"
+			break;
+		}
+#else
+		if(tareType == TARE_TYPE_WEIGHT)
+			ret = adm_set_weighttare(&curTareValue);
+		else
+			ret = ad_set_presettare(curTareValue);
+		
+		if (5 < count++) {
+			caption_split_by_code(0xE009,&cap,0);
+			DisplayMsg(cap.form);//"Check AD Communication"
+			break;
+		}
 #endif
-			
-			if(ret == 9) {
-				Key_DelaySec(1,0);
-				continue;
-			} else break;
-		}
-		if(!ret) {//good
-			if(TareOverridePLUTare == ON) {
-				tareType = TARE_TYPE_PLU;
-			}
-			TareOper.tareWeight 	= 0;
-			TareOper.tareKey	= 0;
-			TareOper.tarePLU	= 0;
-			TareOper.tareClerk	= 0;
-			switch(tareType) {
-				case TARE_TYPE_WEIGHT:
-					TareOper.tareWeight	= curTareValue;
-					break;
-				case TARE_TYPE_KEY:
-				case TARE_TYPE_PRESET:
-					TareOper.tareKey	= curTareValue;
-					break;
-				case TARE_TYPE_PLU:
-					TareOper.tarePLU	= curTareValue;
-					break;
-			}
-			// weight 업데이트가 tare의 업데이트 보다 늦어 Gross Weight 가 일시적으로 잘못 계산되는 문제 개선
-			//  : Tare 변경시 ADM으로 부터 Weight가 업데이트 되기전 미리 계산해놓음
-			if (!curTareValue)
-			{
-				status_scale.Weight = status_scale.Weight + status_scale.Tare;
-			}
-			else
-			{
-				status_scale.Weight = status_scale.Weight - curTareValue;
-			}
-			///////////////////////////////////////////////////////////////////////
-			status_scale.Tare = curTareValue;
-			if (clerkTare)
-			{
-				TareOper.tareClerk = curTareValue;
-			}
-		} else {//error
-			TareOper = backTare;
-			keyapp_tare_error(ret);
-			return OFF;
-		}
-		if(tare_auto_zero && cleartare) keyapp_zero();
-		return ON;
+		
+		if(ret == 9) {
+			Key_DelaySec(1,0);
+			continue;
+		} else break;
 	}
-	
-	extern	INT8U	AutoClearTare;
-	INT16S keyapp_tare(INT16S tareType,INT32U tareValue, INT16S beepFlag)
-	{
-		INT16S	stat;
-		INT8U flag_tmp;
-		INT8U chkUseKeyTareWithWeight;
-		INT8U flag_numeric;
-		INT8U chkUSENumericTareWithKEY;
-		INT8U flag_weight;
-		INT8U chkUSEWeightTareWithKEY;
+	if(!ret) {//good
+		if(TareOverridePLUTare == ON) {
+			tareType = TARE_TYPE_PLU;
+		}
+		TareOper.tareWeight 	= 0;
+		TareOper.tareKey	= 0;
+		TareOper.tarePLU	= 0;
+		TareOper.tareClerk	= 0;
+		switch(tareType) {
+			case TARE_TYPE_WEIGHT:
+				TareOper.tareWeight	= curTareValue;
+				break;
+			case TARE_TYPE_KEY:
+			case TARE_TYPE_PRESET:
+				TareOper.tareKey	= curTareValue;
+				break;
+			case TARE_TYPE_PLU:
+				TareOper.tarePLU	= curTareValue;
+				break;
+		}
+		// weight 업데이트가 tare의 업데이트 보다 늦어 Gross Weight 가 일시적으로 잘못 계산되는 문제 개선
+		//  : Tare 변경시 ADM으로 부터 Weight가 업데이트 되기전 미리 계산해놓음
+		if (!curTareValue)
+		{
+			status_scale.Weight = status_scale.Weight + status_scale.Tare;
+		}
+		else
+		{
+			status_scale.Weight = status_scale.Weight - curTareValue;
+		}
+		///////////////////////////////////////////////////////////////////////
+		status_scale.Tare = curTareValue;
+		if (clerkTare)
+		{
+			TareOper.tareClerk = curTareValue;
+		}
+	} else {//error
+		TareOper = backTare;
+		keyapp_tare_error(ret);
+		return OFF;
+	}
+	if(tare_auto_zero && cleartare) keyapp_zero();
+	return ON;
+}
+
+extern	INT8U	AutoClearTare;
+INT16S keyapp_tare(INT16S tareType,INT32U tareValue, INT16S beepFlag)
+{
+	INT16S	stat;
+	INT8U flag_tmp;
+	INT8U chkUseKeyTareWithWeight;
+	INT8U flag_numeric;
+	INT8U chkUSENumericTareWithKEY;
+	INT8U flag_weight;
+	INT8U chkUSEWeightTareWithKEY;
 
 #ifdef USE_WEIGHT_UNIT_500G
-		long tempUprice;
+	long tempUprice;
 #endif
-		if(beepFlag)
+	if(beepFlag)
+	{
+		AutoClearTare=OFF;
+		if(!tareValue && !status_scale.Weight)	return OFF;
+	}
+	if(TareOper.canadianTare)
+	{
+		if(!Operation.transactionOK && status_scale.Tare)
 		{
-			AutoClearTare=OFF;
-			if(!tareValue && !status_scale.Weight)	return OFF;
+			MsgCanadianTare();
+			return OFF;
 		}
-		if(TareOper.canadianTare)
+	}
+	if(!tareType)// 키를 눌렀을때 판단
+	{
+		if(KeyDrv.PrevType == KEY_TYPE_NUMERIC && tareValue)
 		{
-			if(!Operation.transactionOK && status_scale.Tare)
+			/* # Use Numeric Tare Block(P599)
+			Use Numeric Tare Block 사용 시 P599이 [Y]일 경우
+			: 숫자입력 용기설정을 제한한다.
+			Use Numeric Tare Block 사용 시 P599이 [N]일 경우
+			: 숫자입력 용기설정을 사용한다. */
+			flag_numeric = get_global_bparam(GLOBAL_TARE_SETITING);
+			chkUSENumericTareWithKEY = OnOff(flag_numeric&0x10);
+			if (chkUSENumericTareWithKEY == ON)
 			{
-				MsgCanadianTare();
-				return OFF;
-			}
-		}
-		if(!tareType)// 키를 눌렀을때 판단
-		{
-			if(KeyDrv.PrevType == KEY_TYPE_NUMERIC && tareValue)
-			{
-				/* # Use Numeric Tare Block(P599)
-				Use Numeric Tare Block 사용 시 P599이 [Y]일 경우
-				: 숫자입력 용기설정을 제한한다.
-				Use Numeric Tare Block 사용 시 P599이 [N]일 경우
-				: 숫자입력 용기설정을 사용한다. */
-				flag_numeric = get_global_bparam(GLOBAL_TARE_SETITING);
-				chkUSENumericTareWithKEY = OnOff(flag_numeric&0x10);
-				if (chkUSENumericTareWithKEY == ON)
-				{
-					BuzOn(2);
-					return 0;
-				}
-				else
-				{
-					tareType=TARE_TYPE_KEY;
-					
-					// Use Key Tare With Weight(P795)
-					flag_tmp=get_global_bparam(GLOBAL_SALE_SETUP_FLAG21);
-					chkUseKeyTareWithWeight = OnOff(flag_tmp&0x40);
-					if(chkUseKeyTareWithWeight == OFF)
-					{
-						if(0L < status_scale.Weight)
-						{
-							DisplayMsg((char *)global_message[MSG_23_C803]);//"Remove weight on tray"
-							return OFF;
-						}
-					}
-				}
+				BuzOn(2);
+				return 0;
 			}
 			else
 			{
-				/* # Use Weight Tare Block(P688)
-				Use Weight Tare Block 사용 시 P688이 [Y]일 경우
-				: 무게입력 용기설정을 제한한다.
-				Use Weight Tare Block 사용 시 P688이 [N]일 경우
-				: 무게입력 용기설정을 사용한다. */
-				flag_weight = get_global_bparam(GLOBAL_TARE_SETITING);
-				chkUSEWeightTareWithKEY = OnOff(flag_weight&0x20);
-				if (chkUSEWeightTareWithKEY == ON)
+				tareType=TARE_TYPE_KEY;
+				
+				// Use Key Tare With Weight(P795)
+				flag_tmp=get_global_bparam(GLOBAL_SALE_SETUP_FLAG21);
+				chkUseKeyTareWithWeight = OnOff(flag_tmp&0x40);
+				if(chkUseKeyTareWithWeight == OFF)
 				{
-					BuzOn(2);
-					return 0;
-				}
-				else
-				{
-					tareType=TARE_TYPE_WEIGHT;
-					if (!ADM_GetData.Stable) return OFF;
-				}
-			}
-		}
-		
-		stat=tare_operation(tareType,tareValue);
-		if (tareValue) TareOper.flagAutoClearTare = OFF;
-		if (stat) {
-			if (status_scale.cur_pluid) {
-				if (tareType == TARE_TYPE_KEY) 
-				{
-#ifdef	USE_WEIGHT_UNIT_500G
-					if(status_scale.cur_weightunit == 500) 
+					if(0L < status_scale.Weight)
 					{
-						tempUprice =  longmuldiv(status_scale.Plu.unitprice,status_scale.cur_weightunit,power10(3));
-						status_scale.cur_unitprice=(INT32U)tempUprice;
-					} 
-					else 
-					{
-						status_scale.cur_unitprice=status_scale.Plu.unitprice;
+						DisplayMsg((char *)global_message[MSG_23_C803]);//"Remove weight on tray"
+						return OFF;
 					}
-#else
-					status_scale.cur_unitprice=status_scale.Plu.unitprice;
-#endif
 				}
 			}
 		}
-		return stat;
-	}
-	
-	
-#ifdef USE_TAX_RATE
-	INT16S GetTaxData(PRICE_TYPE *pPrice,INT8U taxNumber,INT8U misc_flag)		
-	{
-		INT32U	flash_addr, addr; 
-		TAX_STRUCT	tax;
-		INT16S	globalFlag,globalId;
-		INT8U flag, miscId;
-		
-		globalFlag = get_global_bparam(GLOBAL_TAX_FLAG);
-		globalId   = get_global_bparam(GLOBAL_TAX_VALUE);
-		miscId   = get_global_bparam(GLOBAL_MISC_TAX_VALUE);
-		
-		//ok
-		//sprintf(gmsg,"GF %d GNo %d",globalFlag,globalId);
-		//PutSmallString(3,0,gmsg,30);
-		//Key_DelaySec(10);
-		tax.tax_code = 0;
-		
-		pPrice->TaxNumber = 0;
-		pPrice->ExTax = 0;
-		pPrice->TaxRate = 0;
-		
-		if (!(status_scale.restrict&FUNC_TAX_TBL)) return 0;
-		
-		flag=0;
-		if(misc_flag==0)	// global
+		else
 		{
-			if(globalFlag == 2) taxNumber = globalId;	// globla id 를 할당
-			if(globalFlag && taxNumber) flag=1;
-		}
-		else if(misc_flag==1)	//MISC 
-		{
-			taxNumber = miscId;
-			if(taxNumber) flag=1;
-		}
-		
-		if(flag)
-		{
-			addr = DFLASH_BASE + FLASH_TAX_AREA;
-			flash_addr = addr + (sizeof(TAX_STRUCT) * (taxNumber-1));
-			Flash_sread(flash_addr, (HUGEDATA INT8U*)&tax, sizeof(TAX_STRUCT));
-			if(taxNumber == tax.tax_code)
+			/* # Use Weight Tare Block(P688)
+			Use Weight Tare Block 사용 시 P688이 [Y]일 경우
+			: 무게입력 용기설정을 제한한다.
+			Use Weight Tare Block 사용 시 P688이 [N]일 경우
+			: 무게입력 용기설정을 사용한다. */
+			flag_weight = get_global_bparam(GLOBAL_TARE_SETITING);
+			chkUSEWeightTareWithKEY = OnOff(flag_weight&0x20);
+			if (chkUSEWeightTareWithKEY == ON)
 			{
-				pPrice->TaxNumber = tax.tax_code;
-				pPrice->ExTax = tax.tax_type;
-				pPrice->TaxRate = (long)tax.tax_rate;
+				BuzOn(2);
+				return 0;
+			}
+			else
+			{
+				tareType=TARE_TYPE_WEIGHT;
+				if (!ADM_GetData.Stable) return OFF;
 			}
 		}
-		return 1;
 	}
+	
+	stat=tare_operation(tareType,tareValue);
+	if (tareValue) TareOper.flagAutoClearTare = OFF;
+	if (stat) {
+		if (status_scale.cur_pluid) {
+			if (tareType == TARE_TYPE_KEY) 
+			{
+#ifdef	USE_WEIGHT_UNIT_500G
+				if(status_scale.cur_weightunit == 500) 
+				{
+					tempUprice =  longmuldiv(status_scale.Plu.unitprice,status_scale.cur_weightunit,power10(3));
+					status_scale.cur_unitprice=(INT32U)tempUprice;
+				} 
+				else 
+				{
+					status_scale.cur_unitprice=status_scale.Plu.unitprice;
+				}
+#else
+				status_scale.cur_unitprice=status_scale.Plu.unitprice;
+#endif
+			}
+		}
+	}
+	return stat;
+}
+
+
+#ifdef USE_TAX_RATE
+INT16S GetTaxData(PRICE_TYPE *pPrice,INT8U taxNumber,INT8U misc_flag)		
+{
+	INT32U	flash_addr, addr; 
+	TAX_STRUCT	tax;
+	INT16S	globalFlag,globalId;
+	INT8U flag, miscId;
+	
+	globalFlag = get_global_bparam(GLOBAL_TAX_FLAG);
+	globalId   = get_global_bparam(GLOBAL_TAX_VALUE);
+	miscId   = get_global_bparam(GLOBAL_MISC_TAX_VALUE);
+	
+	//ok
+	//sprintf(gmsg,"GF %d GNo %d",globalFlag,globalId);
+	//PutSmallString(3,0,gmsg,30);
+	//Key_DelaySec(10);
+	tax.tax_code = 0;
+	
+	pPrice->TaxNumber = 0;
+	pPrice->ExTax = 0;
+	pPrice->TaxRate = 0;
+	
+	if (!(status_scale.restrict&FUNC_TAX_TBL)) return 0;
+	
+	flag=0;
+	if(misc_flag==0)	// global
+	{
+		if(globalFlag == 2) taxNumber = globalId;	// globla id 를 할당
+		if(globalFlag && taxNumber) flag=1;
+	}
+	else if(misc_flag==1)	//MISC 
+	{
+		taxNumber = miscId;
+		if(taxNumber) flag=1;
+	}
+	
+	if(flag)
+	{
+		addr = DFLASH_BASE + FLASH_TAX_AREA;
+		flash_addr = addr + (sizeof(TAX_STRUCT) * (taxNumber-1));
+		Flash_sread(flash_addr, (HUGEDATA INT8U*)&tax, sizeof(TAX_STRUCT));
+		if(taxNumber == tax.tax_code)
+		{
+			pPrice->TaxNumber = tax.tax_code;
+			pPrice->ExTax = tax.tax_type;
+			pPrice->TaxRate = (long)tax.tax_rate;
+		}
+	}
+	return 1;
+}
 #endif
 #define EMPTY_SPACE		"            " // 화면 지우기 위한 space 12개
-	
-	INT32U keyapp_pluno(INT8U tDept,INT32U pluid, INT8U beep)
-	{
-		INT8U  taretype,stype;
-		INT8U  linkedTareType[MAX_LINKED_PLU];
-		INT16U oldpluid;
-		INT8U fw_temp; //se-hyung 20070920
-		//DEL060829	INT16U wait, backflag;
-		PLU_BASE Plu;
-		INT16S sz,i,index;
-		INT8U flagAllProcessUpdate;
+
+INT32U keyapp_pluno(INT8U tDept,INT32U pluid, INT8U beep)
+{
+	INT8U  taretype,stype;
+	INT8U  linkedTareType[MAX_LINKED_PLU];
+	INT16U oldpluid;
+	INT8U fw_temp; //se-hyung 20070920
+	//DEL060829	INT16U wait, backflag;
+	PLU_BASE Plu;
+	INT16S sz,i,index;
+	INT8U flagAllProcessUpdate;
 #ifdef USE_WEIGHT_UNIT_500G
-		long tempUprice;
+	long tempUprice;
 #endif
-		
+	
 #ifdef USE_SCALE_POS_PROTOCOL
-		INT8U retry_cnt,flagTemp,backflag;
-		INT16U wait;
+	INT8U retry_cnt,flagTemp,backflag;
+	INT16U wait;
 #endif
 #ifdef USE_MULTI_TRACE_NO_TABLE
-		INT8U ind_str2[INDIVIDUAL_NO_LEN];
-		INT8U ind_str3[INDIVIDUAL_NO_LEN];
-		INT8U sl_no2;
-		INT8U sl_no3;
+	INT8U ind_str2[INDIVIDUAL_NO_LEN];
+	INT8U ind_str3[INDIVIDUAL_NO_LEN];
+	INT8U sl_no2;
+	INT8U sl_no3;
 #endif
-		INT16U indIdxNo;
+	INT16U indIdxNo;
 #ifdef USE_CHN_CART_SCALE
-		INT16U lotRoom;
-		INT8U vege_trace_head;
+	INT16U lotRoom;
+	INT8U vege_trace_head;
 #endif
 #ifdef USE_CHN_EMART_TRACE//USE_CHN_EMART_BIRDS_TRACE
-	static INT32U pre_pluid = 0; //20140912
+static INT32U pre_pluid = 0; //20140912
 #endif
-		
-		static INT32U backupPluid; //csh 20140303
-		
-		if (!pluid) //return 0;
+	
+	static INT32U backupPluid; //csh 20140303
+	
+	if (!pluid) //return 0;
+	{
+		if (beep)
 		{
-			if (beep)
+			sale_display_update_error(0xE401,2,pluid);
+			if(oldpluid)
 			{
-				sale_display_update_error(0xE401,2,pluid);
-				if(oldpluid)
-				{
-					sale_pluclear(ON);
-					sale_display_update(0x0fff);//061128
-				}
+				sale_pluclear(ON);
+				sale_display_update(0x0fff);//061128
 			}
-			return 0;
 		}
-		//	if (BatchCount) BatchCount=0;
+		return 0;
+	}
+	//	if (BatchCount) BatchCount=0;
 #ifdef USE_LONGPRESS_KEY_OVERRIDE
-        if(!keyLongkeyIn && beep)
-            BuzOn(1);
+	if(!keyLongkeyIn && beep)
+		BuzOn(1);
 #else
-		if (beep)       BuzOn(1);
+	if (beep)       BuzOn(1);
 #endif
-		
-		if (Clerk_Subtotal_List == 1)
-		{	
-			Clerk_Subtotal_List = 0; //Modify by se-hyung for Clerk Subtotal List 20070727
-			sale_display_update(UPDATE_SUBTOTAL);
-		}
-		if (status_scale.clerkid) NetClerkLockRelease(status_scale.clerkid);
-		
-		oldpluid=status_scale.cur_pluid;
-		if(TareOper.canadianTare && oldpluid)
+	
+	if (Clerk_Subtotal_List == 1)
+	{	
+		Clerk_Subtotal_List = 0; //Modify by se-hyung for Clerk Subtotal List 20070727
+		sale_display_update(UPDATE_SUBTOTAL);
+	}
+	if (status_scale.clerkid) NetClerkLockRelease(status_scale.clerkid);
+	
+	oldpluid=status_scale.cur_pluid;
+	if(TareOper.canadianTare && oldpluid)
+	{
+		if(status_scale.Tare && !Operation.transactionOK)
 		{
-			if(status_scale.Tare && !Operation.transactionOK)
-			{
-				MsgCanadianTare();
-				return OFF;
-			}
+			MsgCanadianTare();
+			return OFF;
 		}
-		//if ((oldpluid) && (pluid==0)) {
-		//	sale_display_update_error(0xF006,0);
-		//	goto END;
-		//}
-		if(!tDept) tDept = status_scale.departmentid;
+	}
+	//if ((oldpluid) && (pluid==0)) {
+	//	sale_display_update_error(0xF006,0);
+	//	goto END;
+	//}
+	if(!tDept) tDept = status_scale.departmentid;
 #ifdef USE_LOTTEMART_ITEMCODE13
-		if(status_scale.cur_pluid != pluid)
-		{
-			sale_display_update(UPDATE_TITLE);
-		}
+	if(status_scale.cur_pluid != pluid)
+	{
+		sale_display_update(UPDATE_TITLE);
+	}
 #endif	
 
 #ifdef USE_SCALE_POS_PROTOCOL
-		if(KorTrace_Flag.flagPrint!=2){
-			KorTrace_Flag.flagReceive = 0;
-			//sale_display_kortrace(OFF);
-			sale_display_update(UPDATE_TITLE);	// CJK070705
-		}
+	if(KorTrace_Flag.flagPrint!=2){
+		KorTrace_Flag.flagReceive = 0;
+		//sale_display_kortrace(OFF);
+		sale_display_update(UPDATE_TITLE);	// CJK070705
+	}
 #endif
 
 #ifdef USE_TRACE_STANDALONE
-		//	sale_display_indivFlag_set(OFF);
-		IndividualDisplayTimeFlag = OFF;
-		FlagIndividualMultiRemain = OFF;
+	//	sale_display_indivFlag_set(OFF);
+	IndividualDisplayTimeFlag = OFF;
+	FlagIndividualMultiRemain = OFF;
 #endif
-		flagAllProcessUpdate = OFF;
-		
-		if (plu_callbykey((INT16U)tDept,pluid,&Plu,&taretype)) {
+	flagAllProcessUpdate = OFF;
+	
+	if (plu_callbykey((INT16U)tDept,pluid,&Plu,&taretype)) {
 #ifdef USE_DONT_SAVE_VALIDDATE_SALEDATE
-			temp_selldate.onoff=OFF;
+		temp_selldate.onoff=OFF;
 #endif
-			stype=Plu.ptype;
-			//		if(TareOper.tarePLU)	TareClearPLU();		//deleted by JJANG 20080212
-			
-			//SG060330
-			PLU_SCROLL.data_leng= strlen((char*)Plu.ItemName);
-			if(PLU_SCROLL.onoff != PLU_SCROLL_OFF){
-				if(PLU_SCROLL.data_leng > MAX_SIDE_CHAR) {
-					PLU_SCROLL.state = PLU_SCROLL_TURNON;
-				}
-				else {
-					PLU_SCROLL.state = PLU_SCROLL_TURNOFF;
-				}
-				memset(PLU_SCROLL.msg,0,sizeof(PLU_SCROLL.msg));
-				strcpy(PLU_SCROLL.msg,Plu.ItemName);
-				strcat(PLU_SCROLL.msg,EMPTY_SPACE);
-				PLU_SCROLL.pt=0;
-				PLU_SCROLL.speed_timer = SysTimer100ms;
+		stype=Plu.ptype;
+		//		if(TareOper.tarePLU)	TareClearPLU();		//deleted by JJANG 20080212
+		
+		//SG060330
+		PLU_SCROLL.data_leng= strlen((char*)Plu.ItemName);
+		if(PLU_SCROLL.onoff != PLU_SCROLL_OFF){
+			if(PLU_SCROLL.data_leng > MAX_SIDE_CHAR) {
+				PLU_SCROLL.state = PLU_SCROLL_TURNON;
 			}
+			else {
+				PLU_SCROLL.state = PLU_SCROLL_TURNOFF;
+			}
+			memset(PLU_SCROLL.msg,0,sizeof(PLU_SCROLL.msg));
+			strcpy(PLU_SCROLL.msg,Plu.ItemName);
+			strcat(PLU_SCROLL.msg,EMPTY_SPACE);
+			PLU_SCROLL.pt=0;
+			PLU_SCROLL.speed_timer = SysTimer100ms;
+		}
 #ifdef USE_SCALE_POS_PROTOCOL
-			if(KorTrace_Flag.flagPrint==2){
-				Plu.unitprice = KorTrace_ReceiveCmd.unitprice[1];
-			}
+		if(KorTrace_Flag.flagPrint==2){
+			Plu.unitprice = KorTrace_ReceiveCmd.unitprice[1];
+		}
 #endif
-			if (stype==1)
-			{
+		if (stype==1)
+		{
 #ifndef USE_PRT_CONVERT_WEIGHT_KG_G	
-				if(GlbOper.EnableKgLb) 
+			if(GlbOper.EnableKgLb) 
+			{
+				if((ADM_GetData.CurUnit == WEIGHT_UNIT_KG || ADM_GetData.CurUnit == WEIGHT_UNIT_G)) 
 				{
-					if((ADM_GetData.CurUnit == WEIGHT_UNIT_KG || ADM_GetData.CurUnit == WEIGHT_UNIT_G)) 
+					if(Plu.unit_kglb == WEIGHT_UNIT_LB) 
 					{
-						if(Plu.unit_kglb == WEIGHT_UNIT_LB) 
+						if(GlbOper.EnableAutoConversionKgLb) 
 						{
-							if(GlbOper.EnableAutoConversionKgLb) 
-							{
-								adm_set_unit_cur(WEIGHT_UNIT_LB);
-								LoadWeighingInfo();
-								flagAllProcessUpdate = ON;
-							} 
-							else 
-							{
-								DisplayMsg(global_message[MSG_NOT_ALLOW_KGLB]);//"kg<->lb Not Allowed"
-						    	return 0;
-							}
+							adm_set_unit_cur(WEIGHT_UNIT_LB);
+							LoadWeighingInfo();
+							flagAllProcessUpdate = ON;
+						} 
+						else 
+						{
+							DisplayMsg(global_message[MSG_NOT_ALLOW_KGLB]);//"kg<->lb Not Allowed"
+							return 0;
 						}
-					} 
-					else 
-					{		// lb
-						if(Plu.unit_kglb == WEIGHT_UNIT_KG || Plu.unit_kglb == WEIGHT_UNIT_G) 
+					}
+				} 
+				else 
+				{		// lb
+					if(Plu.unit_kglb == WEIGHT_UNIT_KG || Plu.unit_kglb == WEIGHT_UNIT_G) 
+					{
+						if(GlbOper.EnableAutoConversionKgLb) 
 						{
-							if(GlbOper.EnableAutoConversionKgLb) 
-							{
-								if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G)
-									adm_set_unit_cur(WEIGHT_UNIT_G);
-								else 
-									adm_set_unit_cur(WEIGHT_UNIT_KG);
-								LoadWeighingInfo();
-								flagAllProcessUpdate = ON;
-							} 
+							if(get_base_bparam(FLASH_ADC_WUNIT) == WEIGHT_UNIT_G)
+								adm_set_unit_cur(WEIGHT_UNIT_G);
 							else 
-							{
-								DisplayMsg(global_message[MSG_NOT_ALLOW_KGLB]);//"kg<->lb Not Allowed"
-						    	return 0;
-							}
+								adm_set_unit_cur(WEIGHT_UNIT_KG);
+							LoadWeighingInfo();
+							flagAllProcessUpdate = ON;
+						} 
+						else 
+						{
+							DisplayMsg(global_message[MSG_NOT_ALLOW_KGLB]);//"kg<->lb Not Allowed"
+							return 0;
 						}
 					}
 				}
+			}
 #endif
-				if(TareOper.tarePLU)	TareClearPLU();	//Added by JJANG 20080212 TARE값 사라지는 현상해결  
-				
-				fw_temp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG4)&0x20;	//se-hyung 20070920
-				if (fw_temp == 0)						//se-hyung 20070920
-				{
+			if(TareOper.tarePLU)	TareClearPLU();	//Added by JJANG 20080212 TARE값 사라지는 현상해결  
+			
+			fw_temp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG4)&0x20;	//se-hyung 20070920
+			if (fw_temp == 0)						//se-hyung 20070920
+			{
 #ifdef USE_FIXEDWEIGHT_UNIT_OZ
-					if(GlbOper.use_oz_fixedweight) // para_754 Use oz in Fixed Weight Unit  1: Fixed Weight 의 단위를 oz로 사용 / 0: Fixed Weight 의 단위를 저울의 현 설정값을 따라가도록 설정
-					{
-						if(Plu.fixed_weight > ad_get_capa())
-						{
-							DisplayMsg(global_message[MSG_INVALID_FIXEDWEIGHT]);//"Invalid Fixed Weight"
-							return 0;
-						}
-					}
-					else 
-					{
-						if(Plu.fixed_weight > ad_get_capa() || !ad_check_weight_value(Plu.fixed_weight))
-						{
-							DisplayMsg(global_message[MSG_INVALID_FIXEDWEIGHT]);//"Invalid Fixed Weight"
-							return 0;
-						}
-					}
-#else
-					if(Plu.fixed_weight > ad_get_capa() || !ad_check_weight_value(Plu.fixed_weight))
-
+				if(GlbOper.use_oz_fixedweight) // para_754 Use oz in Fixed Weight Unit  1: Fixed Weight 의 단위를 oz로 사용 / 0: Fixed Weight 의 단위를 저울의 현 설정값을 따라가도록 설정
+				{
+					if(Plu.fixed_weight > ad_get_capa())
 					{
 						DisplayMsg(global_message[MSG_INVALID_FIXEDWEIGHT]);//"Invalid Fixed Weight"
 						return 0;
 					}
-#endif
 				}
-				if(Plu.tare)
+				else 
 				{
-					if (!keyapp_tare(TARE_TYPE_PLU,Plu.tare,OFF))
-					{					
-						if(TareOper.saveKeyTareForPLU && TareOper.saveKeyTare)
-						{
-							keyapp_tare(TARE_TYPE_KEY,TareOper.saveKeyTare,OFF);
-							TareOper.saveKeyTare = 0;
-						}
-						else
-						{	
-							return 0;
-						}
+					if(Plu.fixed_weight > ad_get_capa() || !ad_check_weight_value(Plu.fixed_weight))
+					{
+						DisplayMsg(global_message[MSG_INVALID_FIXEDWEIGHT]);//"Invalid Fixed Weight"
+						return 0;
 					}
 				}
-				else
+#else
+				if(Plu.fixed_weight > ad_get_capa() || !ad_check_weight_value(Plu.fixed_weight))
+
 				{
+					DisplayMsg(global_message[MSG_INVALID_FIXEDWEIGHT]);//"Invalid Fixed Weight"
+					return 0;
+				}
+#endif
+			}
+			if(Plu.tare)
+			{
+				if (!keyapp_tare(TARE_TYPE_PLU,Plu.tare,OFF))
+				{					
 					if(TareOper.saveKeyTareForPLU && TareOper.saveKeyTare)
 					{
 						keyapp_tare(TARE_TYPE_KEY,TareOper.saveKeyTare,OFF);
 						TareOper.saveKeyTare = 0;
 					}
-				}
-			}
-			status_scale.cur_pluid=pluid;
-			//if (taretype==3) {
-			//	status_scale.tare=status_scale.Plu.tare;
-			//}
-			memcpy((char *)&(status_scale.Plu),(char *)&Plu,sizeof(PLU_BASE));
-#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
-			plu_get_field(Plu.address-1,PTYPE_NO_OF_LINK_PLU,(INT8U *)&status_scale.linked_count,&sz,sizeof(status_scale.linked_count));
-			if(status_scale.linked_count) {
-				if (Startup.disable_dept) {
-					status_scale.linked_dept[0]=1;
-					status_scale.linked_dept[1]=1;
-				} else {
-					plu_get_field(Plu.address-1,PTYPE_LINK1_DEPT_NO,(INT8U *)&status_scale.linked_dept[0],&sz,sizeof(status_scale.linked_dept[0]));
-					plu_get_field(Plu.address-1,PTYPE_LINK2_DEPT_NO,(INT8U *)&status_scale.linked_dept[1],&sz,sizeof(status_scale.linked_dept[1]));
-				}
-				plu_get_field(Plu.address-1,PTYPE_LINK1_PLU_NO,(INT8U *)&status_scale.linked_plu[0],&sz,sizeof(status_scale.linked_plu[0]));
-				plu_get_field(Plu.address-1,PTYPE_LINK2_PLU_NO,(INT8U *)&status_scale.linked_plu[1],&sz,sizeof(status_scale.linked_plu[1]));
-			}
-			for(i=0;i<MAX_LINKED_PLU;i++) {
-				if(i<status_scale.linked_count)	{
-					if(!plu_callbykey((INT16U)status_scale.linked_dept[i],status_scale.linked_plu[i],&status_scale.LinkedPlu[i],&linkedTareType[i]))
-					{
-						status_scale.linked_plu[i]=0;
+					else
+					{	
+						return 0;
 					}
 				}
-				else
+			}
+			else
+			{
+				if(TareOper.saveKeyTareForPLU && TareOper.saveKeyTare)
+				{
+					keyapp_tare(TARE_TYPE_KEY,TareOper.saveKeyTare,OFF);
+					TareOper.saveKeyTare = 0;
+				}
+			}
+		}
+		status_scale.cur_pluid=pluid;
+		//if (taretype==3) {
+		//	status_scale.tare=status_scale.Plu.tare;
+		//}
+		memcpy((char *)&(status_scale.Plu),(char *)&Plu,sizeof(PLU_BASE));
+#ifndef USE_PLU_MULTIPLE_PRICE	//Refefence PLU 기능 사용 안 함
+		plu_get_field(Plu.address-1,PTYPE_NO_OF_LINK_PLU,(INT8U *)&status_scale.linked_count,&sz,sizeof(status_scale.linked_count));
+		if(status_scale.linked_count) {
+			if (Startup.disable_dept) {
+				status_scale.linked_dept[0]=1;
+				status_scale.linked_dept[1]=1;
+			} else {
+				plu_get_field(Plu.address-1,PTYPE_LINK1_DEPT_NO,(INT8U *)&status_scale.linked_dept[0],&sz,sizeof(status_scale.linked_dept[0]));
+				plu_get_field(Plu.address-1,PTYPE_LINK2_DEPT_NO,(INT8U *)&status_scale.linked_dept[1],&sz,sizeof(status_scale.linked_dept[1]));
+			}
+			plu_get_field(Plu.address-1,PTYPE_LINK1_PLU_NO,(INT8U *)&status_scale.linked_plu[0],&sz,sizeof(status_scale.linked_plu[0]));
+			plu_get_field(Plu.address-1,PTYPE_LINK2_PLU_NO,(INT8U *)&status_scale.linked_plu[1],&sz,sizeof(status_scale.linked_plu[1]));
+		}
+		for(i=0;i<MAX_LINKED_PLU;i++) {
+			if(i<status_scale.linked_count)	{
+				if(!plu_callbykey((INT16U)status_scale.linked_dept[i],status_scale.linked_plu[i],&status_scale.LinkedPlu[i],&linkedTareType[i]))
 				{
 					status_scale.linked_plu[i]=0;
 				}
 			}
-#endif
-			// 단가가 0 이면 자동 override
-			//OPTION: unit price zero override
-			//change
-			Operation.override=OFF;
-			Netweight_flag=OFF;
-			//VFD7_display_override_clear();
-			Operation.specialPrice=OFF;
-			if(!status_scale.Plu.unitprice && Operation.unitpriceZeroOverride)	Operation.override=ON;
-			
-			//if(Operation.operationMode == MODE_MANAGER)	Operation.override=ON;
-			stype<<=1;
-			status_scale.flag_input&=0xf1;
-			status_scale.flag_input|=stype;
-			stype>>=1;
-			///
-			status_scale.cur_qty      =status_scale.Plu.pcs;
-			status_scale.cur_pcs      =status_scale.Plu.pcs;
-#ifdef USE_PERCENT_WEIGHT
-			status_scale.cur_ptare	=status_scale.Plu.tare_percent;
-#endif			
-#ifdef USE_WEIGHT_UNIT_500G
-			if(status_scale.cur_weightunit == 500)
-			{				
-				tempUprice =  longmuldiv(status_scale.Plu.unitprice,status_scale.cur_weightunit,power10(3));
-				status_scale.cur_unitprice=(INT32U)tempUprice;	//
-			}
 			else
 			{
-				status_scale.cur_unitprice=status_scale.Plu.unitprice;	//
+				status_scale.linked_plu[i]=0;
 			}
-#else
+		}
+#endif
+		// 단가가 0 이면 자동 override
+		//OPTION: unit price zero override
+		//change
+		Operation.override=OFF;
+		Netweight_flag=OFF;
+		//VFD7_display_override_clear();
+		Operation.specialPrice=OFF;
+		if(!status_scale.Plu.unitprice && Operation.unitpriceZeroOverride)	Operation.override=ON;
+		
+		//if(Operation.operationMode == MODE_MANAGER)	Operation.override=ON;
+		stype<<=1;
+		status_scale.flag_input&=0xf1;
+		status_scale.flag_input|=stype;
+		stype>>=1;
+		///
+		status_scale.cur_qty      =status_scale.Plu.pcs;
+		status_scale.cur_pcs      =status_scale.Plu.pcs;
+#ifdef USE_PERCENT_WEIGHT
+		status_scale.cur_ptare	=status_scale.Plu.tare_percent;
+#endif			
+#ifdef USE_WEIGHT_UNIT_500G
+		if(status_scale.cur_weightunit == 500)
+		{				
+			tempUprice =  longmuldiv(status_scale.Plu.unitprice,status_scale.cur_weightunit,power10(3));
+			status_scale.cur_unitprice=(INT32U)tempUprice;	//
+		}
+		else
+		{
 			status_scale.cur_unitprice=status_scale.Plu.unitprice;	//
+		}
+#else
+		status_scale.cur_unitprice=status_scale.Plu.unitprice;	//
 #endif
-			status_scale.cur_weightunit=status_scale.Plu.weightunit;	// Added by CJK 20050927
-			Operation.fixedPrice = status_scale.Plu.fixed_price;
-			status_scale.divisor = 0;
+		status_scale.cur_weightunit=status_scale.Plu.weightunit;	// Added by CJK 20050927
+		Operation.fixedPrice = status_scale.Plu.fixed_price;
+		status_scale.divisor = 0;
 #ifdef USE_NHMART_SAFE_MEAT
-			network_status.indivCallCts = 0;
+		network_status.indivCallCts = 0;
 #endif
-			SetMaxRide(stype);
-			SetCurRide(stype);
+		SetMaxRide(stype);
+		SetCurRide(stype);
 #ifdef USE_TAX_RATE        
-			GetTaxData(&Price,status_scale.Plu.tax_id,0);		
-			for(index=0;index<MAX_LINKED_PLU;index++)
-			{
-				GetTaxData(&LinkedPrice[index],status_scale.LinkedPlu[index].tax_id,0);
-			}
+		GetTaxData(&Price,status_scale.Plu.tax_id,0);		
+		for(index=0;index<MAX_LINKED_PLU;index++)
+		{
+			GetTaxData(&LinkedPrice[index],status_scale.LinkedPlu[index].tax_id,0);
+		}
 #endif        
-			///
-			if(status_scale.cur_unitprice)
+		///
+		if(status_scale.cur_unitprice)
+		{
+			Operation.specialPriceDisc = OFF;
+			if (GlbOper.useSpecialPriceForDisc && status_scale.Plu.special_price) 
 			{
-				Operation.specialPriceDisc = OFF;
-				if (GlbOper.useSpecialPriceForDisc && status_scale.Plu.special_price) 
-				{
-					Operation.specialPriceDisc = ON;
-					key_common_disc1=DISC_PRICE_UPRICE;
-					key_common_disc2=DISC_PRICE_TPRICE;
-					keyapp_common_disc(status_scale.Plu.special_price);
-				}
+				Operation.specialPriceDisc = ON;
+				key_common_disc1=DISC_PRICE_UPRICE;
+				key_common_disc2=DISC_PRICE_TPRICE;
+				keyapp_common_disc(status_scale.Plu.special_price);
+			}
 #ifdef USE_PLU_MULTIPLE_PRICE
-			else if(status_scale.Plu.first_price || status_scale.Plu.second_price)
+		else if(status_scale.Plu.first_price || status_scale.Plu.second_price)
+		{
+			if(PluType()==PLU_BY_WEIGHT)
 			{
-				if(PluType()==PLU_BY_WEIGHT)
-				{
-					multi_plu_disc(DISC_TARGET_WEIGHT, status_scale.Plu.unitprice, status_scale.Plu.first_target, status_scale.Plu.first_price, status_scale.Plu.second_target, status_scale.Plu.second_price);
-				}
-				else if(PluType()==PLU_BY_COUNT)
-				{
-					multi_plu_disc(DISC_TARGET_COUNT, status_scale.Plu.unitprice, status_scale.Plu.first_target, status_scale.Plu.first_price, status_scale.Plu.second_target, status_scale.Plu.second_price);
-				}
+				multi_plu_disc(DISC_TARGET_WEIGHT, status_scale.Plu.unitprice, status_scale.Plu.first_target, status_scale.Plu.first_price, status_scale.Plu.second_target, status_scale.Plu.second_price);
 			}
+			else if(PluType()==PLU_BY_COUNT)
+			{
+				multi_plu_disc(DISC_TARGET_COUNT, status_scale.Plu.unitprice, status_scale.Plu.first_target, status_scale.Plu.first_price, status_scale.Plu.second_target, status_scale.Plu.second_price);
+			}
+		}
 #endif
-				else
+			else
+			{
+				GetDiscountInfo(stype);
+				if(DiscSale.saleIndexOk && DiscSale.discIndexData.discPriceType==DISC_PRICE_FIXED)
 				{
-					GetDiscountInfo(stype);
-					if(DiscSale.saleIndexOk && DiscSale.discIndexData.discPriceType==DISC_PRICE_FIXED)
-					{
-						//status_scale.cur_unitprice = DiscSale.discIndexData.discPrice[0];
-						Price.FixedDiscountPrice = DiscSale.discIndexData.discPrice[0];
-					}
+					//status_scale.cur_unitprice = DiscSale.discIndexData.discPrice[0];
+					Price.FixedDiscountPrice = DiscSale.discIndexData.discPrice[0];
 				}
 			}
+		}
 #ifdef USE_CHN_EMART_TRACE
 //#ifdef USE_CHN_EMART_BIRDS_TRACE
-			if(status_scale.cur_pluid == pre_pluid) Pluchangeflag = OFF;
-			else Pluchangeflag = ON;
-			pre_pluid = status_scale.cur_pluid;
+		if(status_scale.cur_pluid == pre_pluid) Pluchangeflag = OFF;
+		else Pluchangeflag = ON;
+		pre_pluid = status_scale.cur_pluid;
 //#endif
-			chn_emart_trace_direct_call_traceNo(0);	// 최근 trace code 호출
+		chn_emart_trace_direct_call_traceNo(0);	// 최근 trace code 호출
 #endif
 
 #ifdef USE_SCALE_POS_PROTOCOL
-			//sale_display_kortrace(OFF);
-			if(network_status.service_bflag2){
-				if(KorTrace_Flag.flagPrint!=2){
+		//sale_display_kortrace(OFF);
+		if(network_status.service_bflag2){
+			if(KorTrace_Flag.flagPrint!=2){
 
-					KorTrace_Flag.flagCommSuccess = 0;
-					flagTemp =0;
-					
-					keyapp_ktr_req_id();
-					backflag = flagTempAllowSale;
-					flagTempAllowSale = ON;
-					wait = SysTimer100ms;
-					while(1){
-						network_common_trans();
-						if(KorTrace_Flag.flagCommSuccess){
-							flagTemp=1;
-							break;
-						}
-						if((INT16U)(SysTimer100ms-wait) > KOR_TRACE_TIMEOUT) break;
+				KorTrace_Flag.flagCommSuccess = 0;
+				flagTemp =0;
+				
+				keyapp_ktr_req_id();
+				backflag = flagTempAllowSale;
+				flagTempAllowSale = ON;
+				wait = SysTimer100ms;
+				while(1){
+					network_common_trans();
+					if(KorTrace_Flag.flagCommSuccess){
+						flagTemp=1;
+						break;
 					}
-					flagTempAllowSale = backflag;
+					if((INT16U)(SysTimer100ms-wait) > KOR_TRACE_TIMEOUT) break;
+				}
+				flagTempAllowSale = backflag;
 
 
-					if(!KorTrace_Flag.flagCommSuccess){
-						BuzOn(4);
-						KorTrace_CommErrorMsg();
-						sale_pluclear(ON); 	//SG060405
-						sale_display_update(0x0fff);//061128
-
-					}
+				if(!KorTrace_Flag.flagCommSuccess){
+					BuzOn(4);
+					KorTrace_CommErrorMsg();
+					sale_pluclear(ON); 	//SG060405
+					sale_display_update(0x0fff);//061128
 
 				}
+
 			}
+		}
 #endif
 
-			
+		
 #ifdef USE_TRACE_STANDALONE
-			memset(&CalledTraceStatus, 0, sizeof(CalledTraceStatus));
-			
-			
+		memset(&CalledTraceStatus, 0, sizeof(CalledTraceStatus));
+		
+		
 #ifdef USE_MULTI_TRACE_NO_TABLE
-			//		// 개체플래그가 0일 때 
-			//		if (!status_scale.Plu.trace_flag && !plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
-			//		{
-			//			if (SaveTraceabilityNo != 2)	// 전체개체가 아닐 때
-			//			{
-			//				// 기억정보 초기화
-			//				TNT_SetTraceNoTable((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0);
-			//			}
-			//		}
-			//		else
+		//		// 개체플래그가 0일 때 
+		//		if (!status_scale.Plu.trace_flag && !plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
+		//		{
+		//			if (SaveTraceabilityNo != 2)	// 전체개체가 아닐 때
+		//			{
+		//				// 기억정보 초기화
+		//				TNT_SetTraceNoTable((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0);
+		//			}
+		//		}
+		//		else
+		{
+			indIdxNo = CalledTraceStatus.indivStr.index;	// 농협 idx 999 때문에 2byte로 임시변환
+			//CalledTraceStatus.indivStr.individualNO[0] = 0;
+			ind_str2[0] = 0;
+			ind_str3[0] = 0;
+			sl_no2 = 0;
+			sl_no3 = 0;
+			TNT_GetTraceNoTable((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, &indIdxNo, CalledTraceStatus.indivStr.individualNO, ind_str2, ind_str3, &CalledTraceStatus.slPlace, &sl_no2, &sl_no3, &CalledTraceStatus.meatUse, &CalledTraceStatus.meatPart, &CalledTraceStatus.indivStr.lotFlag, &CalledTraceStatus.gradeNo);		
+			CalledTraceStatus.indivStr.index = indIdxNo;
+			if (ind_str2[0] && !FlagIndividualMultiStart)	// 2번째 개체가 존재하면 
 			{
-				indIdxNo = CalledTraceStatus.indivStr.index;	// 농협 idx 999 때문에 2byte로 임시변환
-				//CalledTraceStatus.indivStr.individualNO[0] = 0;
-				ind_str2[0] = 0;
-				ind_str3[0] = 0;
-				sl_no2 = 0;
-				sl_no3 = 0;
-				TNT_GetTraceNoTable((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, &indIdxNo, CalledTraceStatus.indivStr.individualNO, ind_str2, ind_str3, &CalledTraceStatus.slPlace, &sl_no2, &sl_no3, &CalledTraceStatus.meatUse, &CalledTraceStatus.meatPart, &CalledTraceStatus.indivStr.lotFlag, &CalledTraceStatus.gradeNo);		
-				CalledTraceStatus.indivStr.index = indIdxNo;
-				if (ind_str2[0] && !FlagIndividualMultiStart)	// 2번째 개체가 존재하면 
+				FlagIndividualMultiRemain = ON;
+				MultiIndex = 0;
+				memset(IndivdualMultiData, 0, sizeof(TRACE_INDIVIDUAL_MULTI_DATA) * MAX_INDIVIAL_MULTI_DATA_CNT);
+				
+				memcpy(IndivdualMultiData[MultiIndex].indivNoStr, CalledTraceStatus.indivStr.individualNO, INDIVIDUAL_NO_LEN);
+				IndivdualMultiData[MultiIndex].slaughterHouse = CalledTraceStatus.slPlace;
+				MultiIndex++;
+				
+				memcpy(IndivdualMultiData[MultiIndex].indivNoStr, ind_str2, INDIVIDUAL_NO_LEN);
+				IndivdualMultiData[MultiIndex].slaughterHouse = sl_no2;
+				MultiIndex++;
+				
+				if (ind_str3[0])
 				{
-					FlagIndividualMultiRemain = ON;
-					MultiIndex = 0;
-					memset(IndivdualMultiData, 0, sizeof(TRACE_INDIVIDUAL_MULTI_DATA) * MAX_INDIVIAL_MULTI_DATA_CNT);
-					
-					memcpy(IndivdualMultiData[MultiIndex].indivNoStr, CalledTraceStatus.indivStr.individualNO, INDIVIDUAL_NO_LEN);
-					IndivdualMultiData[MultiIndex].slaughterHouse = CalledTraceStatus.slPlace;
+					memcpy(IndivdualMultiData[MultiIndex].indivNoStr, ind_str3, INDIVIDUAL_NO_LEN);
+					IndivdualMultiData[MultiIndex].slaughterHouse = sl_no3;
 					MultiIndex++;
-					
-					memcpy(IndivdualMultiData[MultiIndex].indivNoStr, ind_str2, INDIVIDUAL_NO_LEN);
-					IndivdualMultiData[MultiIndex].slaughterHouse = sl_no2;
-					MultiIndex++;
-					
-					if (ind_str3[0])
-					{
-						memcpy(IndivdualMultiData[MultiIndex].indivNoStr, ind_str3, INDIVIDUAL_NO_LEN);
-						IndivdualMultiData[MultiIndex].slaughterHouse = sl_no3;
-						MultiIndex++;
-					}
-					
-					// 최종 데이터를 디스플레이에 표시함
-					memcpy(CalledTraceStatus.indivStr.individualNO, IndivdualMultiData[MultiIndex-1].indivNoStr, INDIVIDUAL_NO_LEN);
-					CalledTraceStatus.slPlace = IndivdualMultiData[MultiIndex-1].slaughterHouse;
 				}
+				
+				// 최종 데이터를 디스플레이에 표시함
+				memcpy(CalledTraceStatus.indivStr.individualNO, IndivdualMultiData[MultiIndex-1].indivNoStr, INDIVIDUAL_NO_LEN);
+				CalledTraceStatus.slPlace = IndivdualMultiData[MultiIndex-1].slaughterHouse;
 			}
+		}
 #else
-			//		// 개체플래그가 0일 때 
-			//		if (!status_scale.Plu.trace_flag && !plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
-			//		{
-			//			if (SaveTraceabilityNo != 2)	// 전체개체가 아닐 때
-			//			{
-			//				// 기억정보 초기화
-			//				SetIndividual_All((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, NULL, 0, 0, 0, 0, 0);
-			//			}
-			//		}
-			//		else
-			{
-				indIdxNo = CalledTraceStatus.indivStr.index;
-				TNT_GetTraceNoTable_Single((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, &indIdxNo, CalledTraceStatus.indivStr.individualNO, &CalledTraceStatus.slPlace, &CalledTraceStatus.meatUse, &CalledTraceStatus.meatPart, &CalledTraceStatus.indivStr.lotFlag, &CalledTraceStatus.gradeNo);
-				CalledTraceStatus.indivStr.index = indIdxNo;
-				// "USE_MULTI_TRACE_NO_TABLE" 모드가 아닐 경우, gradeNo는 기억 안됨
-			}
+		//		// 개체플래그가 0일 때 
+		//		if (!status_scale.Plu.trace_flag && !plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
+		//		{
+		//			if (SaveTraceabilityNo != 2)	// 전체개체가 아닐 때
+		//			{
+		//				// 기억정보 초기화
+		//				SetIndividual_All((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, NULL, 0, 0, 0, 0, 0);
+		//			}
+		//		}
+		//		else
+		{
+			indIdxNo = CalledTraceStatus.indivStr.index;
+			TNT_GetTraceNoTable_Single((INT8U)status_scale.Plu.deptid, status_scale.cur_pluid, &indIdxNo, CalledTraceStatus.indivStr.individualNO, &CalledTraceStatus.slPlace, &CalledTraceStatus.meatUse, &CalledTraceStatus.meatPart, &CalledTraceStatus.indivStr.lotFlag, &CalledTraceStatus.gradeNo);
+			CalledTraceStatus.indivStr.index = indIdxNo;
+			// "USE_MULTI_TRACE_NO_TABLE" 모드가 아닐 경우, gradeNo는 기억 안됨
+		}
 #endif
-			switch (GlbOper.TraceabilityCallType)
-			{
-				case 0:	// 표시안함, 개체 유지
+		switch (GlbOper.TraceabilityCallType)
+		{
+			case 0:	// 표시안함, 개체 유지
 #ifdef USE_MULTI_TRACE_NO_TABLE
-					FlagIndividualMultiRemain = OFF;
+				FlagIndividualMultiRemain = OFF;
 #endif
-					CalledTraceStatus.indivStr.index = 0;	// 표시 안함
-					CalledTraceStatus.slPlace = 0;
-					CalledTraceStatus.meatUse = 0;
+				CalledTraceStatus.indivStr.index = 0;	// 표시 안함
+				CalledTraceStatus.slPlace = 0;
+				CalledTraceStatus.meatUse = 0;
 #ifdef USE_TRACE_MEATPART
-					CalledTraceStatus.meatPart = 0;
+				CalledTraceStatus.meatPart = 0;
 #endif                
+#ifdef USE_TRACE_MEATGRADE
+				CalledTraceStatus.gradeNo = 0;
+#endif
+				break;
+			case 1:	// 개체번호 + 등급
+				if (!SaveTraceabilityNo)	// 일반개체일 때
+				{
+					CalledTraceStatus.indivStr.index = 0;
 #ifdef USE_TRACE_MEATGRADE
 					CalledTraceStatus.gradeNo = 0;
 #endif
-					break;
-				case 1:	// 개체번호 + 등급
-					if (!SaveTraceabilityNo)	// 일반개체일 때
-					{
-						CalledTraceStatus.indivStr.index = 0;
-#ifdef USE_TRACE_MEATGRADE
-						CalledTraceStatus.gradeNo = 0;
+				}
+				CalledTraceStatus.slPlace = 0;
+				CalledTraceStatus.meatUse = 0;
+#ifdef USE_TRACE_MEATPART
+				CalledTraceStatus.meatPart = 0;
 #endif
-					}
+				break;
+			case 2:	// 개체번호 + 등급 + 용도 
+				CalledTraceStatus.slPlace = 0;
+#ifdef USE_MULTI_TRACE_NO_TABLE
+				if (FlagIndividualMultiRemain)
+				{
+					IndivdualMultiData[1].slaughterHouse = 0;
+					IndivdualMultiData[2].slaughterHouse = 0;
+				}
+#endif
+#ifdef USE_TRACE_MEATPART
+				CalledTraceStatus.meatPart = 0;
+#endif
+				break;
+			case 3:	// 개체번호 + 등급 + 도축장
+				CalledTraceStatus.meatUse = 0;
+#ifdef USE_TRACE_MEATPART
+				CalledTraceStatus.meatPart = 0;
+#endif
+				break;
+			case 4:	// 개체번호 + 등급 + 용도 + 도축장 + 부위
+			case 5:
+				break;
+			case 6:
+				if (!(backupPluid == status_scale.cur_pluid)||(SpeedKeyPressed == 1))
+				{
+					CalledTraceStatus.indivStr.index = 0;
 					CalledTraceStatus.slPlace = 0;
 					CalledTraceStatus.meatUse = 0;
-#ifdef USE_TRACE_MEATPART
-					CalledTraceStatus.meatPart = 0;
-#endif
-					break;
-				case 2:	// 개체번호 + 등급 + 용도 
-					CalledTraceStatus.slPlace = 0;
 #ifdef USE_MULTI_TRACE_NO_TABLE
-					if (FlagIndividualMultiRemain)
-					{
-						IndivdualMultiData[1].slaughterHouse = 0;
-						IndivdualMultiData[2].slaughterHouse = 0;
-					}
+					FlagIndividualMultiRemain = OFF;
 #endif
+					
 #ifdef USE_TRACE_MEATPART
 					CalledTraceStatus.meatPart = 0;
-#endif
-					break;
-				case 3:	// 개체번호 + 등급 + 도축장
-					CalledTraceStatus.meatUse = 0;
-#ifdef USE_TRACE_MEATPART
-					CalledTraceStatus.meatPart = 0;
-#endif
-					break;
-				case 4:	// 개체번호 + 등급 + 용도 + 도축장 + 부위
-				case 5:
-					break;
-				case 6:
-					if (!(backupPluid == status_scale.cur_pluid)||(SpeedKeyPressed == 1))
-					{
-						CalledTraceStatus.indivStr.index = 0;
-						CalledTraceStatus.slPlace = 0;
-						CalledTraceStatus.meatUse = 0;
-#ifdef USE_MULTI_TRACE_NO_TABLE
-						FlagIndividualMultiRemain = OFF;
-#endif
-						
-#ifdef USE_TRACE_MEATPART
-						CalledTraceStatus.meatPart = 0;
 #endif				  
 #ifdef USE_TRACE_MEATGRADE
-						CalledTraceStatus.gradeNo = 0;
+					CalledTraceStatus.gradeNo = 0;
 #endif
-						
-						backupPluid = 0;
-						SpeedKeyPressed = 0;
-					}
 					
-					backupPluid = status_scale.cur_pluid;
-					break;
-			}
-			
-			if (GlbOper.TraceabilityCallType)
-			{
-				keyapp_call_individual(CalledTraceStatus.indivStr.index, OFF);
+					backupPluid = 0;
+					SpeedKeyPressed = 0;
+				}
 				
-				if (CalledTraceStatus.meatUse)
-				{
-					CurTraceStatus.meatUse = CalledTraceStatus.meatUse;
-					sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, ON);
-				}
-				else
-				{
-					sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, OFF);
-				}
-				if (CalledTraceStatus.slPlace)
-				{
-					CurTraceStatus.slPlace = CalledTraceStatus.slPlace;
-					sale_display_indivFlag_set(INDIV_DISP_MODE_SLAUGHTHOUSE, ON);
-				}
-				else
-				{
-					sale_display_indivFlag_set(INDIV_DISP_MODE_SLAUGHTHOUSE, OFF);
-				}
-#ifdef USE_TRACE_MEATPART
-				if (CalledTraceStatus.meatPart)
-				{
-					CurTraceStatus.meatPart = CalledTraceStatus.meatPart;
-					sale_display_indivFlag_set(INDIV_DISP_MODE_MEATPART, ON);
-				}
-				else
-				{
-					sale_display_indivFlag_set(INDIV_DISP_MODE_MEATPART, OFF);
-				}
-#endif            
-			}
-#ifdef USE_TRACE_MEATGRADE
-			if (!plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용할 때
+				backupPluid = status_scale.cur_pluid;
+				break;
+		}
+		
+		if (GlbOper.TraceabilityCallType)
+		{
+			keyapp_call_individual(CalledTraceStatus.indivStr.index, OFF);
+			
+			if (CalledTraceStatus.meatUse)
 			{
-				if (status_scale.Plu.group)
+				CurTraceStatus.meatUse = CalledTraceStatus.meatUse;
+				sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, ON);
+			}
+			else
+			{
+				sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, OFF);
+			}
+			if (CalledTraceStatus.slPlace)
+			{
+				CurTraceStatus.slPlace = CalledTraceStatus.slPlace;
+				sale_display_indivFlag_set(INDIV_DISP_MODE_SLAUGHTHOUSE, ON);
+			}
+			else
+			{
+				sale_display_indivFlag_set(INDIV_DISP_MODE_SLAUGHTHOUSE, OFF);
+			}
+#ifdef USE_TRACE_MEATPART
+			if (CalledTraceStatus.meatPart)
+			{
+				CurTraceStatus.meatPart = CalledTraceStatus.meatPart;
+				sale_display_indivFlag_set(INDIV_DISP_MODE_MEATPART, ON);
+			}
+			else
+			{
+				sale_display_indivFlag_set(INDIV_DISP_MODE_MEATPART, OFF);
+			}
+#endif            
+		}
+#ifdef USE_TRACE_MEATGRADE
+		if (!plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용할 때
+		{
+			if (status_scale.Plu.group)
+			{
+				CurTraceStatus.gradeNo = status_scale.Plu.group;	// PLU 등급을 호출
+				//trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
+				sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, ON);
+			}
+			else
+			{
+				sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, OFF);
+			}
+		}
+		else		// PLU 등급을 사용하지 않을 때
+		{
+			if (GlbOper.TraceabilityCallType)	// 개체기억기능 사용시 and 0이 아닐 경우
+			{
+				if (CalledTraceStatus.gradeNo)
 				{
-					CurTraceStatus.gradeNo = status_scale.Plu.group;	// PLU 등급을 호출
+					CurTraceStatus.gradeNo = CalledTraceStatus.gradeNo;	// 기억된 등급을 호출
 					//trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
 					sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, ON);
 				}
@@ -10607,1973 +10622,1958 @@ void keyapp_edit_lot(void)
 					sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, OFF);
 				}
 			}
-			else		// PLU 등급을 사용하지 않을 때
-			{
-				if (GlbOper.TraceabilityCallType)	// 개체기억기능 사용시 and 0이 아닐 경우
-				{
-					if (CalledTraceStatus.gradeNo)
-					{
-						CurTraceStatus.gradeNo = CalledTraceStatus.gradeNo;	// 기억된 등급을 호출
-						//trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
-						sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, ON);
-					}
-					else
-					{
-						sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, OFF);
-					}
-				}
-			}
-			trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);	// 등급Text삭제
+		}
+		trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);	// 등급Text삭제
 #endif
-			//sprintf(MsgBuf, "[G2](%s)ind_no=%d\r\n", CalledTraceStatus.indivStr.individualNO, CurTraceStatus.indivStr.index);
-			//MsgOut(MsgBuf);
-#elif defined(USE_CHN_CART_SCALE)
-			CurCHNTraceLotNo = 1;
-			if (Operation.traceCodeType == CHN_TRACE_CODE_TYPE_VEGETABLE)
-			{
-				vege_trace_head = get_nvram_bparam(NVRAM_VEGE_TRACE_HEAD + (status_scale.cur_pluid - 1));
-				lotRoom = (VEGE_TRACE_LOT_COUNT + vege_trace_head - 1 - (CurCHNTraceLotNo - 1)) % VEGE_TRACE_LOT_COUNT;
-				vege_trace_load(&CurCHNTrace, status_scale.cur_pluid, lotRoom);
-				CurCHNTraceRemainWeight = vege_trace_remainWeight_load(status_scale.cur_pluid, lotRoom);
-			}
-			else
-			{
-				lotRoom = CurCHNTraceLotNo - 1;
-				meat_trace_load(&CurCHNTrace, lotRoom);
-				CurCHNTraceRemainWeight = meat_trace_remainWeight_load(lotRoom);
-			}
-#endif
-			//#ifdef USE_TRACE_STANDALONE
-			//		keyapp_get_individual();
-			//#endif 
-			
-			// Delete CJK080708 : SAVE mode일 때도 transactionOK가 OFF가 되도록 수정. PLU 한번만 출력 기능은 SAVE mode일때는 동작안함
-			//		if(Operation.transactionOK && Operation.wSave)	//Modified by JJANG 20080422 PARAMETER 580 관련 버그수정
-			//		{
-			//			if(pluid != oldpluid) 
-			//			{
-			//				Operation.transactionOK = OFF;
-			//			}
-			//		}
-			//		else 
-			Operation.transactionOK = OFF;	// PLU 호출시 transactionOK는 항상 OFF
-			sale_display_update(UPDATE_WEIGHT|UPDATE_RIDE);
-		} else {
-			sale_display_update_error(0xE401,2,pluid);	// Modified by CJK 20051124
-			if(oldpluid)
-			{
-				sale_pluclear(ON);
-				sale_display_update(0x0fff);//061128
-			}
-			pluid = 0;
-		}
-		//#ifdef USE_TRACE_STANDALONE
-		//	FlagIndividualMultiRemain = OFF;
-		//#endif
-		TareOper.flagAutoClearTare = OFF;
-		Operation.negative = OFF;
-		
-		sale_display_update(UPDATE_MODE|UPDATE_CENTER|UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
-		
-		
-		//////고려///////////
-		if(Operation.wPrepack || Operation.wAuto || flagAllProcessUpdate)
-		{
-			//if(Operation.operationMode != MODE_SELF)  //SG060926
-			ProcessAll();
-		}
-		
-		sale_display_tare_eu();
-		
-		Operation.salePluClearWait = OFF;	// 판매후 PLU 삭제 선택시 오동작 방지	// Added by CJK 20060315
-		DispUpdateAll = 1;
-		return pluid;
-	}
-	
-	INT16U 	DoublePLUkeyTime=0;
-	INT16U	DoublePLUPrevSkey=0;
-	//#define DOUBLEKEY_TIME_100MS	3
-	INT16U  keyapp_doubleplukey(INT16U skeyplu, INT8U settingKey)
-	{
-		INT32U lp;
-		INT16U spd=0;
-		INT16S i;
-		
-		if (SysTimer100ms>DoublePLUkeyTime)
-			spd=SysTimer100ms-DoublePLUkeyTime;
-		else
-			spd=SysTimer100ms+0xffff-DoublePLUkeyTime+1;
-		//	if ((spd<=1) || (spd>DOUBLEKEY_TIME_100MS))	DoublePLUPrevSkey=0;
-		if ((spd<=1) || (spd>Operation.doubleKeyTime100ms))	DoublePLUPrevSkey=0;
-		
-		if (DoublePLUPrevSkey == skeyplu)
-		{
-			if (settingKey)
-			{
-				if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
-				{
-					if (Startup.scale_type==1) skeyplu += 48;
-#if defined(USE_CL5200_KEY)
-					else if (Startup.scale_type==6) skeyplu += 54;
-#endif
-					else skeyplu += 72;
-				}
-			}
-			else
-			{
-				if (Operation.doubleDatekey)
-				{
-					if (skeyplu == KS_EDT_SELL)
-					{
-						if (DoublePLUPrevSkey == KS_EDT_SELL) 
-						{
-							skeyplu = KS_EDT_PACKDATE;
-						}
-					}
-					else if (skeyplu == KS_DATETIME) 
-					{
-						if (DoublePLUPrevSkey == KS_DATETIME) 
-						{
-							skeyplu = KS_EDIT_DATETIME;
-						}
-					}
-				}
-				if (Operation.doublePLUkey == 1)
-				{
-					if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
-					{
-						//if (DoublePLUPrevSkey == skeyplu)
-						{
-							if(KeyDrv.DeviceType == 0) {//Scale key //HYP 20051221
-								lp =FLASH_KEY_AREA+DFLASH_BASE;
-								if(!KeyDrv.Shifted)
-									skeyplu = Flash_wread(lp+KeyDrv.RawCode*2 + KEY_MAX_TABLE_SIZE);
-								else
-									skeyplu = Flash_wread(lp+KeyDrv.RawCode*2);
-							} else {//ps/2 key
-								lp = FLASH_PSKEY_AREA + DFLASH_BASE;
-								for (i=0; i<PS2_KEY_MAX_NUM; i++) {
-									if(skeyplu == Flash_wread(lp + 2*i))	break;
-								}
-								if(i != PS2_KEY_MAX_NUM) {
-									lp = FLASH_PSKEY_SHIFT_AREA + DFLASH_BASE;
-									skeyplu = Flash_wread(lp + 2*i);
-								}
-							}
-						}
-					}
-				}
-			}
-			DoublePLUPrevSkey = 0;
-		}
-		else
-		{
-			DoublePLUPrevSkey = skeyplu;
-		}
-		DoublePLUkeyTime  = SysTimer100ms;
-		return skeyplu;
-	}
-	
-	INT16U keyapp_togleplukey(INT16U skeyplu, INT8U settingKey)
-	{
-		INT32U lp;
-		INT16S i;
-		
-		if (DoublePLUPrevSkey == skeyplu)
-		{
-			if (settingKey)
-			{
-				if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
-				{
-					if (Startup.scale_type==1) skeyplu += 48;
-#if defined(USE_CL5200_KEY)
-					else if (Startup.scale_type==6) skeyplu += 54;
-#endif
-					else skeyplu += 72;
-				}
-			}
-			else
-			{
-				if (Operation.doublePLUkey == 2)
-				{
-					//if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
-					{
-						//if (DoublePLUPrevSkey == skeyplu)
-						{
-							if(KeyDrv.DeviceType == 0) {//Scale key //HYP 20051221
-								lp =FLASH_KEY_AREA+DFLASH_BASE;
-								if(!KeyDrv.Shifted)
-									skeyplu = Flash_wread(lp+KeyDrv.RawCode*2 + KEY_MAX_TABLE_SIZE);
-								else
-									skeyplu = Flash_wread(lp+KeyDrv.RawCode*2);
-							} else {//ps/2 key
-								lp = FLASH_PSKEY_AREA + DFLASH_BASE;
-								for (i=0; i<PS2_KEY_MAX_NUM; i++) {
-									if(skeyplu == Flash_wread(lp + 2*i))	break;
-								}
-								if(i != PS2_KEY_MAX_NUM) {
-									lp = FLASH_PSKEY_SHIFT_AREA + DFLASH_BASE;
-									skeyplu = Flash_wread(lp + 2*i);
-								}
-							}
-						}
-					}
-				}
-			}
-			DoublePLUPrevSkey = 0;
-		}
-		else
-		{
-			DoublePLUPrevSkey = skeyplu;
-		}
-		//sprintf(MsgBuf, "Prev=%04x, Cur=%04x\r\n", DoublePLUPrevSkey, skeyplu);
+		//sprintf(MsgBuf, "[G2](%s)ind_no=%d\r\n", CalledTraceStatus.indivStr.individualNO, CurTraceStatus.indivStr.index);
 		//MsgOut(MsgBuf);
-		return skeyplu;
-	}
-	
-	INT32U keyapp_plukey(INT16U skeyplu)
-	{
-		INT32U pluid;
-		INT16U keyplu;
-		//	INT8U  check;
-		//	INT32U key_addr;
-#ifdef USE_LONGPRESS_KEY_OVERRIDE
-        if(!keyLongkeyIn)
-#endif
-		BuzOn(1);
-		
-		if(Operation.operationMode == MODE_SELF)
+#elif defined(USE_CHN_CART_SCALE)
+		CurCHNTraceLotNo = 1;
+		if (Operation.traceCodeType == CHN_TRACE_CODE_TYPE_VEGETABLE)
 		{
-			if (!ADM_GetData.Stable) return 0;
-			//SG060920		if(status_scale.weight_min > status_scale.Weight)	return 0;
+			vege_trace_head = get_nvram_bparam(NVRAM_VEGE_TRACE_HEAD + (status_scale.cur_pluid - 1));
+			lotRoom = (VEGE_TRACE_LOT_COUNT + vege_trace_head - 1 - (CurCHNTraceLotNo - 1)) % VEGE_TRACE_LOT_COUNT;
+			vege_trace_load(&CurCHNTrace, status_scale.cur_pluid, lotRoom);
+			CurCHNTraceRemainWeight = vege_trace_remainWeight_load(status_scale.cur_pluid, lotRoom);
 		}
+		else
+		{
+			lotRoom = CurCHNTraceLotNo - 1;
+			meat_trace_load(&CurCHNTrace, lotRoom);
+			CurCHNTraceRemainWeight = meat_trace_remainWeight_load(lotRoom);
+		}
+#endif
+		//#ifdef USE_TRACE_STANDALONE
+		//		keyapp_get_individual();
+		//#endif 
 		
-		//	if(Operation.doublePLUkey)
-		//	{
-		//		if(!DoublePLUkeyTime)	DoublePLUPrevSkey=0;
-		//		if(KeyDrv.PrevType != KEY_TYPE_SPEEDPLU)	DoublePLUPrevSkey = 0;
-		//		if(DoublePLUPrevSkey == skeyplu)
+		// Delete CJK080708 : SAVE mode일 때도 transactionOK가 OFF가 되도록 수정. PLU 한번만 출력 기능은 SAVE mode일때는 동작안함
+		//		if(Operation.transactionOK && Operation.wSave)	//Modified by JJANG 20080422 PARAMETER 580 관련 버그수정
 		//		{
-		//			//DisplayMsg("double plu key");
-		//			if(KeyDrv.DeviceType == 0) {//Scale key //HYP 20051221
-		//				lp =FLASH_KEY_AREA+DFLASH_BASE;
-		//				if(!KeyDrv.Shifted)
-		//					skeyplu = Flash_wread(lp+KeyDrv.RawCode*2 + KEY_MAX_TABLE_SIZE);
-		//				else
-		//					skeyplu = Flash_wread(lp+KeyDrv.RawCode*2);
-		//			} else {//ps/2 key
-		//				lp = FLASH_PSKEY_AREA + DFLASH_BASE;
-		//				for (i=0; i<PS2_KEY_MAX_NUM; i++) {
-		//					if(skeyplu == Flash_wread(lp + 2*i))	break;
-		//				}
-		//				if(i != PS2_KEY_MAX_NUM) {
-		//					lp = FLASH_PSKEY_SHIFT_AREA + DFLASH_BASE;
-		//					skeyplu = Flash_wread(lp + 2*i);
-		//				}
+		//			if(pluid != oldpluid) 
+		//			{
+		//				Operation.transactionOK = OFF;
 		//			}
 		//		}
-		//	}
-		//	keyplu = skeyplu - KS_PLU_01;
-		if (Operation.doublePLUkey == 2)
+		//		else 
+		Operation.transactionOK = OFF;	// PLU 호출시 transactionOK는 항상 OFF
+		sale_display_update(UPDATE_WEIGHT|UPDATE_RIDE);
+	} else {
+		sale_display_update_error(0xE401,2,pluid);	// Modified by CJK 20051124
+		if(oldpluid)
 		{
-			skeyplu = keyapp_togleplukey(skeyplu, OFF);
+			sale_pluclear(ON);
+			sale_display_update(0x0fff);//061128
 		}
-		else	// Operation.doublePLUkey == 0 or 1
+		pluid = 0;
+	}
+	//#ifdef USE_TRACE_STANDALONE
+	//	FlagIndividualMultiRemain = OFF;
+	//#endif
+	TareOper.flagAutoClearTare = OFF;
+	Operation.negative = OFF;
+	
+	sale_display_update(UPDATE_MODE|UPDATE_CENTER|UPDATE_WEIGHT|UPDATE_UNIT|UPDATE_PRICE|UPDATE_TARE);
+	
+	
+	//////고려///////////
+	if(Operation.wPrepack || Operation.wAuto || flagAllProcessUpdate)
+	{
+		//if(Operation.operationMode != MODE_SELF)  //SG060926
+		ProcessAll();
+	}
+	
+	sale_display_tare_eu();
+	
+	Operation.salePluClearWait = OFF;	// 판매후 PLU 삭제 선택시 오동작 방지	// Added by CJK 20060315
+	DispUpdateAll = 1;
+	return pluid;
+}
+
+INT16U 	DoublePLUkeyTime=0;
+INT16U	DoublePLUPrevSkey=0;
+//#define DOUBLEKEY_TIME_100MS	3
+INT16U  keyapp_doubleplukey(INT16U skeyplu, INT8U settingKey)
+{
+	INT32U lp;
+	INT16U spd=0;
+	INT16S i;
+	
+	if (SysTimer100ms>DoublePLUkeyTime)
+		spd=SysTimer100ms-DoublePLUkeyTime;
+	else
+		spd=SysTimer100ms+0xffff-DoublePLUkeyTime+1;
+	//	if ((spd<=1) || (spd>DOUBLEKEY_TIME_100MS))	DoublePLUPrevSkey=0;
+	if ((spd<=1) || (spd>Operation.doubleKeyTime100ms))	DoublePLUPrevSkey=0;
+	
+	if (DoublePLUPrevSkey == skeyplu)
+	{
+		if (settingKey)
 		{
-			skeyplu = keyapp_doubleplukey(skeyplu, OFF);
-		}
-		keyplu = skeyplu - KS_PLU_01 + 1;
-		//new
-		//sprintf(gmsg,"PLU %d,%d, RAW %d",skeyplu,keyplu,KeyDrv.RawCode);
-		//DisplayMsg(gmsg);
-		//Key_DelaySec(10);
-		//Operation.doublePLUkey = 1;
-		if ((status_scale.cur_speedkeyid<1) || (status_scale.cur_speedkeyid>5)) {
-			status_scale.cur_speedkeyid=1;
-		}
-		//key_addr =DFLASH_BASE + FLASH_KEY_SPEED_AREA;
-		//key_addr+=(status_scale.cur_speedkeyid-1)*MAX_SPEEDKEY_SIZE;
-		//key_addr+=keyplu*4;
-		
-		//pluid    =Flash_lread(key_addr);
-		//	pluid = plu_get_speedkey(status_scale.cur_speedkeyid, keyplu);
-		
-		if((Operation.operationMode == MODE_SELF) && KeyDrv.DeviceType)
-		{
-			pluid = plu_get_speedkey(5, keyplu);
+			if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
+			{
+				if (Startup.scale_type==1) skeyplu += 48;
+#if defined(USE_CL5200_KEY)
+				else if (Startup.scale_type==6) skeyplu += 54;
+#endif
+				else skeyplu += 72;
+			}
 		}
 		else
 		{
-			pluid = plu_get_speedkey(status_scale.cur_speedkeyid, keyplu);
-		}
-		
-		
-		
-		
-		pluid = keyapp_pluno(0,pluid,ON);
-		
-		if(Operation.operationMode == MODE_SELF) SelfserviceAutoCheck();	//Modified by JJANG 20070803
-		
-		
-		/*	delete by JJANG 20070803
-		 if(Operation.operationMode == MODE_SELF)
-		 {
-		 //SG060920		if(PluType()==PLU_BY_WEIGHT && CheckPluPrint())
-		 if(!Operation.wAuto)	return pluid;		//Added JJANG 20070522
-		 check=0;
-		 if(status_scale.Weight <= 0 && Operation.wAuto) check =1;
-		 if(CheckPluPrint(check))
-		 {
-		 //SG060920			caption_split_by_code(0x20e0,&cap,0);	//"Self service"
-		 //SG060920  			DisplayMsg(&cap.form[2]);
-		 if (PrtStruct.Mode==LABEL && (PluType() != PLU_BY_WEIGHT)) keyapp_print(OFF);	//Modified by JJANG 20070802 
-		 if (PrtStruct.Mode==RECEIPT)
-		 {
-		 INT16S clerkid=0;
-		 set_nvram_bparam(NVRAM_LASTCLERKNUMBER, (char)clerkid);
-		 DirectWeightMode();
-		 DirectCountMode();      //SG070227
-		 SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,FLAG_TRANS_ADD);
-		 keyapp_total(ON);
-		 }
-		 }
-		 return pluid;
-		 }
-		 */
-		//	if(DoublePLUPrevSkey == skeyplu)
-		//		DoublePLUPrevSkey = 0;
-		//	else
-		//		DoublePLUPrevSkey = skeyplu;
-		//	DoublePLUkeyTime = SysTimer100ms;
-		return pluid;
-	}
-	
-	//Added by JJANG 20070803 셀프서비스에서 개수상품 자동발행
-	void SelfserviceAutoCheck(void)
-	{
-		INT8U  check;
-		if(Operation.wAuto)
-		{
-			check=0;
-			if(status_scale.Weight <= 0 && Operation.wAuto) check =1;
-			if(CheckPluPrint(check))
+			if (Operation.doubleDatekey)
 			{
-				if (PrtStruct.Mode==LABEL && (PluType() != PLU_BY_WEIGHT)) keyapp_print(OFF);	//Modified by JJANG 20070802 
+				if (skeyplu == KS_EDT_SELL)
+				{
+					if (DoublePLUPrevSkey == KS_EDT_SELL) 
+					{
+						skeyplu = KS_EDT_PACKDATE;
+					}
+				}
+				else if (skeyplu == KS_DATETIME) 
+				{
+					if (DoublePLUPrevSkey == KS_DATETIME) 
+					{
+						skeyplu = KS_EDIT_DATETIME;
+					}
+				}
+			}
+			if (Operation.doublePLUkey == 1)
+			{
+				if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
+				{
+					//if (DoublePLUPrevSkey == skeyplu)
+					{
+						if(KeyDrv.DeviceType == 0) {//Scale key //HYP 20051221
+							lp =FLASH_KEY_AREA+DFLASH_BASE;
+							if(!KeyDrv.Shifted)
+								skeyplu = Flash_wread(lp+KeyDrv.RawCode*2 + KEY_MAX_TABLE_SIZE);
+							else
+								skeyplu = Flash_wread(lp+KeyDrv.RawCode*2);
+						} else {//ps/2 key
+							lp = FLASH_PSKEY_AREA + DFLASH_BASE;
+							for (i=0; i<PS2_KEY_MAX_NUM; i++) {
+								if(skeyplu == Flash_wread(lp + 2*i))	break;
+							}
+							if(i != PS2_KEY_MAX_NUM) {
+								lp = FLASH_PSKEY_SHIFT_AREA + DFLASH_BASE;
+								skeyplu = Flash_wread(lp + 2*i);
+							}
+						}
+					}
+				}
 			}
 		}
+		DoublePLUPrevSkey = 0;
 	}
-	
-	
-	
-	INT16S input_date_check_pos;
-	
-	void input_date_check_year_format(INT16S a)
+	else
 	{
-		POINT 		disp_p;
-		INT16S y_gab=8, x_gab=6;
-		
-		disp_p = point(input_date_check_pos*Startup.menu_ygap,17*Startup.menu_xgap);
-		memset((INT8U *)cap.form,0x20,sizeof(cap.form));
-		DspStruct.DirectDraw = 1;
-		Dsp_Write_String(disp_p,(HUGEDATA char *)cap.form);
-		
-		// <CODE> JHC, 040420, -change caption no
-		// [
-		// $1: JHC, 040420, Modify, -184B~E To 183B~E
-		switch (a) {
-			case 1: 	caption_split_by_code(0x384A, &cap,0);	break;
-			case 2: 	caption_split_by_code(0x384B, &cap,0);	break;
-			case 3: 	caption_split_by_code(0x384C, &cap,0);	break;
-			case 4: 	caption_split_by_code(0x384D, &cap,0);	break;
-			default:
-				memset((INT8U *)cap.form,0x20,sizeof(cap.form));
-				break;
-		}
-		// ]
-		DspStruct.DirectDraw = 1;
-		Dsp_Write_String(disp_p,(HUGEDATA char *)cap.form);
+		DoublePLUPrevSkey = skeyplu;
 	}
+	DoublePLUkeyTime  = SysTimer100ms;
+	return skeyplu;
+}
+
+INT16U keyapp_togleplukey(INT16U skeyplu, INT8U settingKey)
+{
+	INT32U lp;
+	INT16S i;
 	
-	void keyapp_date(INT8U mode)
+	if (DoublePLUPrevSkey == skeyplu)
 	{
-		char format[34], ret_string[20],s_date[20],s_time[20];
-		char d_sep_str[4], t_sep_str[4];
-		INT8U date_form;
-		INT8U date_temp, sep_date, sep_time,date_type;
-		//	INT16S w,m1,m2,m3;
-		INT16U year,month,day;
-		INT32U month_form, year_form, time_form;
-		INT8U result;
-		CAPTION_STRUCT sub_cap;
-#ifdef USE_PERSIAN_CALENDAR
-		INT16U perCentury;
+		if (settingKey)
+		{
+			if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
+			{
+				if (Startup.scale_type==1) skeyplu += 48;
+#if defined(USE_CL5200_KEY)
+				else if (Startup.scale_type==6) skeyplu += 54;
 #endif
-		
-		date_form = get_global_bparam(GLOBAL_DATETIME_MODE);
-		//  Yxxx xxxx :  Y = Year format
-		//  xMxx xxxx :  M = month format
-		//  xxDD xxxx : DD = Date format
-		//  xxxx xTTT :  T = Time format
-		sep_date = '.'; //7-seg display용
-		sep_time = '.'; //7-seg display용
-		
-		d_sep_str[0] = get_global_bparam(GLOBAL_DATE_SEPARATOR);
-		d_sep_str[1] = 0;
-		t_sep_str[0] = get_global_bparam(GLOBAL_TIME_SEPARATOR);
-		t_sep_str[1] = 0;
-		
-		date_type = (date_form>>4)&0x03;
-		month_form = (INT32U)((date_form>>6)&0x01); // Month Format
-		year_form = (INT32U)((date_form>>7)&0x01); // Year  Format
-		time_form = (INT32U)((date_form)&0x07); // Time Format
+				else skeyplu += 72;
+			}
+		}
+		else
+		{
+			if (Operation.doublePLUkey == 2)
+			{
+				//if (KeyDrv.Type == KEY_TYPE_SPEEDPLU)
+				{
+					//if (DoublePLUPrevSkey == skeyplu)
+					{
+						if(KeyDrv.DeviceType == 0) {//Scale key //HYP 20051221
+							lp =FLASH_KEY_AREA+DFLASH_BASE;
+							if(!KeyDrv.Shifted)
+								skeyplu = Flash_wread(lp+KeyDrv.RawCode*2 + KEY_MAX_TABLE_SIZE);
+							else
+								skeyplu = Flash_wread(lp+KeyDrv.RawCode*2);
+						} else {//ps/2 key
+							lp = FLASH_PSKEY_AREA + DFLASH_BASE;
+							for (i=0; i<PS2_KEY_MAX_NUM; i++) {
+								if(skeyplu == Flash_wread(lp + 2*i))	break;
+							}
+							if(i != PS2_KEY_MAX_NUM) {
+								lp = FLASH_PSKEY_SHIFT_AREA + DFLASH_BASE;
+								skeyplu = Flash_wread(lp + 2*i);
+							}
+						}
+					}
+				}
+			}
+		}
+		DoublePLUPrevSkey = 0;
+	}
+	else
+	{
+		DoublePLUPrevSkey = skeyplu;
+	}
+	//sprintf(MsgBuf, "Prev=%04x, Cur=%04x\r\n", DoublePLUPrevSkey, skeyplu);
+	//MsgOut(MsgBuf);
+	return skeyplu;
+}
+
+INT32U keyapp_plukey(INT16U skeyplu)
+{
+	INT32U pluid;
+	INT16U keyplu;
+	//	INT8U  check;
+	//	INT32U key_addr;
+#ifdef USE_LONGPRESS_KEY_OVERRIDE
+	if(!keyLongkeyIn)
+#endif
+	BuzOn(1);
+	
+	if(Operation.operationMode == MODE_SELF)
+	{
+		if (!ADM_GetData.Stable) return 0;
+		//SG060920		if(status_scale.weight_min > status_scale.Weight)	return 0;
+	}
+	
+	//	if(Operation.doublePLUkey)
+	//	{
+	//		if(!DoublePLUkeyTime)	DoublePLUPrevSkey=0;
+	//		if(KeyDrv.PrevType != KEY_TYPE_SPEEDPLU)	DoublePLUPrevSkey = 0;
+	//		if(DoublePLUPrevSkey == skeyplu)
+	//		{
+	//			//DisplayMsg("double plu key");
+	//			if(KeyDrv.DeviceType == 0) {//Scale key //HYP 20051221
+	//				lp =FLASH_KEY_AREA+DFLASH_BASE;
+	//				if(!KeyDrv.Shifted)
+	//					skeyplu = Flash_wread(lp+KeyDrv.RawCode*2 + KEY_MAX_TABLE_SIZE);
+	//				else
+	//					skeyplu = Flash_wread(lp+KeyDrv.RawCode*2);
+	//			} else {//ps/2 key
+	//				lp = FLASH_PSKEY_AREA + DFLASH_BASE;
+	//				for (i=0; i<PS2_KEY_MAX_NUM; i++) {
+	//					if(skeyplu == Flash_wread(lp + 2*i))	break;
+	//				}
+	//				if(i != PS2_KEY_MAX_NUM) {
+	//					lp = FLASH_PSKEY_SHIFT_AREA + DFLASH_BASE;
+	//					skeyplu = Flash_wread(lp + 2*i);
+	//				}
+	//			}
+	//		}
+	//	}
+	//	keyplu = skeyplu - KS_PLU_01;
+	if (Operation.doublePLUkey == 2)
+	{
+		skeyplu = keyapp_togleplukey(skeyplu, OFF);
+	}
+	else	// Operation.doublePLUkey == 0 or 1
+	{
+		skeyplu = keyapp_doubleplukey(skeyplu, OFF);
+	}
+	keyplu = skeyplu - KS_PLU_01 + 1;
+	//new
+	//sprintf(gmsg,"PLU %d,%d, RAW %d",skeyplu,keyplu,KeyDrv.RawCode);
+	//DisplayMsg(gmsg);
+	//Key_DelaySec(10);
+	//Operation.doublePLUkey = 1;
+	if ((status_scale.cur_speedkeyid<1) || (status_scale.cur_speedkeyid>5)) {
+		status_scale.cur_speedkeyid=1;
+	}
+	//key_addr =DFLASH_BASE + FLASH_KEY_SPEED_AREA;
+	//key_addr+=(status_scale.cur_speedkeyid-1)*MAX_SPEEDKEY_SIZE;
+	//key_addr+=keyplu*4;
+	
+	//pluid    =Flash_lread(key_addr);
+	//	pluid = plu_get_speedkey(status_scale.cur_speedkeyid, keyplu);
+	
+	if((Operation.operationMode == MODE_SELF) && KeyDrv.DeviceType)
+	{
+		pluid = plu_get_speedkey(5, keyplu);
+	}
+	else
+	{
+		pluid = plu_get_speedkey(status_scale.cur_speedkeyid, keyplu);
+	}
+	
+	
+	
+	
+	pluid = keyapp_pluno(0,pluid,ON);
+	
+	if(Operation.operationMode == MODE_SELF) SelfserviceAutoCheck();	//Modified by JJANG 20070803
+	
+	
+	/*	delete by JJANG 20070803
+		if(Operation.operationMode == MODE_SELF)
+		{
+		//SG060920		if(PluType()==PLU_BY_WEIGHT && CheckPluPrint())
+		if(!Operation.wAuto)	return pluid;		//Added JJANG 20070522
+		check=0;
+		if(status_scale.Weight <= 0 && Operation.wAuto) check =1;
+		if(CheckPluPrint(check))
+		{
+		//SG060920			caption_split_by_code(0x20e0,&cap,0);	//"Self service"
+		//SG060920  			DisplayMsg(&cap.form[2]);
+		if (PrtStruct.Mode==LABEL && (PluType() != PLU_BY_WEIGHT)) keyapp_print(OFF);	//Modified by JJANG 20070802 
+		if (PrtStruct.Mode==RECEIPT)
+		{
+		INT16S clerkid=0;
+		set_nvram_bparam(NVRAM_LASTCLERKNUMBER, (char)clerkid);
+		DirectWeightMode();
+		DirectCountMode();      //SG070227
+		SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,FLAG_TRANS_ADD);
+		keyapp_total(ON);
+		}
+		}
+		return pluid;
+		}
+		*/
+	//	if(DoublePLUPrevSkey == skeyplu)
+	//		DoublePLUPrevSkey = 0;
+	//	else
+	//		DoublePLUPrevSkey = skeyplu;
+	//	DoublePLUkeyTime = SysTimer100ms;
+	return pluid;
+}
+
+//Added by JJANG 20070803 셀프서비스에서 개수상품 자동발행
+void SelfserviceAutoCheck(void)
+{
+	INT8U  check;
+	if(Operation.wAuto)
+	{
+		check=0;
+		if(status_scale.Weight <= 0 && Operation.wAuto) check =1;
+		if(CheckPluPrint(check))
+		{
+			if (PrtStruct.Mode==LABEL && (PluType() != PLU_BY_WEIGHT)) keyapp_print(OFF);	//Modified by JJANG 20070802 
+		}
+	}
+}
+
+
+
+INT16S input_date_check_pos;
+
+void input_date_check_year_format(INT16S a)
+{
+	POINT 		disp_p;
+	INT16S y_gab=8, x_gab=6;
+	
+	disp_p = point(input_date_check_pos*Startup.menu_ygap,17*Startup.menu_xgap);
+	memset((INT8U *)cap.form,0x20,sizeof(cap.form));
+	DspStruct.DirectDraw = 1;
+	Dsp_Write_String(disp_p,(HUGEDATA char *)cap.form);
+	
+	// <CODE> JHC, 040420, -change caption no
+	// [
+	// $1: JHC, 040420, Modify, -184B~E To 183B~E
+	switch (a) {
+		case 1: 	caption_split_by_code(0x384A, &cap,0);	break;
+		case 2: 	caption_split_by_code(0x384B, &cap,0);	break;
+		case 3: 	caption_split_by_code(0x384C, &cap,0);	break;
+		case 4: 	caption_split_by_code(0x384D, &cap,0);	break;
+		default:
+			memset((INT8U *)cap.form,0x20,sizeof(cap.form));
+			break;
+	}
+	// ]
+	DspStruct.DirectDraw = 1;
+	Dsp_Write_String(disp_p,(HUGEDATA char *)cap.form);
+}
+
+void keyapp_date(INT8U mode)
+{
+	char format[34], ret_string[20],s_date[20],s_time[20];
+	char d_sep_str[4], t_sep_str[4];
+	INT8U date_form;
+	INT8U date_temp, sep_date, sep_time,date_type;
+	//	INT16S w,m1,m2,m3;
+	INT16U year,month,day;
+	INT32U month_form, year_form, time_form;
+	INT8U result;
+	CAPTION_STRUCT sub_cap;
 #ifdef USE_PERSIAN_CALENDAR
-		RTC_Convert_Persian_Read();
+	INT16U perCentury;
+#endif
+	
+	date_form = get_global_bparam(GLOBAL_DATETIME_MODE);
+	//  Yxxx xxxx :  Y = Year format
+	//  xMxx xxxx :  M = month format
+	//  xxDD xxxx : DD = Date format
+	//  xxxx xTTT :  T = Time format
+	sep_date = '.'; //7-seg display용
+	sep_time = '.'; //7-seg display용
+	
+	d_sep_str[0] = get_global_bparam(GLOBAL_DATE_SEPARATOR);
+	d_sep_str[1] = 0;
+	t_sep_str[0] = get_global_bparam(GLOBAL_TIME_SEPARATOR);
+	t_sep_str[1] = 0;
+	
+	date_type = (date_form>>4)&0x03;
+	month_form = (INT32U)((date_form>>6)&0x01); // Month Format
+	year_form = (INT32U)((date_form>>7)&0x01); // Year  Format
+	time_form = (INT32U)((date_form)&0x07); // Time Format
+#ifdef USE_PERSIAN_CALENDAR
+	RTC_Convert_Persian_Read();
 #else
-		RTC_CLK_Burst_Read();
+	RTC_CLK_Burst_Read();
 #endif
 #ifdef USE_MORNITORING_CNT
 	Enable_operate_time_cnt = OFF;
 #endif
-		
-		year  =bcd2hex(RTCStruct.year);
-		month =bcd2hex(RTCStruct.month);
-		day   =bcd2hex(RTCStruct.date);
-		switch (date_type) {
-			default:
-			case 0:	caption_split_by_code(0x384A, &sub_cap,0); // 0
-			sprintf(s_date,"%02d%c%02d%c%02d",year,sep_date,month,sep_date,day);
+	
+	year  =bcd2hex(RTCStruct.year);
+	month =bcd2hex(RTCStruct.month);
+	day   =bcd2hex(RTCStruct.date);
+	switch (date_type) {
+		default:
+		case 0:	caption_split_by_code(0x384A, &sub_cap,0); // 0
+		sprintf(s_date,"%02d%c%02d%c%02d",year,sep_date,month,sep_date,day);
+		break;
+		case 1:						 // 1
+			caption_split_by_code(0x384B, &sub_cap,0);
+			sprintf(s_date,"%02d%c%02d%c%02d",month,sep_date,day,sep_date,year);
 			break;
-			case 1:						 // 1
-				caption_split_by_code(0x384B, &sub_cap,0);
-				sprintf(s_date,"%02d%c%02d%c%02d",month,sep_date,day,sep_date,year);
-				break;
-			case 2:
-			case 3:	caption_split_by_code(0x384D, &sub_cap,0);
-			sprintf(s_date,"%02d%c%02d%c%02d",day,sep_date,month,sep_date,year);
-			break;
-		}
-		sprintf(s_time,"%02X%c%02X%c%02X",RTCStruct.hour,sep_date,RTCStruct.min,sep_date,RTCStruct.sec);
-		
-		
-		Menu_Init();
-		
-		caption_split_by_code(0x1840, &cap,0);
-		Menu_HeadCreate((HUGEDATA char *)cap.form);
+		case 2:
+		case 3:	caption_split_by_code(0x384D, &sub_cap,0);
+		sprintf(s_date,"%02d%c%02d%c%02d",day,sep_date,month,sep_date,year);
+		break;
+	}
+	sprintf(s_time,"%02X%c%02X%c%02X",RTCStruct.hour,sep_date,RTCStruct.min,sep_date,RTCStruct.sec);
+	
+	
+	Menu_Init();
+	
+	caption_split_by_code(0x1840, &cap,0);
+	Menu_HeadCreate((HUGEDATA char *)cap.form);
 #ifdef USE_HIDE_DATETIME_MENU
 	if(status_run.run_mode == RUN_CALIBRATION)
 		menu_display_menucode(0x8700, 1);
 #endif
+	
+	sprintf(format,"99%c99%c99", sep_date, sep_date);
+	caption_split_by_code(0x3841, &cap,0); // date
+	cap.input_length = 8;
+	cap.input_dlength = 8;
+	caption_adjust(&cap,NULL);
+	cap.input_min = 1;
+	Menu_InputCreate(1, (char *)cap.form, MENU_TYPE_DATE, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, NULL, (INT8U *)s_date, (INT8U *)format, NULL);
+	Menu_SetGeneralFlag(1, date_type);
+	Menu_SetFixedCharacter(1, sep_date);
+	
+	sprintf(format,"99%c99%c99", sep_time, sep_time);
+	caption_split_by_code(0x3842, &cap,0); // time
+	cap.input_length = 8;
+	cap.input_dlength = 8;
+	caption_adjust(&cap,NULL);
+	cap.input_min = 1;
+	Menu_InputCreate(2, (char *)cap.form, MENU_TYPE_TIME, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, NULL, (INT8U *)s_time, (INT8U *)format, NULL);
+	Menu_SetFixedCharacter(2, sep_time);
+	
+	caption_split_by_code(0x3843, &cap,0); // month format(1=DEC,0=12)
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(3, (char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &month_form, NULL, NULL, NULL);
+	
+	caption_split_by_code(0x3844, &cap,0); // year format(0=2001,1=01)
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(4, (char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &year_form, NULL, NULL, NULL);
+	
+	caption_split_by_code(0x3845, &cap,0); // time format(0=24,1=12)
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(5, (char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &time_form, NULL, NULL, NULL);
+	
+	caption_split_by_code(0x3846, &cap,0); // date seperate
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(6, (char *)cap.form, MENU_TYPE_STR, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, NULL, (INT8U *)d_sep_str, NULL, NULL);
+	
+	caption_split_by_code(0x3847, &cap,0); // time seperate
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(7, (char *)cap.form, MENU_TYPE_STR, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, NULL, (INT8U *)t_sep_str, NULL, NULL);
+	
+	
+	result = Menu_InputDisplay();
+	if(result == MENU_RET_SAVE) {
 		
-		sprintf(format,"99%c99%c99", sep_date, sep_date);
-		caption_split_by_code(0x3841, &cap,0); // date
-		cap.input_length = 8;
-		cap.input_dlength = 8;
-		caption_adjust(&cap,NULL);
-		cap.input_min = 1;
-		Menu_InputCreate(1, (char *)cap.form, MENU_TYPE_DATE, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, NULL, (INT8U *)s_date, (INT8U *)format, NULL);
-		Menu_SetGeneralFlag(1, date_type);
-		Menu_SetFixedCharacter(1, sep_date);
+		date_form &= 0xbf;
+		if (month_form) date_form|=0x40; // Month Format
+		date_form &= 0x7f;
+		if (year_form) date_form|=0x80; // Year  Format
+		date_form &= 0xf8;
+		date_form |= time_form; // Time Format
 		
-		sprintf(format,"99%c99%c99", sep_time, sep_time);
-		caption_split_by_code(0x3842, &cap,0); // time
-		cap.input_length = 8;
-		cap.input_dlength = 8;
-		caption_adjust(&cap,NULL);
-		cap.input_min = 1;
-		Menu_InputCreate(2, (char *)cap.form, MENU_TYPE_TIME, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, NULL, (INT8U *)s_time, (INT8U *)format, NULL);
-		Menu_SetFixedCharacter(2, sep_time);
+		input_day_check_str(date_type, s_date, 1);
+		input_time_check_str(s_time, 1);
 		
-		caption_split_by_code(0x3843, &cap,0); // month format(1=DEC,0=12)
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(3, (char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &month_form, NULL, NULL, NULL);
-		
-		caption_split_by_code(0x3844, &cap,0); // year format(0=2001,1=01)
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(4, (char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &year_form, NULL, NULL, NULL);
-		
-		caption_split_by_code(0x3845, &cap,0); // time format(0=24,1=12)
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(5, (char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &time_form, NULL, NULL, NULL);
-		
-		caption_split_by_code(0x3846, &cap,0); // date seperate
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(6, (char *)cap.form, MENU_TYPE_STR, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, NULL, (INT8U *)d_sep_str, NULL, NULL);
-		
-		caption_split_by_code(0x3847, &cap,0); // time seperate
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(7, (char *)cap.form, MENU_TYPE_STR, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, NULL, (INT8U *)t_sep_str, NULL, NULL);
-		
-		
-		result = Menu_InputDisplay();
-		if(result == MENU_RET_SAVE) {
-			
-			date_form &= 0xbf;
-			if (month_form) date_form|=0x40; // Month Format
-			date_form &= 0x7f;
-			if (year_form) date_form|=0x80; // Year  Format
-			date_form &= 0xf8;
-			date_form |= time_form; // Time Format
-			
-			input_day_check_str(date_type, s_date, 1);
-			input_time_check_str(s_time, 1);
-			
 #ifdef USE_PERSIAN_CALENDAR
-			RTC_Convert_Persian_Write();
+		RTC_Convert_Persian_Write();
 #else
-			RTC_CLK_Burst_Write();
+		RTC_CLK_Burst_Write();
 #endif
-			if (mode==0) {
-				set_global_bparam(GLOBAL_DATETIME_MODE, date_form);
-				if(d_sep_str[0]<0x21 || d_sep_str[0]>0xFE) d_sep_str[0] = 0x3A;
-				set_global_bparam(GLOBAL_DATE_SEPARATOR, d_sep_str[0]);
-				if(t_sep_str[0]<0x21 || t_sep_str[0]>0xFE) t_sep_str[0] = 0x3A;
-				set_global_bparam(GLOBAL_TIME_SEPARATOR, t_sep_str[0]);
-			}
+		if (mode==0) {
+			set_global_bparam(GLOBAL_DATETIME_MODE, date_form);
+			if(d_sep_str[0]<0x21 || d_sep_str[0]>0xFE) d_sep_str[0] = 0x3A;
+			set_global_bparam(GLOBAL_DATE_SEPARATOR, d_sep_str[0]);
+			if(t_sep_str[0]<0x21 || t_sep_str[0]>0xFE) t_sep_str[0] = 0x3A;
+			set_global_bparam(GLOBAL_TIME_SEPARATOR, t_sep_str[0]);
 		}
+	}
 #ifdef USE_MORNITORING_CNT
-		Enable_operate_time_cnt = ON;
+	Enable_operate_time_cnt = ON;
 #endif
+}
+
+void keyapp_edit_date(void)
+{
+	INT8U key_mode;
+	INT8U old_font;
+	
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	keyapp_date(0);
+	
+	KEY_SetMode(key_mode);
+	DspLoadFont1(old_font);
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	
+	sale_pluclear(OFF);
+	sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
+}
+
+// Added by CJK
+void keyapp_chg_prtmode(void)
+{
+	INT8U mode;
+	CAPTION_STRUCT cap;
+	
+	//BuzOn(1);
+	mode = PrtAutoChangeMode();
+	
+	if(mode == LABEL) {
+		//sprintf(string_buf, "Changed to LABEL");
+		caption_split_by_code(0x9c84,&cap,0);
+	} else {
+		//sprintf(string_buf, "Changed to RECEIPT");
+		caption_split_by_code(0x9c85,&cap,0);
+		//		DisplayMsg(cap.form);
+	}
+	DisplayMsg(cap.form);
+	
+	//display_message_page(string_buf);
+}
+
+//ticket mode = 1: floating & ticket 
+//label mode = 2: label mode
+extern void salemode_reset(void);
+void keyapp_change_salemode(void)
+{
+	INT8U   uctemp;
+	INT8U   mode1, mode2;
+	
+	uctemp=get_global_bparam(GLOBAL_SALERUN_MODE);
+	mode1 = get_global_bparam(GLOBAL_CHANGE_MODE1);
+	mode2 = 1;// floating & ticket mode
+	
+	if(uctemp == mode2)       // floating & ticket mode  --> mode1(label mode)
+	{
+		uctemp = mode1;
+	}
+	else if(uctemp == mode1)  // mode1(label mode) --> floating & ticket mode
+	{
+		uctemp = mode2;
+	}
+	else                  
+	{
+		uctemp = mode1;
 	}
 	
-	void keyapp_edit_date(void)
-	{
-		INT8U key_mode;
-		INT8U old_font;
-		
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		keyapp_date(0);
-		
-		KEY_SetMode(key_mode);
-		DspLoadFont1(old_font);
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		
-		sale_pluclear(OFF);
-		sale_display_update(UPDATE_ALL|UPDATE_CLEARALL);
-	}
+	set_global_bparam(GLOBAL_SALERUN_MODE, uctemp);
+	salemode_reset();
 	
-	// Added by CJK
-	void keyapp_chg_prtmode(void)
+	if(uctemp == 2 || uctemp == 3 || uctemp == 6)      // label mode or prepack mode
 	{
-		INT8U mode;
-		CAPTION_STRUCT cap;
-		
-		//BuzOn(1);
-		mode = PrtAutoChangeMode();
-		
-		if(mode == LABEL) {
-			//sprintf(string_buf, "Changed to LABEL");
-			caption_split_by_code(0x9c84,&cap,0);
-		} else {
-			//sprintf(string_buf, "Changed to RECEIPT");
-			caption_split_by_code(0x9c85,&cap,0);
-			//		DisplayMsg(cap.form);
-		}
-		DisplayMsg(cap.form);
-		
-		//display_message_page(string_buf);
+		//sprintf(string_buf, "Changed to LABEL");
+		caption_split_by_code(0x9c84,&cap,0);
+	} 
+	else if(uctemp ==1)  // ticket mode
+	{
+		//sprintf(string_buf, "Changed to RECEIPT");
+		caption_split_by_code(0x9c85,&cap,0);
 	}
+	DisplayMsg(cap.form);
 	
-	//ticket mode = 1: floating & ticket 
-	//label mode = 2: label mode
-	extern void salemode_reset(void);
-	void keyapp_change_salemode(void)
-	{
-		INT8U   uctemp;
-		INT8U   mode1, mode2;
-		
-		uctemp=get_global_bparam(GLOBAL_SALERUN_MODE);
-		mode1 = get_global_bparam(GLOBAL_CHANGE_MODE1);
-		mode2 = 1;// floating & ticket mode
-		
-		if(uctemp == mode2)       // floating & ticket mode  --> mode1(label mode)
-		{
-			uctemp = mode1;
-		}
-		else if(uctemp == mode1)  // mode1(label mode) --> floating & ticket mode
-		{
-			uctemp = mode2;
-		}
-		else                  
-		{
-			uctemp = mode1;
-		}
-		
-		set_global_bparam(GLOBAL_SALERUN_MODE, uctemp);
-		salemode_reset();
-		
-		if(uctemp == 2 || uctemp == 3 || uctemp == 6)      // label mode or prepack mode
-		{
-			//sprintf(string_buf, "Changed to LABEL");
-			caption_split_by_code(0x9c84,&cap,0);
-		} 
-		else if(uctemp ==1)  // ticket mode
-		{
-			//sprintf(string_buf, "Changed to RECEIPT");
-			caption_split_by_code(0x9c85,&cap,0);
-		}
-		DisplayMsg(cap.form);
-		
-		//Initialize
-		operation_load();
-		logout();
-		
+	//Initialize
+	operation_load();
+	logout();
+	
+}
+
+void keyapp_set_packeddate(void)
+{
+	CAPTION_STRUCT cap;
+	INT8U   select[32],prepackweek,uctemp1;
+	INT32U	addr;
+	INT32U  set_val[5];
+	INT8U   result,old_font,key_mode;
+	char	string_buf[50];
+	
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	addr = DFLASH_BASE;
+	addr+= FLASH_GLOBAL_AREA;
+	addr+= GLOBAL_PRT_INHIBIT;
+	Flash_sread(addr, (HUGEDATA INT8U *)select, 32);
+	set_val[0] = prtsel_get_table_buf(select, FIELD_ID_PACKED_DATE);
+	set_val[1] = prtsel_get_table_buf(select, FIELD_ID_PACKED_TIME);
+	set_val[2] = prtsel_get_table_buf(select, FIELD_ID_SELL_BY_DATE);
+	set_val[3] = prtsel_get_table_buf(select, FIELD_ID_SELL_BY_TIME);
+	
+	uctemp1     = get_global_bparam(GLOBAL_SALE_SETUP_FLAG5);
+	prepackweek = (uctemp1>>1)&0x03;
+	set_val[4]  = prepackweek;
+	
+	//display_title_page_change(0x3878, 1, 1);
+	Menu_Init();
+	caption_split_by_code(18, &cap,0);
+	sprintf(string_buf, "   %s", cap.form);
+	Menu_HeadCreate((HUGEDATA char *)string_buf);
+	
+	caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_PACKED_DATE), &cap,0);
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &set_val[0], NULL, NULL, NULL);
+	
+	caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_PACKED_TIME), &cap,0);
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &set_val[1], NULL, NULL, NULL);
+	
+	caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_SELL_BY_DATE), &cap,0);
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &set_val[2], NULL, NULL, NULL);
+	
+	caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_SELL_BY_TIME), &cap,0);
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &set_val[3], NULL, NULL, NULL);
+	
+	caption_split_by_code(0x3878, &cap,0);
+	caption_adjust(&cap,NULL);
+	Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
+			cap.input_max, cap.input_min, 0, &set_val[4], NULL, NULL, NULL);
+	
+	result = Menu_InputDisplay();
+	if(result == MENU_RET_SAVE) {
+		prepackweek=(INT8U)set_val[4];
+		uctemp1 &= (~0x06);
+		uctemp1 |= ((prepackweek<<1)&0x06);
+		set_global_bparam(GLOBAL_SALE_SETUP_FLAG5, uctemp1);
+		uctemp1=(INT8U)set_val[0];
+		prtsel_set_table_buf_pack(select, FIELD_ID_PACKED_DATE, uctemp1);
+		uctemp1=(INT8U)set_val[1];
+		prtsel_set_table_buf_pack(select, FIELD_ID_PACKED_TIME, uctemp1);
+		uctemp1=(INT8U)set_val[2];
+		prtsel_set_table_buf_pack(select, FIELD_ID_SELL_BY_DATE, uctemp1);
+		uctemp1=(INT8U)set_val[3];
+		prtsel_set_table_buf_pack(select, FIELD_ID_SELL_BY_TIME, uctemp1);
+		Flash_swrite(addr, (HUGEDATA INT8U *)select, 32);
 	}
+	Dsp_Fill_Buffer(0);						// LCD Buffer clear
+	DspLoadFont1(old_font);
+	Dsp_Diffuse();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	KEY_SetMode(key_mode);
+	sale_display_update(0x0fff);
+}
+
+//SG070723. set ticetnumber manually
+void keyapp_set_ticketnumber(void)
+{
+	CAPTION_STRUCT 		cap;
+	POINT 			disp_p;
+	INT8U 	key_mode;
+	long	ret_long;
+	INT16U	result;
+	char    old_font;
 	
-	void keyapp_set_packeddate(void)
-	{
-		CAPTION_STRUCT cap;
-		INT8U   select[32],prepackweek,uctemp1;
-		INT32U	addr;
-		INT32U  set_val[5];
-		INT8U   result,old_font,key_mode;
-		char	string_buf[50];
-		
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		addr = DFLASH_BASE;
-		addr+= FLASH_GLOBAL_AREA;
-		addr+= GLOBAL_PRT_INHIBIT;
-		Flash_sread(addr, (HUGEDATA INT8U *)select, 32);
-		set_val[0] = prtsel_get_table_buf(select, FIELD_ID_PACKED_DATE);
-		set_val[1] = prtsel_get_table_buf(select, FIELD_ID_PACKED_TIME);
-		set_val[2] = prtsel_get_table_buf(select, FIELD_ID_SELL_BY_DATE);
-		set_val[3] = prtsel_get_table_buf(select, FIELD_ID_SELL_BY_TIME);
-		
-		uctemp1     = get_global_bparam(GLOBAL_SALE_SETUP_FLAG5);
-		prepackweek = (uctemp1>>1)&0x03;
-		set_val[4]  = prepackweek;
-		
-		//display_title_page_change(0x3878, 1, 1);
-		Menu_Init();
-		caption_split_by_code(18, &cap,0);
-		sprintf(string_buf, "   %s", cap.form);
-		Menu_HeadCreate((HUGEDATA char *)string_buf);
-		
-		caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_PACKED_DATE), &cap,0);
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &set_val[0], NULL, NULL, NULL);
-		
-		caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_PACKED_TIME), &cap,0);
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &set_val[1], NULL, NULL, NULL);
-		
-		caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_SELL_BY_DATE), &cap,0);
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &set_val[2], NULL, NULL, NULL);
-		
-		caption_split_by_code(prtsel_get_menu_capcode(FIELD_ID_SELL_BY_TIME), &cap,0);
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_YN, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &set_val[3], NULL, NULL, NULL);
-		
-		caption_split_by_code(0x3878, &cap,0);
-		caption_adjust(&cap,NULL);
-		Menu_InputCreate(1, (HUGEDATA char *)cap.form, MENU_TYPE_NUM, cap.input_x, cap.input_dlength, cap.input_length,
-				cap.input_max, cap.input_min, 0, &set_val[4], NULL, NULL, NULL);
-		
-		result = Menu_InputDisplay();
-		if(result == MENU_RET_SAVE) {
-			prepackweek=(INT8U)set_val[4];
-			uctemp1 &= (~0x06);
-			uctemp1 |= ((prepackweek<<1)&0x06);
-			set_global_bparam(GLOBAL_SALE_SETUP_FLAG5, uctemp1);
-			uctemp1=(INT8U)set_val[0];
-			prtsel_set_table_buf_pack(select, FIELD_ID_PACKED_DATE, uctemp1);
-			uctemp1=(INT8U)set_val[1];
-			prtsel_set_table_buf_pack(select, FIELD_ID_PACKED_TIME, uctemp1);
-			uctemp1=(INT8U)set_val[2];
-			prtsel_set_table_buf_pack(select, FIELD_ID_SELL_BY_DATE, uctemp1);
-			uctemp1=(INT8U)set_val[3];
-			prtsel_set_table_buf_pack(select, FIELD_ID_SELL_BY_TIME, uctemp1);
-			Flash_swrite(addr, (HUGEDATA INT8U *)select, 32);
-		}
-		Dsp_Fill_Buffer(0);						// LCD Buffer clear
-		DspLoadFont1(old_font);
-		Dsp_Diffuse();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		KEY_SetMode(key_mode);
-		sale_display_update(0x0fff);
+	if (ethernet_list.status != 1) //master only
+	{ 
+		BuzOn(2);
+		return;
 	}
+	key_mode=KEY_GetMode();
+	KEY_SetMode(1);
+	Dsp_ChangeMode(DSP_PGM_MODE);
 	
-	//SG070723. set ticetnumber manually
-	void keyapp_set_ticketnumber(void)
+	old_font=DspStruct.Id1;
+	DspLoadFont1(DSP_MENU_FONT_ID);
+	
+	display_title_page_change(0x3744, 1, 1);
+	caption_split_by_code(0x3744, &cap,0);
+	caption_adjust(&cap,NULL);
+	cap.input_min = 1;
+	
+	disp_p = point( Startup.menu_type*Startup.menu_ygap, 0);
+	Dsp_Write_String(disp_p, (HUGEDATA char*)&cap.form);
+	Dsp_Diffuse();
+	
+	ret_long = get_nvram_lparam(NVRAM_COUNTER_TICKET);
+	
+	KI_IN:
+			result = keyin_ulong(KI_DEFAULT, 
+			KI_FORM_NORMAL, 
+			0,
+			(long*)&ret_long, 
+			cap.input_dlength,
+			(Startup.menu_type)*Startup.menu_ygap,
+			cap.input_x*Startup.menu_xgap, 
+			0,
+			KI_NOPASS);
+	
+	if(result == KP_ESC)
+		goto RET_ESC;
+	
+	if( !input_range_check(ret_long, cap.input_min, cap.input_max) ) 
 	{
-		CAPTION_STRUCT 		cap;
-		POINT 			disp_p;
-		INT8U 	key_mode;
-		long	ret_long;
-		INT16U	result;
-		char    old_font;
-		
-		if (ethernet_list.status != 1) //master only
-		{ 
+		error_display_form1(ret_long, cap.input_min, cap.input_max);
+		goto KI_IN;
+	} 
+	
+	switch(result) {
+		case KP_ENTER:
+		case KP_SAVE:
+			set_nvram_lparam(NVRAM_COUNTER_TICKET, ret_long);
+			break;
+		default:
 			BuzOn(2);
-			return;
-		}
-		key_mode=KEY_GetMode();
-		KEY_SetMode(1);
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		
-		old_font=DspStruct.Id1;
-		DspLoadFont1(DSP_MENU_FONT_ID);
-		
-		display_title_page_change(0x3744, 1, 1);
-		caption_split_by_code(0x3744, &cap,0);
-		caption_adjust(&cap,NULL);
-		cap.input_min = 1;
-		
-		disp_p = point( Startup.menu_type*Startup.menu_ygap, 0);
-		Dsp_Write_String(disp_p, (HUGEDATA char*)&cap.form);
-		Dsp_Diffuse();
-		
-		ret_long = get_nvram_lparam(NVRAM_COUNTER_TICKET);
-		
-		KI_IN:
-				result = keyin_ulong(KI_DEFAULT, 
-				KI_FORM_NORMAL, 
-				0,
-				(long*)&ret_long, 
-				cap.input_dlength,
-				(Startup.menu_type)*Startup.menu_ygap,
-				cap.input_x*Startup.menu_xgap, 
-				0,
-				KI_NOPASS);
-		
-		if(result == KP_ESC)
-			goto RET_ESC;
-		
-		if( !input_range_check(ret_long, cap.input_min, cap.input_max) ) 
-		{
-			error_display_form1(ret_long, cap.input_min, cap.input_max);
 			goto KI_IN;
-		} 
-		
-		switch(result) {
-			case KP_ENTER:
-			case KP_SAVE:
-				set_nvram_lparam(NVRAM_COUNTER_TICKET, ret_long);
-				break;
-			default:
-				BuzOn(2);
-				goto KI_IN;
-		}
-		RET_ESC:
-				Dsp_Fill_Buffer(0);					
-		DspLoadFont1(old_font);
-		Dsp_Diffuse();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		KEY_SetMode(key_mode);
-		sale_display_update(0x0fff);
-		
 	}
+	RET_ESC:
+			Dsp_Fill_Buffer(0);					
+	DspLoadFont1(old_font);
+	Dsp_Diffuse();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	KEY_SetMode(key_mode);
+	sale_display_update(0x0fff);
 	
-	//SG060510
-	void keyapp_onoff_printdate(void)
+}
+
+//SG060510
+void keyapp_onoff_printdate(void)
+{
+	INT8U uctemp, uctemp2;
+	
+	uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6);
+	uctemp2 = (uctemp>>1)& 0x01;
+	if(uctemp2){
+		uctemp &= (~0x02);		
+		DisplayMsg("PRT-DATE OFF");
+	} else {
+		uctemp |= 0x02;
+		DisplayMsg("PRT-DATE ON");
+	} 
+	set_global_bparam(GLOBAL_SALE_SETUP_FLAG6, uctemp);
+	
+	////	Delay_100ms(5);
+	////
+	////	Dsp_Fill_Buffer(0);						// LCD Buffer clear
+	//////	DspLoadFont1(old_font);
+	////	Dsp_Diffuse();
+	//////	KEY_SetMode(key_mode);
+	////	sale_display_update(0x0fff);
+	
+}
+
+
+extern SCANNER_DATA_STR   Scanner;
+/*
+	INT8U CheckScannerFormat(void)  //Added by JJANG 20071205
 	{
-		INT8U uctemp, uctemp2;
-		
-		uctemp = get_global_bparam(GLOBAL_SALE_SETUP_FLAG6);
-		uctemp2 = (uctemp>>1)& 0x01;
-		if(uctemp2){
-			uctemp &= (~0x02);		
-			DisplayMsg("PRT-DATE OFF");
-		} else {
-			uctemp |= 0x02;
-			DisplayMsg("PRT-DATE ON");
-		} 
-		set_global_bparam(GLOBAL_SALE_SETUP_FLAG6, uctemp);
-		
-		////	Delay_100ms(5);
-		////
-		////	Dsp_Fill_Buffer(0);						// LCD Buffer clear
-		//////	DspLoadFont1(old_font);
-		////	Dsp_Diffuse();
-		//////	KEY_SetMode(key_mode);
-		////	sale_display_update(0x0fff);
-		
+	INT16U i;
+	INT8U j;
+	INT8U scannerBarForm[10][14];
+	INT32U addr;
+	INT8U  stemp[14];
+	INT8U count;
+	INT8U x_code=0;
+	
+	strncpy((char *)stemp,(char *)&Scanner.barcodeData,13);         //현재 스캔된 바코드
+	
+	addr = DFLASH_BASE  + FLASH_SCANNER_FORMAT;
+	for(i=0;i<10;i++) 
+	{
+	Flash_sread(addr+(i*BAR_FORMAT_SIZE), scannerBarForm[i], 14);
+	scannerBarForm[i][13] = 0;	 //EAN13 Only
+	
+	if(!scannerBarForm[i][0]) continue;     //중간에 포맷이 비어있을 경우
+	else if(scannerBarForm[i][0]=='X') 
+	{
+	if(!x_code) x_code = i+1;
+	} 
+	
+	count = 0;
+	for(j=0;j<14;j++)	//현재 포맷의 숫자개수를 센다. MENU1464에 등록된 포맷
+	{
+	if(scannerBarForm[i][j]>=0x30 && scannerBarForm[i][j]<0x3A) count++;
 	}
+	if(count)               //숫자개수만큼만 비교한다. 
+	{
+	if(!strncmp((char *)scannerBarForm[i],(char *)stemp,count)) return i+1;
+	}
+	}
+	if(x_code) return x_code;
+	return 0;
+	}
+	*/
+
+/*
+	//symbol의 시작위치와 개수를 알려준다.
+	void getScannerMappingSymbolInfo(INT8U* index, INT8U* leng, char symbol, INT8U FormatNo, INT8U mode) //Added by JJANG 20071205
+	{
+	
+	INT8U  flag, i;
+	INT8U  scanForm[SCANNER_BARCODE_DATA_LEN + 1];
+	INT8U  num_count=0;
+	INT32U addr;
+	INT16U len;
+	
+	if (mode)
+	{
+	len = SCANNER_BARCODE_DATA_LEN;
+	addr = DFLASH_BASE  + FLASH_SCANNER_FORMAT;
+	Flash_sread(addr+(FormatNo*BAR_FORMAT_SIZE), scanForm, len);
+	}
+	else
+	{
+	len = 32;	// 메모리가 32byte로 fix되어 있음
+	get_global_sparam(GLOBAL_SCANNER_FORMAT, scanForm, len);
+	}
+	len = 13;
+	scanForm[len] = 0;	 //EAN13 Only
 	
 	
-	extern SCANNER_DATA_STR   Scanner;
-	/*
-	 INT8U CheckScannerFormat(void)  //Added by JJANG 20071205
-	 {
-	 INT16U i;
-	 INT8U j;
-	 INT8U scannerBarForm[10][14];
-	 INT32U addr;
-	 INT8U  stemp[14];
-	 INT8U count;
-	 INT8U x_code=0;
-	 
-	 strncpy((char *)stemp,(char *)&Scanner.barcodeData,13);         //현재 스캔된 바코드
-	 
-	 addr = DFLASH_BASE  + FLASH_SCANNER_FORMAT;
-	 for(i=0;i<10;i++) 
-	 {
-	 Flash_sread(addr+(i*BAR_FORMAT_SIZE), scannerBarForm[i], 14);
-	 scannerBarForm[i][13] = 0;	 //EAN13 Only
-	 
-	 if(!scannerBarForm[i][0]) continue;     //중간에 포맷이 비어있을 경우
-	 else if(scannerBarForm[i][0]=='X') 
-	 {
-	 if(!x_code) x_code = i+1;
-	 } 
-	 
-	 count = 0;
-	 for(j=0;j<14;j++)	//현재 포맷의 숫자개수를 센다. MENU1464에 등록된 포맷
-	 {
-	 if(scannerBarForm[i][j]>=0x30 && scannerBarForm[i][j]<0x3A) count++;
-	 }
-	 if(count)               //숫자개수만큼만 비교한다. 
-	 {
-	 if(!strncmp((char *)scannerBarForm[i],(char *)stemp,count)) return i+1;
-	 }
-	 }
-	 if(x_code) return x_code;
-	 return 0;
-	 }
-	 */
+	flag=0;
+	*index=0;  *leng=0;
+	for(i=0; i<len + 1; i++)     //EAN13 format only
+	{
+	if((scanForm[i] == symbol) && !flag) {flag =1; *index = i + 1;}
+	if((scanForm[i] != symbol) && flag)  {*leng = 1 + i - (*index); break;}
+	} 
+	}
+	*/
+
+/*
+	//SG060122 
+	void getScannerSymbolInfo(INT8U* index, INT8U* leng, char symbol)
+	{
 	
-	/*
-	 //symbol의 시작위치와 개수를 알려준다.
-	 void getScannerMappingSymbolInfo(INT8U* index, INT8U* leng, char symbol, INT8U FormatNo, INT8U mode) //Added by JJANG 20071205
-	 {
-	 
-	 INT8U  flag, i;
-	 INT8U  scanForm[SCANNER_BARCODE_DATA_LEN + 1];
-	 INT8U  num_count=0;
-	 INT32U addr;
-	 INT16U len;
-	 
-	 if (mode)
-	 {
-	 len = SCANNER_BARCODE_DATA_LEN;
-	 addr = DFLASH_BASE  + FLASH_SCANNER_FORMAT;
-	 Flash_sread(addr+(FormatNo*BAR_FORMAT_SIZE), scanForm, len);
-	 }
-	 else
-	 {
-	 len = 32;	// 메모리가 32byte로 fix되어 있음
-	 get_global_sparam(GLOBAL_SCANNER_FORMAT, scanForm, len);
-	 }
-	 len = 13;
-	 scanForm[len] = 0;	 //EAN13 Only
-	 
-	 
-	 flag=0;
-	 *index=0;  *leng=0;
-	 for(i=0; i<len + 1; i++)     //EAN13 format only
-	 {
-	 if((scanForm[i] == symbol) && !flag) {flag =1; *index = i + 1;}
-	 if((scanForm[i] != symbol) && flag)  {*leng = 1 + i - (*index); break;}
-	 } 
-	 }
-	 */
+	INT8U  flag, i;
+	INT8U  scanForm[32];
 	
-	/*
-	 //SG060122 
-	 void getScannerSymbolInfo(INT8U* index, INT8U* leng, char symbol)
-	 {
-	 
-	 INT8U  flag, i;
-	 INT8U  scanForm[32];
-	 
-	 get_global_sparam(GLOBAL_SCANNER_FORMAT, scanForm ,32);
-	 scanForm[13] = 0;	 //EAN13 Only
-	 
-	 flag=0;
-	 *index=0;  *leng=0;
-	 for(i=0; i<14; i++)  //EAN13 format only
-	 {
-	 if( (scanForm[i] == symbol) && !flag ){
-	 flag =1;
-	 *index = i + 1;
-	 }
-	 if( (scanForm[i] !=symbol) && flag ){
-	 *leng = 1 + i - (*index);
-	 break;
-	 }
-	 } 
-	 }
-	 */
+	get_global_sparam(GLOBAL_SCANNER_FORMAT, scanForm ,32);
+	scanForm[13] = 0;	 //EAN13 Only
 	
-	/*
-	 INT32U scanner_get_weight(void)
-	 {
-	 INT8U i;
-	 INT8U wtStartIndex=0, wtLeng=0;
-	 INT32U wtValue;
-	 //	char temp[32];
-	 
-	 getScannerMappingSymbolInfo(&wtStartIndex,&wtLeng,'W',0,0); //'W' : Weight
-	 
-	 if ( wtStartIndex+wtLeng>14 ) return 0;   //EAN13 (13자리 수로 고정)
-	 
-	 if(wtLeng<=0 || wtLeng>13){
-	 //Error Message: Check Barcode Symbol
-	 BuzOn(3);
-	 return 0;
-	 }	
-	 
-	 wtValue = 0;
-	 for(i=wtStartIndex-1; i<(wtLeng+wtStartIndex-1); i++)
-	 {
-	 wtValue = wtValue*10 + (Scanner.barcodeData[i]-'0');
-	 }
-	 return wtValue;					  
-	 }
-	 */
+	flag=0;
+	*index=0;  *leng=0;
+	for(i=0; i<14; i++)  //EAN13 format only
+	{
+	if( (scanForm[i] == symbol) && !flag ){
+	flag =1;
+	*index = i + 1;
+	}
+	if( (scanForm[i] !=symbol) && flag ){
+	*leng = 1 + i - (*index);
+	break;
+	}
+	} 
+	}
+	*/
+
+/*
+	INT32U scanner_get_weight(void)
+	{
+	INT8U i;
+	INT8U wtStartIndex=0, wtLeng=0;
+	INT32U wtValue;
+	//	char temp[32];
 	
-	extern INT8U scanner_get_data(STRUCT_STRFORM_PARAM *pBarParam, INT8U mode);
+	getScannerMappingSymbolInfo(&wtStartIndex,&wtLeng,'W',0,0); //'W' : Weight
 	
+	if ( wtStartIndex+wtLeng>14 ) return 0;   //EAN13 (13자리 수로 고정)
+	
+	if(wtLeng<=0 || wtLeng>13){
+	//Error Message: Check Barcode Symbol
+	BuzOn(3);
+	return 0;
+	}	
+	
+	wtValue = 0;
+	for(i=wtStartIndex-1; i<(wtLeng+wtStartIndex-1); i++)
+	{
+	wtValue = wtValue*10 + (Scanner.barcodeData[i]-'0');
+	}
+	return wtValue;					  
+	}
+	*/
+
+extern INT8U scanner_get_data(STRUCT_STRFORM_PARAM *pBarParam, INT8U mode);
+
 #define USE_PLU_NAME3_FOR_SCAN_TABLE
+
+//Scan Format에서 'X','W','P'검출
+void scanner_get_mapping_pluno(INT8U* deptNO, INT32U* pluNO, STRUCT_STRFORM_PARAM *pBarParam, INT32U* wValue, INT32U* pValue)
+{
+	INT16U cnt;
+	INT16U usize;
+	INT16S    str_size;
+	SCANNER_CONV_TABLE_STR  scanConvTableStr;
+	INT32U flash_addr, start_addr;
+	PLU_BASE *pluBase;
 	
-	//Scan Format에서 'X','W','P'검출
-	void scanner_get_mapping_pluno(INT8U* deptNO, INT32U* pluNO, STRUCT_STRFORM_PARAM *pBarParam, INT32U* wValue, INT32U* pValue)
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_WEIGHT)	//'W' : Weight
 	{
-		INT16U cnt;
-		INT16U usize;
-		INT16S    str_size;
-		SCANNER_CONV_TABLE_STR  scanConvTableStr;
-		INT32U flash_addr, start_addr;
-		PLU_BASE *pluBase;
+		*wValue = pBarParam->Weight;
+	}
+	
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_FIXED_PRICE)	//'P' : Fixed Price
+	{
+		*pValue = pBarParam->TotalPrice;
+	}
+	
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_REMNANT)	//'X' : Remnant
+	{
+		start_addr =  DFLASH_BASE + FLASH_SCANNER_TABLE_AREA;
+		str_size = SCANNER_CONV_TABLE_STR_SIZE;
 		
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_WEIGHT)	//'W' : Weight
+		cnt=0;
+		while(1)
 		{
-			*wValue = pBarParam->Weight;
-		}
-		
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_FIXED_PRICE)	//'P' : Fixed Price
-		{
-			*pValue = pBarParam->TotalPrice;
-		}
-		
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_REMNANT)	//'X' : Remnant
-		{
-			start_addr =  DFLASH_BASE + FLASH_SCANNER_TABLE_AREA;
-			str_size = SCANNER_CONV_TABLE_STR_SIZE;
-			
-			cnt=0;
-			while(1)
+			if(cnt > SCAN_BACODE_DATA_MAX_NUM) break;
+			flash_addr = start_addr + (str_size * cnt);
+			Flash_sread(flash_addr, (HUGEDATA INT8U *)&scanConvTableStr, str_size);
+			scanConvTableStr.scanCode[13]=0;	// 13자리 제한
+			if(!strcmp((char *)pBarParam->RemnantData,(char *)scanConvTableStr.scanCode ))
 			{
-				if(cnt > SCAN_BACODE_DATA_MAX_NUM) break;
-				flash_addr = start_addr + (str_size * cnt);
-				Flash_sread(flash_addr, (HUGEDATA INT8U *)&scanConvTableStr, str_size);
-				scanConvTableStr.scanCode[13]=0;	// 13자리 제한
-				if(!strcmp((char *)pBarParam->RemnantData,(char *)scanConvTableStr.scanCode ))
-				{
-					*deptNO = scanConvTableStr.dept_no;
-					*pluNO = scanConvTableStr.plu_no;
-					//break;
-					return;
-				}
-				cnt++;
+				*deptNO = scanConvTableStr.dept_no;
+				*pluNO = scanConvTableStr.plu_no;
+				//break;
+				return;
 			}
-			
+			cnt++;
+		}
+		
 #ifdef USE_PLU_NAME3_FOR_SCAN_TABLE
-			// Scan Table 먼저 검색 후 PLU Name3 검색
-			cnt=0;
-			while(1)
+		// Scan Table 먼저 검색 후 PLU Name3 검색
+		cnt=0;
+		while(1)
+		{
+			if(cnt > MAX_PLU_NO) break;  
+			plu_get_field(cnt, PTYPE_PLU_NAME3, (INT8U *)&scanConvTableStr.scanCode, (INT16S *)&usize, sizeof(scanConvTableStr.scanCode)); 
+			scanConvTableStr.scanCode[13]=0;	// 13자리 제한
+			if(!strcmp((char *)pBarParam->RemnantData,(char *)scanConvTableStr.scanCode ))
 			{
-				if(cnt > MAX_PLU_NO) break;  
-				plu_get_field(cnt, PTYPE_PLU_NAME3, (INT8U *)&scanConvTableStr.scanCode, (INT16S *)&usize, sizeof(scanConvTableStr.scanCode)); 
-				scanConvTableStr.scanCode[13]=0;	// 13자리 제한
-				if(!strcmp((char *)pBarParam->RemnantData,(char *)scanConvTableStr.scanCode ))
+				plu_get_field(cnt, PTYPE_DEPARTMENT_NO, (INT8U *)deptNO, (INT16S *)&usize, sizeof(pluBase->deptid)); 
+				plu_get_field(cnt, PTYPE_PLU_NO, (INT8U *)pluNO, (INT16S *)&usize, sizeof(pluBase->PluCode)); 
+				break;
+			}
+			cnt++;                
+		}
+#endif        
+	}
+}
+
+/*
+	void scanner_get_pluno(INT8U* deptNO, INT32U* pluNO)
+	{
+	INT8U  bsIndex, bsLeng;
+	INT16U cnt;
+	INT8U  stemp[14];
+	INT16S    str_size;
+	SCANNER_CONV_TABLE_STR  scanConvTableStr;
+	INT32U flash_addr, start_addr;
+	
+	getScannerMappingSymbolInfo(&bsIndex,&bsLeng,'X',0,0); //'X' : scan code
+	
+	strncpy((char *)stemp,(char *)&Scanner.barcodeData[bsIndex-1],bsLeng);
+	stemp[bsLeng]=0;
+	
+	start_addr =  DFLASH_BASE + FLASH_SCANNER_TABLE_AREA;
+	str_size = SCANNER_CONV_TABLE_STR_SIZE;
+	
+	cnt=0;
+	while(1){
+	if(cnt > SCAN_BACODE_DATA_MAX_NUM) break;
+	
+	flash_addr = start_addr + (str_size * cnt);
+	Flash_sread(flash_addr, (HUGEDATA INT8U *)&scanConvTableStr, str_size);
+	scanConvTableStr.scanCode[13]=0;
+	
+	if(!strcmp((char *)stemp,(char *)scanConvTableStr.scanCode )){
+	*deptNO = scanConvTableStr.dept_no;
+	*pluNO = scanConvTableStr.plu_no;
+	break;
+	}
+	cnt++;
+	}
+	}
+	*/
+
+//#define MATCHING_FORMAT
+INT8U scanner_get_data(STRUCT_STRFORM_PARAM *pBarParam, INT8U mode)
+{
+	INT8U i, len;
+	INT8U inputbar_len;
+	INT8U scannerBarForm[10][SCANNER_BARCODE_DATA_LEN+1];
+	INT32U addr;
+	INT8U  stemp[SCANNER_BARCODE_DATA_LEN+1];
+	INT8U ret;
+	INT8U  count,j;
+	INT8U modeScanner;
+	
+	modeScanner = get_global_bparam(GLOBAL_SCANNER_FLAG1);
+	modeScanner = modeScanner&0x07;
+	
+	
+	ret = OFF;
+	memset(pBarParam, 0, sizeof(STRUCT_STRFORM_PARAM));
+	
+	strncpy((char *)stemp,(char *)&Scanner.barcodeData,SCANNER_BARCODE_DATA_LEN);
+	stemp[SCANNER_BARCODE_DATA_LEN] = 0;
+	inputbar_len = strlen((char *)stemp);
+	if (mode)	// 10 format
+	{
+		addr = DFLASH_BASE  + FLASH_SCANNER_FORMAT;
+		for(i=0;i<10;i++) 
+		{
+			Flash_sread(addr+(i*BAR_FORMAT_SIZE), scannerBarForm[i], SCANNER_BARCODE_DATA_LEN);
+			scannerBarForm[i][SCANNER_BARCODE_DATA_LEN] = 0;
+			len = strlen((char *)scannerBarForm[i]);
+			if (modeScanner == 4)
+			{
+				if (inputbar_len == len)
 				{
-					plu_get_field(cnt, PTYPE_DEPARTMENT_NO, (INT8U *)deptNO, (INT16S *)&usize, sizeof(pluBase->deptid)); 
-					plu_get_field(cnt, PTYPE_PLU_NO, (INT8U *)pluNO, (INT16S *)&usize, sizeof(pluBase->PluCode)); 
+					prt_scan_strform((char *)stemp, (char *)scannerBarForm[i], pBarParam);
+					ret = ON;
 					break;
 				}
-				cnt++;                
 			}
-#endif        
+			else 
+			{
+				if (inputbar_len >= len)
+				{
+					count = 0;
+					for(j=0;j<SCANNER_BARCODE_DATA_LEN;j++)	//현재 포맷의 숫자개수를 센다. MENU1464에 등록된 포맷
+					{
+						if (scannerBarForm[i][j] >= '0' && scannerBarForm[i][j] <= '9') count++;
+						else break;
+					}
+					if (count)               //숫자개수만큼만 비교한다. 
+					{
+						if (strncmp((char *)scannerBarForm[i],(char *)stemp,count)) continue;
+					}
+					prt_scan_strform((char *)stemp, (char *)scannerBarForm[i], pBarParam);
+					ret = ON;
+					break;
+				}
+			}
+		}
+	}
+	else	// 1 format(old)
+	{
+		get_global_sparam(GLOBAL_SCANNER_FORMAT, scannerBarForm[0], 32);	// 메모리가 32byte로 fix되어 있음
+		scannerBarForm[0][SCANNER_BARCODE_DATA_LEN] = 0;
+		len = strlen((char *)scannerBarForm[0]);
+		if (inputbar_len >= len)
+		{
+			prt_scan_strform((char *)stemp, (char *)scannerBarForm[0], pBarParam);
+			ret = ON;
 		}
 	}
 	
-	/*
-	 void scanner_get_pluno(INT8U* deptNO, INT32U* pluNO)
-	 {
-	 INT8U  bsIndex, bsLeng;
-	 INT16U cnt;
-	 INT8U  stemp[14];
-	 INT16S    str_size;
-	 SCANNER_CONV_TABLE_STR  scanConvTableStr;
-	 INT32U flash_addr, start_addr;
-	 
-	 getScannerMappingSymbolInfo(&bsIndex,&bsLeng,'X',0,0); //'X' : scan code
-	 
-	 strncpy((char *)stemp,(char *)&Scanner.barcodeData[bsIndex-1],bsLeng);
-	 stemp[bsLeng]=0;
-	 
-	 start_addr =  DFLASH_BASE + FLASH_SCANNER_TABLE_AREA;
-	 str_size = SCANNER_CONV_TABLE_STR_SIZE;
-	 
-	 cnt=0;
-	 while(1){
-	 if(cnt > SCAN_BACODE_DATA_MAX_NUM) break;
-	 
-	 flash_addr = start_addr + (str_size * cnt);
-	 Flash_sread(flash_addr, (HUGEDATA INT8U *)&scanConvTableStr, str_size);
-	 scanConvTableStr.scanCode[13]=0;
-	 
-	 if(!strcmp((char *)stemp,(char *)scanConvTableStr.scanCode )){
-	 *deptNO = scanConvTableStr.dept_no;
-	 *pluNO = scanConvTableStr.plu_no;
-	 break;
-	 }
-	 cnt++;
-	 }
-	 }
-	 */
+	return ret;
+}
+
+//Added by JJANG 20081212
+#ifdef USE_TRACE_STANDALONE
+
+// return value : 0 - 중복안됨, 1~3 - 중복되는 개체
+INT8U compareMultiIndividual(INT8U *ind_no_str)
+{
+	INT8U i;
 	
-	//#define MATCHING_FORMAT
-	INT8U scanner_get_data(STRUCT_STRFORM_PARAM *pBarParam, INT8U mode)
+	for (i = 0; i < MultiIndex; i++)
 	{
-		INT8U i, len;
-		INT8U inputbar_len;
-		INT8U scannerBarForm[10][SCANNER_BARCODE_DATA_LEN+1];
-		INT32U addr;
-		INT8U  stemp[SCANNER_BARCODE_DATA_LEN+1];
-		INT8U ret;
-		INT8U  count,j;
-		INT8U modeScanner;
-		
-		modeScanner = get_global_bparam(GLOBAL_SCANNER_FLAG1);
-		modeScanner = modeScanner&0x07;
-		
-		
-		ret = OFF;
-		memset(pBarParam, 0, sizeof(STRUCT_STRFORM_PARAM));
-		
-		strncpy((char *)stemp,(char *)&Scanner.barcodeData,SCANNER_BARCODE_DATA_LEN);
-		stemp[SCANNER_BARCODE_DATA_LEN] = 0;
-		inputbar_len = strlen((char *)stemp);
-		if (mode)	// 10 format
+		if (strcmp((char*)ind_no_str, (char*)IndivdualMultiData[i].indivNoStr) == 0)
 		{
-			addr = DFLASH_BASE  + FLASH_SCANNER_FORMAT;
-			for(i=0;i<10;i++) 
+			return i + 1;
+		}
+	}
+	return 0;
+}
+
+extern INT8U cksum_indivNo(char *buf);
+extern INT8U command_ask_eco_barcode(char* barString);
+INT8U scanner_interprete_data(STRUCT_STRFORM_PARAM *pBarParam)
+{
+	INT8U string_buf[50];
+	INT16U ind_idx;
+	INT8U lotFlag;
+#ifdef USE_SCANNER_FOR_ECO_FRIENDLY
+	INT8U ret = 0xff;
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+#endif
+	memset(&CalledTraceStatus, 0, sizeof(CalledTraceStatus));
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_PLUNO && !ScanFlag)	//pluno, when ScanFlag is SET
+	{
+		if (ModeIndiv == 5)
+		{
+			if (pBarParam->Scan_flag&BAR_SCANFLAG_TEXT && MultiIndex > 0)	// 개체스캔이 되고, 복수개체가 시작되면
 			{
-				Flash_sread(addr+(i*BAR_FORMAT_SIZE), scannerBarForm[i], SCANNER_BARCODE_DATA_LEN);
-				scannerBarForm[i][SCANNER_BARCODE_DATA_LEN] = 0;
-				len = strlen((char *)scannerBarForm[i]);
-				if (modeScanner == 4)
+				if (status_scale.cur_pluid != pBarParam->PluNumber && FlagIndividualMultiStart)
 				{
-					if (inputbar_len == len)
+					BuzOn(2);
+					sprintf((char*)string_buf, "상품코드가 다릅니다");
+					display_message_page_mid((char*)string_buf);
+					return OFF;
+				}
+			}
+		}
+		keyapp_pluno(status_scale.departmentid, pBarParam->PluNumber, OFF);
+	}
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_TEXT)	//Text
+	{
+		lotFlag = checkIndividualNo(pBarParam->Text);
+		if (ModeIndiv == 2)	// 농협만 적용
+			
+		{
+			if (!plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
+			{
+				if (status_scale.cur_pluid)
+				{
+#ifdef USE_TRACE_FLAG_0_CHECK
+					if (!status_scale.Plu.trace_flag)
 					{
-						prt_scan_strform((char *)stemp, (char *)scannerBarForm[i], pBarParam);
-						ret = ON;
-						break;
-					}
+						BuzOn(2);
+						//sprintf((char*)string_buf, "개체이력대상이 아닙니다");
+						sprintf((char*)string_buf, IndivMsg_NonTrace);
+						display_message_page_mid((char*)string_buf);
+						return OFF;
+					}		
+#endif		
 				}
 				else 
 				{
-					if (inputbar_len >= len)
-					{
-						count = 0;
-						for(j=0;j<SCANNER_BARCODE_DATA_LEN;j++)	//현재 포맷의 숫자개수를 센다. MENU1464에 등록된 포맷
-						{
-							if (scannerBarForm[i][j] >= '0' && scannerBarForm[i][j] <= '9') count++;
-							else break;
-						}
-						if (count)               //숫자개수만큼만 비교한다. 
-						{
-							if (strncmp((char *)scannerBarForm[i],(char *)stemp,count)) continue;
-						}
-						prt_scan_strform((char *)stemp, (char *)scannerBarForm[i], pBarParam);
-						ret = ON;
-						break;
-					}
-				}
-			}
-		}
-		else	// 1 format(old)
-		{
-			get_global_sparam(GLOBAL_SCANNER_FORMAT, scannerBarForm[0], 32);	// 메모리가 32byte로 fix되어 있음
-			scannerBarForm[0][SCANNER_BARCODE_DATA_LEN] = 0;
-			len = strlen((char *)scannerBarForm[0]);
-			if (inputbar_len >= len)
-			{
-				prt_scan_strform((char *)stemp, (char *)scannerBarForm[0], pBarParam);
-				ret = ON;
-			}
-		}
-		
-		return ret;
-	}
-	
-	//Added by JJANG 20081212
-#ifdef USE_TRACE_STANDALONE
-	
-	// return value : 0 - 중복안됨, 1~3 - 중복되는 개체
-	INT8U compareMultiIndividual(INT8U *ind_no_str)
-	{
-		INT8U i;
-		
-		for (i = 0; i < MultiIndex; i++)
-		{
-			if (strcmp((char*)ind_no_str, (char*)IndivdualMultiData[i].indivNoStr) == 0)
-			{
-				return i + 1;
-			}
-		}
-		return 0;
-	}
-	
-	extern INT8U cksum_indivNo(char *buf);
-	extern INT8U command_ask_eco_barcode(char* barString);
-	INT8U scanner_interprete_data(STRUCT_STRFORM_PARAM *pBarParam)
-	{
-		INT8U string_buf[50];
-		INT16U ind_idx;
-		INT8U lotFlag;
-#ifdef USE_SCANNER_FOR_ECO_FRIENDLY
-		INT8U ret = 0xff;
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-#endif
-		memset(&CalledTraceStatus, 0, sizeof(CalledTraceStatus));
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_PLUNO && !ScanFlag)	//pluno, when ScanFlag is SET
-		{
-			if (ModeIndiv == 5)
-			{
-				if (pBarParam->Scan_flag&BAR_SCANFLAG_TEXT && MultiIndex > 0)	// 개체스캔이 되고, 복수개체가 시작되면
-				{
-					if (status_scale.cur_pluid != pBarParam->PluNumber && FlagIndividualMultiStart)
-					{
-						BuzOn(2);
-						sprintf((char*)string_buf, "상품코드가 다릅니다");
-						display_message_page_mid((char*)string_buf);
-						return OFF;
-					}
-				}
-			}
-			keyapp_pluno(status_scale.departmentid, pBarParam->PluNumber, OFF);
-		}
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_TEXT)	//Text
-		{
-			lotFlag = checkIndividualNo(pBarParam->Text);
-			if (ModeIndiv == 2)	// 농협만 적용
-				
-			{
-				if (!plu_check_inhibit_ptype(PTYPE_TRACE_FLAG))
-				{
-					if (status_scale.cur_pluid)
-					{
-#ifdef USE_TRACE_FLAG_0_CHECK
-						if (!status_scale.Plu.trace_flag)
-						{
-							BuzOn(2);
-							//sprintf((char*)string_buf, "개체이력대상이 아닙니다");
-							sprintf((char*)string_buf, IndivMsg_NonTrace);
-							display_message_page_mid((char*)string_buf);
-							return OFF;
-						}		
-#endif		
-					}
-					else 
-					{
-						BuzOn(2);
-						return OFF;
-					}
-					
-				}
-			}
-			if (UseCheckIndivNo && !lotFlag)	// 묶음번호는 체크안함
-			{
-				if (cksum_indivNo((char *)pBarParam->Text) == FALSE) 
-				{
 					BuzOn(2);
-					sprintf((char*)string_buf, "이력번호 오류!");
-					display_message_page_mid((char*)string_buf);
 					return OFF;
 				}
-			}  
-			if (ModeIndiv == 5)
-			{        
-				if (compareMultiIndividual(pBarParam->Text) && FlagIndividualMultiStart)	// 복수개체중 중복이 있으면
-				{
-					BuzOn(2);
-					//sprintf((char*)string_buf, "중복된 개체번호입니다");
-					sprintf((char*)string_buf, IndivMsg_SameTraceNo);
-					display_message_page_mid((char*)string_buf);
-					return OFF;
-				}
-			}
-			//CalledTraceStatus.indivStr.lotFlag = checkIndividualNo(pBarParam->Text);
-			CalledTraceStatus.indivStr.lotFlag = lotFlag;
-			memcpy(CalledTraceStatus.indivStr.individualNO, pBarParam->Text, sizeof(CalledTraceStatus.indivStr.individualNO));
-#ifdef USE_EMART_PIG_TRACE
-			if(strlen((char*)pBarParam->Text) == 24)
-			{
-				CalledTraceStatus.indivStr.individualNO[24] = 0;
-				memcpy(ImportLotNumber, pBarParam->Text, 24);
-				ImportLotNumberflag = 1;
 				
 			}
-			else
+		}
+		if (UseCheckIndivNo && !lotFlag)	// 묶음번호는 체크안함
+		{
+			if (cksum_indivNo((char *)pBarParam->Text) == FALSE) 
 			{
-				CalledTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
-				ImportLotNumberflag = 0;
+				BuzOn(2);
+				sprintf((char*)string_buf, "이력번호 오류!");
+				display_message_page_mid((char*)string_buf);
+				return OFF;
 			}
-#else
-			CalledTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
-#endif
-			individual_checkZero(CalledTraceStatus.indivStr.individualNO);
-			ind_idx = individualData_search(CalledTraceStatus.indivStr.individualNO, 0);
-			//keyapp_call_individual(ind_idx, OFF);
-			if(!individual_call(ind_idx)){
-				sale_pluclear(ON);
+		}  
+		if (ModeIndiv == 5)
+		{        
+			if (compareMultiIndividual(pBarParam->Text) && FlagIndividualMultiStart)	// 복수개체중 중복이 있으면
+			{
+				BuzOn(2);
+				//sprintf((char*)string_buf, "중복된 개체번호입니다");
+				sprintf((char*)string_buf, IndivMsg_SameTraceNo);
+				display_message_page_mid((char*)string_buf);
 				return OFF;
 			}
 		}
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_MEATUSE)	//Meat Use
+		//CalledTraceStatus.indivStr.lotFlag = checkIndividualNo(pBarParam->Text);
+		CalledTraceStatus.indivStr.lotFlag = lotFlag;
+		memcpy(CalledTraceStatus.indivStr.individualNO, pBarParam->Text, sizeof(CalledTraceStatus.indivStr.individualNO));
+#ifdef USE_EMART_PIG_TRACE
+		if(strlen((char*)pBarParam->Text) == 24)
 		{
-			CurTraceStatus.meatUse = pBarParam->MeatUseNo;
-			sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, ON);
-			sale_display_individual();
+			CalledTraceStatus.indivStr.individualNO[24] = 0;
+			memcpy(ImportLotNumber, pBarParam->Text, 24);
+			ImportLotNumberflag = 1;
+			
 		}
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_ORIGIN)	//Origin
+		else
 		{
-			status_scale.Plu.origin= pBarParam->CountryNo;
-			Operation.keyClear = OFF;
+			CalledTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
+			ImportLotNumberflag = 0;
 		}
+#else
+		CalledTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
+#endif
+		individual_checkZero(CalledTraceStatus.indivStr.individualNO);
+		ind_idx = individualData_search(CalledTraceStatus.indivStr.individualNO, 0);
+		//keyapp_call_individual(ind_idx, OFF);
+		if(!individual_call(ind_idx)){
+			sale_pluclear(ON);
+			return OFF;
+		}
+	}
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_MEATUSE)	//Meat Use
+	{
+		CurTraceStatus.meatUse = pBarParam->MeatUseNo;
+		sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, ON);
+		sale_display_individual();
+	}
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_ORIGIN)	//Origin
+	{
+		status_scale.Plu.origin= pBarParam->CountryNo;
+		Operation.keyClear = OFF;
+	}
 #ifdef USE_TRACE_MEATPART
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_MEATPART)	//Meat Part
-		{
-			CurTraceStatus.meatPart = pBarParam->MeatPartNo;
-			sale_display_indivFlag_set(INDIV_DISP_MODE_MEATPART, ON);
-			sale_display_individual();
-		}
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_MEATPART)	//Meat Part
+	{
+		CurTraceStatus.meatPart = pBarParam->MeatPartNo;
+		sale_display_indivFlag_set(INDIV_DISP_MODE_MEATPART, ON);
+		sale_display_individual();
+	}
 #endif    
 #ifdef USE_TRACE_MEATGRADE
 #ifdef USE_TRACE_SCANNER_FOR_GRADE
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_MEATGRADE)	//Meat Part
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_MEATGRADE)	//Meat Part
+	{
+		if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때 Scanner 등급 호출 가능
 		{
-			if (plu_check_inhibit_ptype(PTYPE_GROUP_NO))	// PLU 등급을 사용하지 않을 때 Scanner 등급 호출 가능
-			{
-				CurTraceStatus.gradeNo = pBarParam->MeatGradeNo;
-				trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
-				sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, ON);
-				sale_display_individual();
-			}
-		}
-#endif
-#endif
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_SL_NO)	//Slaughter House
-		{
-#ifdef USE_KOR_SLAUGHT_CODE_4DIGIT
-			CurTraceStatus.slPlace = trace_slaughthouse_no2index(pBarParam->SlaughtHouseNo);
-#else
-			CurTraceStatus.slPlace = pBarParam->SlaughtHouseNo;
-#endif
-			sale_display_indivFlag_set(INDIV_DISP_MODE_SLAUGHTHOUSE, ON);
+			CurTraceStatus.gradeNo = pBarParam->MeatGradeNo;
+			trace_meatgrade_getGradeText(CurTraceStatus.gradeNo, CurTraceStatus.curGradeText);
+			sale_display_indivFlag_set(INDIV_DISP_MODE_MEATGRADE, ON);
 			sale_display_individual();
 		}
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_WEIGHT)	//Weight
+	}
+#endif
+#endif
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_SL_NO)	//Slaughter House
+	{
+#ifdef USE_KOR_SLAUGHT_CODE_4DIGIT
+		CurTraceStatus.slPlace = trace_slaughthouse_no2index(pBarParam->SlaughtHouseNo);
+#else
+		CurTraceStatus.slPlace = pBarParam->SlaughtHouseNo;
+#endif
+		sale_display_indivFlag_set(INDIV_DISP_MODE_SLAUGHTHOUSE, ON);
+		sale_display_individual();
+	}
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_WEIGHT)	//Weight
+	{
+		if (pBarParam->Weight)
 		{
-			if (pBarParam->Weight)
-			{
-				status_scale.Plu.fixed_weight = pBarParam->Weight;
-				//KEY_Write(keyin_getrawcode_bytype(0, KS_PRINT), 0);
-				Operation.keyClear = OFF;
-			}
+			status_scale.Plu.fixed_weight = pBarParam->Weight;
+			//KEY_Write(keyin_getrawcode_bytype(0, KS_PRINT), 0);
+			Operation.keyClear = OFF;
 		}
-		if (pBarParam->Scan_flag&BAR_SCANFLAG_TARE_WEIGHT)	//Tare Weight
+	}
+	if (pBarParam->Scan_flag&BAR_SCANFLAG_TARE_WEIGHT)	//Tare Weight
+	{
+		if (pBarParam->TareWeight)
 		{
-			if (pBarParam->TareWeight)
-			{
-				status_scale.Plu.tare = pBarParam->TareWeight;
-				Operation.keyClear = OFF;
-			}
+			status_scale.Plu.tare = pBarParam->TareWeight;
+			Operation.keyClear = OFF;
 		}
+	}
 #ifdef USE_SCANNER_FOR_ECO_FRIENDLY	
-		if (pBarParam->Scan_flag & BAR_SCANFLAG_CODE_880)	//현대그린푸드 친환경 바코드	
-		{		
-			old_font = DspStruct.Id1;
-			old_page = DspStruct.Page;
-			Dsp_SetPage(DSP_ERROR_PAGE);
-			FontSizeChange(FONT_MEDIUM);
-			display_lcd_clear_buf();	// Clear buf PLU Name Area
-			disp_p = point(DSP_PLU_NAME_Y, 10);
-			Dsp_Write_String(disp_p, "조회 중입니다.");
-			display_lcd_diffuse();	// Redraw PLU Name Area
-			
-			ret = command_ask_eco_barcode(pBarParam->code880);
-			
-			switch(ret)
-			{
-				case 0 : 
-					BuzOn(2);
-					sprintf((char*)string_buf, "인증 상품입니다.");
-					break;
-				case 1 : 
-					BuzOn(3);
-					sprintf((char*)string_buf, "인증상품이 아닙니다.");
-					break;
-				case 2 : 
-					BuzOn(3);
-					sprintf((char*)string_buf, "DATA 없음");
-					break;
-				case 3 :
-					BuzOn(3);
-					sprintf((char*)string_buf, "DB 접속 오류");
-					break;
-				default : 
-					BuzOn(3);
-					sprintf((char*)string_buf, "조회 오류");
-					break;
-			}
-			display_lcd_clear_buf();	// Clear buf PLU Name Area
-			Dsp_Write_String(disp_p, string_buf);
-			display_lcd_diffuse();	// Redraw PLU Name Area
-			Key_DelaySec(30, 0);
-			Dsp_SetPage(old_page);
-			Dsp_Diffuse();
-			DspLoadFont1(old_font);
-			return ON;
-		}
-#endif
-		
-		if (FlagIndividualMultiStart)//복수개체 입력
-		{
-			if (MultiIndex < MAX_INDIVIAL_MULTI_DATA_CNT)
-			{
-				memcpy(IndivdualMultiData[MultiIndex].indivNoStr, CurTraceStatus.indivStr.individualNO, INDIVIDUAL_NO_LEN);
-				IndivdualMultiData[MultiIndex].slaughterHouse = CurTraceStatus.slPlace;
-				MultiIndex++;
-#ifdef USE_EMART_NETWORK
-				FlagIndividualMultiStart = OFF;
-				FlagIndividualMultiRemain = ON;
-#endif
-			}
-			else
-			{
-				BuzOn(2);
-			}
-		}
-		else
-		{
-			FlagIndividualMultiRemain = OFF;
-			MultiIndex = 0;
-			memset(IndivdualMultiData, 0, sizeof(TRACE_INDIVIDUAL_MULTI_DATA) * MAX_INDIVIAL_MULTI_DATA_CNT);
-		}
-		if (FlagLotMultiStart)	//장부묶음 입력
-		{
-			if (LotListMultiIndex < MAX_LOT_MULTI_DATA_CNT)
-			{
-				memcpy(LotMultiData[LotListMultiIndex].indivNoStr, CurTraceStatus.indivStr.individualNO, INDIVIDUAL_NO_LEN);
-				LotMultiData[LotListMultiIndex].pluNo = status_scale.cur_pluid;
-				LotMultiData[LotListMultiIndex].deptNo = status_scale.departmentid;
-				LotMultiData[LotListMultiIndex].slaughterNo = CurTraceStatus.slPlace;
-				LotListMultiIndex++;
-			}
-			else
-			{
-				BuzOn(2);
-			}
-		}
-		return ON;
-	}
-#endif
-	
-	void keyapp_scanprint(void)
-	{
-		INT32U sCode=0;
-		INT8U  ucTemp;
-		INT8U  modeScanner;
-		INT8U  deptno;
-		INT32U pluno;
-		INT32U T_wValue;        //tichet
-		INT32U T_pValue;        //tichet
-		INT8U  Scanform;	//parameter 558 : yes
-		STRUCT_STRFORM_PARAM bar_param;
-#ifdef USE_SCALE_POS_PROTOCOL
-		INT16U len;
-#endif
-#ifdef USE_TRACE_STANDALONE
-		INT16U indivIdx;
-#endif
-		INT8U  ret;
-		INT8U  keycode;
-		
-		ucTemp = get_global_bparam(GLOBAL_SCANNER_FLAG1);
-		modeScanner = ucTemp&0x07;
-		Scanform = ucTemp&0x10;	// 0 : 1-format, 1 : 10-formats
-		
-		//PS2에 Barcode Scanner를 연결하여 사용 시 
-		if(UseScanner)
-		{
-			deptno=0; pluno=0;
-			T_wValue=0; T_pValue=0;
-			
-			ret = scanner_get_data(&bar_param, Scanform);
-			if (!ret)
-			{
-				BuzOn(2);
-				return;
-			}
-			if(modeScanner == 3) 
-			{
-#ifdef USE_TRACE_STANDALONE
-				if (bar_param.Scan_flag&BAR_SCANFLAG_REMNANT)	// 'X' : Remnant
-				{
-					CalledTraceStatus.indivStr.lotFlag = checkIndividualNo(bar_param.RemnantData);
-					memcpy(CalledTraceStatus.indivStr.individualNO, bar_param.RemnantData, sizeof(CalledTraceStatus.indivStr.individualNO));
-					CalledTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
-					individual_checkZero(CalledTraceStatus.indivStr.individualNO);
-					indivIdx = individualData_search(CalledTraceStatus.indivStr.individualNO, 0);
-					individual_call(indivIdx);
-				}
-#endif
-			}
-			else if (modeScanner == 4) 
-			{
-#ifdef USE_TRACE_STANDALONE
-				ret = scanner_interprete_data(&bar_param);
-				if (!ret) return;
-#endif
-#ifdef USE_SCALE_POS_PROTOCOL
-				if (bar_param.Scan_flag&BAR_SCANFLAG_TEXT)	// 'T' : Text
-				{
-					memset(&KorTrace_Flag.CurBarData[0], 0, sizeof(KorTrace_Flag.CurBarData));
-					len = strlen(bar_param.Text);
-					memset(&KorTrace_Flag.CurBarData[0], 0x30, 5);
-					memcpy((char *)&KorTrace_Flag.CurBarData[5], &bar_param.Text[0], len - KORTR_PROCESS_NO_LEN);
-					KorTrace_Flag.CurBarData[37] = '-';
-					sprintf((char *)&KorTrace_Flag.CurBarData[38], &bar_param.Text[len - KORTR_PROCESS_NO_LEN], KORTR_PROCESS_NO_LEN);
-					if (network_status.service_bflag2)
-					{
-						keyapp_ktr_req_nextid(KORTR_REQ_FIXED_ID);
-					}
-					else
-					{
-						KorTrace_Flag.flagReceive = 1;
-					}
-					kortrace_make_display_data(KorTrace_Flag.display_data, KorTrace_Flag.CurBarData, sizeof(KorTrace_Flag.display_data));
-				}
-#endif
-			}
-			else
-			{
-				//if(!Scanform) scanner_get_pluno(&deptno, &pluno);
-				//else scanner_get_mapping_pluno(&deptno, &pluno, &T_wValue, &T_pValue);  //LRE + Tichet   
-				scanner_get_mapping_pluno(&deptno, &pluno, &bar_param, &T_wValue, &T_pValue);   
-#ifdef USE_GERMANY_TARE_SCANNER
-				pluno = bar_param.PluNumber;
-				deptno = bar_param.DeptId;
-				if(!deptno)deptno = status_scale.departmentid;
-				if(bar_param.TareWeight)
-				{
-					keyapp_tare(TARE_TYPE_KEY,bar_param.TareWeight, OFF);
-				} 
-#else
-				if(!deptno || !pluno) return;
-#endif			
-				
-				if (keyapp_pluno(deptno, pluno, OFF))
-				{
-					if (modeScanner == 0)      //PLU 호출 만 함
-					{
-					}
-					else if (modeScanner == 1)	//PLU 호출 후 라벨 인쇄 (일반 모드).짐판위의 weight 적용
-					{
-						
-						if (bar_param.TotalPrice)
-						{
-							status_scale.cur_unitprice = bar_param.TotalPrice;
-							keyapp_fixed_price(0,0);                                                
-						}
-						if(get_global_bparam(GLOBAL_SALERUN_MODE)==1)   // Ticket mode
-						{
-							if (bar_param.Weight)
-							{
-								status_scale.Plu.fixed_weight = bar_param.Weight;                                                      
-							}
-							
-					        if (Scan_clerk == 0)	//ticket MODE 일때, 특정 점원을 선택하여 사용함 
-					        {
-					        	HiddenClerkNumber = 0;
-					        	//PS2_Write(KS_CLERK_CALL);	//입력한 값이 없으면 Clerk을 호출한다. 
-								KEY_Write(keyin_getrawcode_bytype(0, KS_CLERK_CALL), 0, 0);
-								Operation.keyClear = OFF;
-							}
-					        else	//입력된 점원에게 상품을 판매한다. 수정필요.
-							{
-								//PS2_Write(Scan_clerk+KS_CLERK_01-1);	//입력된 점원에게 상품을 판매한다. 수정필요.
-								KEY_Write(keyin_getrawcode_bytype(0, Scan_clerk+KS_CLERK_01-1), 0, 0);
-								Operation.keyClear = OFF;
-							}
-						}
-						else	//라벨모드
-						{
-							//PS2_Write(KS_PRINT);  //라벨모드에서 바로 출력함
-							KEY_Write(keyin_getrawcode_bytype(0, KS_PRINT), 0, 0);
-							Operation.keyClear = OFF;
-						}
-					}
-					else if (modeScanner == 2)	//PLU 호출 후 라벨 인쇄	(Prepack).barcode의 weight 적용
-					{
-						if (bar_param.Weight)
-						{
-							status_scale.Plu.fixed_weight = bar_param.Weight;
-							KEY_Write(keyin_getrawcode_bytype(0, KS_PRINT), 0, 0);
-							Operation.keyClear = OFF; 
-							/*
-							 status_scale.Weight = T_wValue;
-							 
-							 sale_calcprice();
-							 sale_display_update(0x0fff);
-							 sale_display_proc(OFF);
-							 
-							 SaleInsertLabelData();
-							 StartPrintFlag = ON;
-							 Prt_PrintStart(PRT_ITEM_NORMAL_MODE, PrtStruct.Mode, 0, OFF, 0, 0);
-							 PrintListWaitEnd();
-							 SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,0);
-							 StartPrintFlag = OFF;
-							 
-							 sale_pluclear(ON);      
-							 sale_display_update(0x0fff);
-							 */
-						}
-					}
-				}
-			} 
-		}
-		//PS2에 KEYBOARD 연결하여 사용시 "PRINT" 키로 사용
-		else PS2_Write(KS_PRINT);  
-	}
-	
-	INT16U LabelNumber = 0;		//임시 라벨 포맷 번호. 
-	INT16U BarcodeNumber = 0;	//임시 바코드 포맷 번호. 
-	void keyapp_labelformat_change(INT8U keyNum)
-	{
-		INT32U addr;
-		INT32U addr_global;
-		CAPTION_STRUCT	cap;	
-		INT8U   common;
-		INT8U	s_flag;
-		INT16S i;
-		char temp[30];
-		
-		//#ifdef USE_TRACE_STANDALONE
-		LABEL_KEY_STRUCT	label;
-		INT8U	strSize;
-		INT8U	common_bar;
-		
-		strSize = sizeof(LABEL_KEY_STRUCT);
-		s_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG9)&0x80;//parameter 725
-		
-		addr_global = DFLASH_BASE;
-		addr_global += FLASH_GLOBAL_AREA;
-		
-		addr = FLASH_LABEL_KEY_TABLE_AREA + DFLASH_BASE;
-		addr += (keyNum-1) * strSize;
-		label.fmtNo = Flash_wread(addr);
-		label.barcodefmtNo = Flash_wread(addr+2);
-		
-		caption_split_by_code(0x2018,&cap,0); //plu label no.
-		if((label.fmtNo < cap.input_min) || (label.fmtNo > cap.input_max) || (label.fmtNo == 0))
-		{
-			BuzOn(2);
-			return;
-		}
-		caption_split_by_code(0x352B,&cap,0); //barcode no.
-		if((label.barcodefmtNo < cap.input_min) || (label.barcodefmtNo > cap.input_max) || (label.barcodefmtNo == 0))
-		{
-			BuzOn(2);
-			return;
-		}
-#ifndef USE_EMART_BACK_LABEL
-		if (s_flag)	//20090416 Added JJANG 라벨 1회 변경
-		{		
-			if (label.fmtNo != 0) LabelNumber = label.fmtNo;
-			if (label.barcodefmtNo != 0) BarcodeNumber = label.barcodefmtNo;
-		}
-		else
-		{
-			if (label.fmtNo != 0)
-			{
-				common = get_global_bparam(GLOBAL_SALE_SETUP_FLAG3)&0x80; //라벨 일괄설정
-				if(common)
-				{
-					for(i=0; i<4; i++)  {
-						addr = addr_global + GLOBAL_LABEL_STANDARD;
-						addr = addr + i*2;
-						if(i==3) addr = addr_global + GLOBAL_LABEL_FSP;
-						Flash_wwrite(addr, label.fmtNo);
-					}			
-				}
-				else  //change standard label only
-				{
-					addr = addr_global + GLOBAL_LABEL_STANDARD;
-					Flash_wwrite(addr, label.fmtNo);	
-				}
-			}
-			
-			if (label.barcodefmtNo != 0)
-			{
-				common_bar = get_global_bparam(GLOBAL_SALE_SETUP_FLAG3)&0x40;//바코드 일괄설정		
-				if (common_bar) 
-				{	
-					for(i = 0; i < 9; i++)  
-					{
-						addr = addr_global + GLOBAL_BARCODE_STD_WID;
-						addr = addr + i;
-						Flash_bwrite(addr, (INT8U)label.barcodefmtNo);
-					}
-				}
-				else 
-				{
-					addr = addr_global + GLOBAL_BARCODE_STD_WID;
-					Flash_bwrite(addr, (INT8U)label.barcodefmtNo);
-#ifdef USE_LOTTEMART_DEFAULT
-					addr = addr_global + GLOBAL_BARCODE_STD_FIX;
-					Flash_bwrite(addr, (INT8U)label.barcodefmtNo);
-#endif
-				}
-			}
-		}
-		
-		sprintf(temp,"L#:%2d, B#:%2d", label.fmtNo, label.barcodefmtNo);
-		DisplayMsg(temp); 
-#else
-		Operation.BackLabeledFlag = Operation.BackLabeledFlag^1;
-		if (Operation.BackLabeledFlag)
-		{
-			if (label.fmtNo != 0) LabelNumber = label.fmtNo;
-			if (label.barcodefmtNo != 0) BarcodeNumber = label.barcodefmtNo;
-			sprintf((char *)temp, "후방라벨");
-			display_message_page_mid((char *)temp);
-		}
-		else
-		{
-			LabelNumber = 0;
-			BarcodeNumber = 0;
-			sprintf((char *)temp, "일반라벨");
-			display_message_page_mid((char *)temp);
-		}
-		sale_display_update(UPDATE_MODE);
-#endif
-		//#else
-		//	INT16U  labelNum;	 	
-		//	s_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG9)&0x80;
-		//
-		//	addr_global = DFLASH_BASE;
-		//	addr_global += FLASH_GLOBAL_AREA;
-		//
-		//	addr = FLASH_LABEL_KEY_TABLE_AREA + DFLASH_BASE;
-		//	addr += (keyNum-1) * 2;
-		//	labelNum = Flash_wread(addr);
-		//
-		//	caption_split_by_code(0x2012,&cap,0); //plu label no.
-		//	if(labelNum<cap.input_min || labelNum > cap.input_max)
-		//	{
-		//		BuzOn(2);
-		//		return;
-		//	}
-		//
-		//	if (s_flag)	//20090416 Added JJANG 라벨 1회 변경
-		//	{
-		//		LabelNumber = labelNum;
-		//		//BarcodeNumber = label.barcodefmtNo;
-		//	}
-		//	else
-		//	{
-		//		common = get_global_bparam(GLOBAL_SALE_SETUP_FLAG3)&0x80;
-		//		if(common)
-		//		{
-		//			for(i=0; i<4; i++)  {
-		//				addr = addr_global + GLOBAL_LABEL_STANDARD;
-		//				addr = addr + i*2;
-		//				if(i==3) addr = addr_global + GLOBAL_LABEL_FSP;
-		//				Flash_wwrite(addr, labelNum);
-		//			}
-		//		}
-		//		else  //change standard label only
-		//		{
-		//			addr = addr_global + GLOBAL_LABEL_STANDARD;
-		//			Flash_wwrite(addr, labelNum);	
-		//		}
-		//	}
-		//
-		//	sprintf(temp,"Label NO: #%d", labelNum);
-		//	DisplayMsg(temp); 
-		//#endif
-	}
-	
-	extern void global_set_pluinhibit(INT8U x, INT8U y);
-	void keyapp_apply_global_label_barcode(void)
-	{
-		//	CAPTION_STRUCT	cap;	
-		//	INT8U	s_flag;
-		char temp[64];
-		INT8U g_label;
-		
-		//	s_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG9)&0x80;
-		
-		//	if (s_flag)	//20090416 Added JJANG 라벨 1회 변경
-		//	{		
-		//		if (label.fmtNo != 0) LabelNumber = label.fmtNo;
-		//		if (label.barcodefmtNo != 0) BarcodeNumber = label.barcodefmtNo;
-		//	}
-		//	else
-		//	{
-		g_label = get_global_bparam(GLOBAL_LABEL_PRIORITY);
-		g_label ^= 1;
-		set_global_bparam(GLOBAL_LABEL_PRIORITY, g_label);	// label priority
-		set_global_bparam(GLOBAL_BARCODE_PRIORITY, g_label);	// barcode priority
-		//	}
-		
-		global_set_pluinhibit(VERIFY_FUNC,0);
-#ifdef USE_TRACE_STANDALONE
-		if (g_label)
-		{
-			sprintf(temp, "공통라벨 사용");
-		}
-		else
-		{
-			sprintf(temp, "공통라벨 해제");
-		}
-		display_message_page_mid(temp);
-#else
-		if (g_label)
-		{
-			sprintf(temp, "Global Label");
-		}
-		else
-		{
-			sprintf(temp, "PLU Label");
-		}
-		DisplayMsg(temp); 
-#endif
-	}
-	
-#ifdef USE_CHN_CART_SCALE
-#ifdef USE_CHN_IO_BOARD
-	void keyapp_usb_save_log(void)
-	{
-		INT16U len;
-		INT8U ret;
-		INT8U res_code;
-		INT16U ind_idx;
-		INT8U string_buf[50];
-		
-		POINT disp_p;
-		char old_font;
-		INT8U old_page;
-		COMM_BUF *CBuf;
-		INT32U pluno;
-		INT8U  error;
-		INT16U head, tail;
-		INT16U log_num, temp_tail;
-		
-		CBuf = &CommBufUsbMem;
-		
+	if (pBarParam->Scan_flag & BAR_SCANFLAG_CODE_880)	//현대그린푸드 친환경 바코드	
+	{		
 		old_font = DspStruct.Id1;
 		old_page = DspStruct.Page;
 		Dsp_SetPage(DSP_ERROR_PAGE);
 		FontSizeChange(FONT_MEDIUM);
-		display_lcd_clear_buf();  // Clear buf PLU Name Area
+		display_lcd_clear_buf();	// Clear buf PLU Name Area
+		disp_p = point(DSP_PLU_NAME_Y, 10);
+		Dsp_Write_String(disp_p, "조회 중입니다.");
+		display_lcd_diffuse();	// Redraw PLU Name Area
 		
-		disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
-		sprintf((char*)string_buf, "USB SAVE LOG");
+		ret = command_ask_eco_barcode(pBarParam->code880);
 		
-		Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
-		Dsp_Diffuse();
-		//display_lcd_diffuse();	// Redraw PLU Name Area
-		
-		tail = get_nvram_wparam(NVRAM_SEND_REMAINDED_TAIL);
-		head = get_nvram_wparam(NVRAM_SEND_REMAINDED_HEAD);
-		
-		//commun_send_cmd(CBuf, RFID_CMD_READ_DATA, NULL);
-		log_num = 0;
-		temp_tail = tail + log_num;
-		temp_tail %= Startup.max_send_buf;
-		usbmem_send_log_to_usb(CBuf, tail, log_num);
-		
-		network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
-		network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
-		
-		Delay_100ms(2);
-		while(1)
+		switch(ret)
 		{
-			if (network_timeout_check(50,NETWORK_TIMEOUT_TIMESYNC)) 
-			{
-				if (network_counter_check(0,NETWORK_TIMEOUT_TIMESYNC)) 
-				{
-					usbmem_send_log_to_usb(CBuf, tail, log_num);
-				} 
-				else 
-				{
-					BuzOn(3);
-					sprintf((char*)string_buf, "FAIL..");
-					display_message_page_mid((char*)string_buf);
-					break;
-				}
-			}
-			ret = usbmem_interpreter(CBuf);
-			// 빠져나가는 조건
-			if (ret == USBMEM_COM_OK)
-			{
-				if (usbmem_RcvCmd[0] == 'N' && usbmem_RcvCmd[1] == 'u')
-				{
-					memcpy((INT8U *)&pluno, usbmem_RcvBuffer, 4);
-					memcpy((INT8U *)&error, &usbmem_RcvBuffer[4], 1);
-					sprintf(string_buf, "[FAIL] LOG=%ld, ERR=%d", pluno, error);
-					display_message_page_mid((char*)string_buf);
-					break;
-				}
-				else if (usbmem_RcvCmd[0] == 'G' && usbmem_RcvCmd[1] == 'u')
-				{
-					memcpy((INT8U *)&pluno, usbmem_RcvBuffer, 4);
-					memcpy((INT8U *)&error, &usbmem_RcvBuffer[4], 1);
-					sprintf(string_buf, "[G%04d] PLU = %5ld", log_num, pluno);
-					//display_message_page_mid((char*)string_buf);
-					Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
-					Dsp_Diffuse();
-					
-					// next log
-					log_num++;
-					temp_tail = tail + (log_num - 1);	// log_num=0:file생성, log_num=1:가장오래된log
-					temp_tail %= Startup.max_send_buf;
-					if (temp_tail == head) break;	// complete
-					
-					usbmem_send_log_to_usb(CBuf, tail, log_num);
-					network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
-					network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
-				}
-			}
-			if(KEY_IsKey()) 
-			{
-				KEY_InKey();
-				BuzOn(1);
+			case 0 : 
+				BuzOn(2);
+				sprintf((char*)string_buf, "인증 상품입니다.");
 				break;
-			}
+			case 1 : 
+				BuzOn(3);
+				sprintf((char*)string_buf, "인증상품이 아닙니다.");
+				break;
+			case 2 : 
+				BuzOn(3);
+				sprintf((char*)string_buf, "DATA 없음");
+				break;
+			case 3 :
+				BuzOn(3);
+				sprintf((char*)string_buf, "DB 접속 오류");
+				break;
+			default : 
+				BuzOn(3);
+				sprintf((char*)string_buf, "조회 오류");
+				break;
 		}
+		display_lcd_clear_buf();	// Clear buf PLU Name Area
+		Dsp_Write_String(disp_p, string_buf);
+		display_lcd_diffuse();	// Redraw PLU Name Area
+		Key_DelaySec(30, 0);
 		Dsp_SetPage(old_page);
 		Dsp_Diffuse();
 		DspLoadFont1(old_font);
+		return ON;
 	}
 #endif
-#endif
 	
+	if (FlagIndividualMultiStart)//복수개체 입력
+	{
+		if (MultiIndex < MAX_INDIVIAL_MULTI_DATA_CNT)
+		{
+			memcpy(IndivdualMultiData[MultiIndex].indivNoStr, CurTraceStatus.indivStr.individualNO, INDIVIDUAL_NO_LEN);
+			IndivdualMultiData[MultiIndex].slaughterHouse = CurTraceStatus.slPlace;
+			MultiIndex++;
+#ifdef USE_EMART_NETWORK
+			FlagIndividualMultiStart = OFF;
+			FlagIndividualMultiRemain = ON;
+#endif
+		}
+		else
+		{
+			BuzOn(2);
+		}
+	}
+	else
+	{
+		FlagIndividualMultiRemain = OFF;
+		MultiIndex = 0;
+		memset(IndivdualMultiData, 0, sizeof(TRACE_INDIVIDUAL_MULTI_DATA) * MAX_INDIVIAL_MULTI_DATA_CNT);
+	}
+	if (FlagLotMultiStart)	//장부묶음 입력
+	{
+		if (LotListMultiIndex < MAX_LOT_MULTI_DATA_CNT)
+		{
+			memcpy(LotMultiData[LotListMultiIndex].indivNoStr, CurTraceStatus.indivStr.individualNO, INDIVIDUAL_NO_LEN);
+			LotMultiData[LotListMultiIndex].pluNo = status_scale.cur_pluid;
+			LotMultiData[LotListMultiIndex].deptNo = status_scale.departmentid;
+			LotMultiData[LotListMultiIndex].slaughterNo = CurTraceStatus.slPlace;
+			LotListMultiIndex++;
+		}
+		else
+		{
+			BuzOn(2);
+		}
+	}
+	return ON;
+}
+#endif
+
+void keyapp_scanprint(void)
+{
+	INT32U sCode=0;
+	INT8U  ucTemp;
+	INT8U  modeScanner;
+	INT8U  deptno;
+	INT32U pluno;
+	INT32U T_wValue;        //tichet
+	INT32U T_pValue;        //tichet
+	INT8U  Scanform;	//parameter 558 : yes
+	STRUCT_STRFORM_PARAM bar_param;
+#ifdef USE_SCALE_POS_PROTOCOL
+	INT16U len;
+#endif
 #ifdef USE_TRACE_STANDALONE
-	//[start]gm 090408
-	void keyapp_specialuse(INT16U keyNum)
-	{
-		INT16U  specialuseNum;	
-		INT32U	addr;
-		//	INT8U	buf1[52];
-		//	INT8U	buf2[52];
-		
-		specialuseNum = keyNum - KS_SPECIALUSE_01 + 1;
-		if(specialuseNum < 1 || specialuseNum > 100)
-		{
-			BuzOn(2);
-			return;
-		}
-		BuzOn(1);
-		
-		//	memset(buf1, 0, sizeof(TRACE_SPECIALUSE_STRUCT));
-		//	memset(buf2, 0, sizeof(TRACE_SPECIALUSE_STRUCT));
-		
-		addr =  DFLASH_BASE + FLASH_TRACE_SPECIALUSE_AREA;
-		addr += sizeof(TRACE_SPECIALUSE_STRUCT) * (INT32U)(specialuseNum-1);
-		
-		if (Flash_wread(addr) != specialuseNum)
-		{
-			BuzOn(2);
-			return;
-		}
-		//	addr += 2; //index no
-		//
-		//	Flash_sread(addr, (HUGEDATA INT8U *)buf1, sizeof(TRACE_SPECIALUSE_STRUCT)-2);
-		//
-		//	sprintf((char *)buf2, "용도:%s", buf1);
-		//	display_message_page((char *)buf2);
-		
-		CurTraceStatus.meatUse = (INT8U)specialuseNum;
-		sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, ON);
-		sale_display_individual();
-	}
-	//[end]gm 090408
+	INT16U indivIdx;
 #endif
+	INT8U  ret;
+	INT8U  keycode;
 	
-	void keyapp_weight_reset(void)
+	ucTemp = get_global_bparam(GLOBAL_SCANNER_FLAG1);
+	modeScanner = ucTemp&0x07;
+	Scanform = ucTemp&0x10;	// 0 : 1-format, 1 : 10-formats
+	
+	//PS2에 Barcode Scanner를 연결하여 사용 시 
+	if(UseScanner)
 	{
-		//	INT8U i;
-		//	POINT p;
-		//	char string_buf[25];
-		//	INT16U x, y;
+		deptno=0; pluno=0;
+		T_wValue=0; T_pValue=0;
 		
-		status_run.run_mode = RUN_RESTART; 
-		//for(i = 0; i < 2; i++)
+		ret = scanner_get_data(&bar_param, Scanform);
+		if (!ret)
 		{
-			display_allon_primary_indication();
-			VFD7_Diffuse();
-			LCD_Check(0xff,0x00);
-			Delay_100ms(8);
-			display_alloff_primary_indication();
-			VFD7_Diffuse();
-			LCD_Check(0x00,0xff);
-			Delay_100ms(8);
+			BuzOn(2);
+			return;
 		}
-		display_alloff_primary_indication();
+		if(modeScanner == 3) 
+		{
+#ifdef USE_TRACE_STANDALONE
+			if (bar_param.Scan_flag&BAR_SCANFLAG_REMNANT)	// 'X' : Remnant
+			{
+				CalledTraceStatus.indivStr.lotFlag = checkIndividualNo(bar_param.RemnantData);
+				memcpy(CalledTraceStatus.indivStr.individualNO, bar_param.RemnantData, sizeof(CalledTraceStatus.indivStr.individualNO));
+				CalledTraceStatus.indivStr.individualNO[INDIVIDUAL_NO_LEN] = 0;
+				individual_checkZero(CalledTraceStatus.indivStr.individualNO);
+				indivIdx = individualData_search(CalledTraceStatus.indivStr.individualNO, 0);
+				individual_call(indivIdx);
+			}
+#endif
+		}
+		else if (modeScanner == 4) 
+		{
+#ifdef USE_TRACE_STANDALONE
+			ret = scanner_interprete_data(&bar_param);
+			if (!ret) return;
+#endif
+#ifdef USE_SCALE_POS_PROTOCOL
+			if (bar_param.Scan_flag&BAR_SCANFLAG_TEXT)	// 'T' : Text
+			{
+				memset(&KorTrace_Flag.CurBarData[0], 0, sizeof(KorTrace_Flag.CurBarData));
+				len = strlen(bar_param.Text);
+				memset(&KorTrace_Flag.CurBarData[0], 0x30, 5);
+				memcpy((char *)&KorTrace_Flag.CurBarData[5], &bar_param.Text[0], len - KORTR_PROCESS_NO_LEN);
+				KorTrace_Flag.CurBarData[37] = '-';
+				sprintf((char *)&KorTrace_Flag.CurBarData[38], &bar_param.Text[len - KORTR_PROCESS_NO_LEN], KORTR_PROCESS_NO_LEN);
+				if (network_status.service_bflag2)
+				{
+					keyapp_ktr_req_nextid(KORTR_REQ_FIXED_ID);
+				}
+				else
+				{
+					KorTrace_Flag.flagReceive = 1;
+				}
+				kortrace_make_display_data(KorTrace_Flag.display_data, KorTrace_Flag.CurBarData, sizeof(KorTrace_Flag.display_data));
+			}
+#endif
+		}
+		else
+		{
+			//if(!Scanform) scanner_get_pluno(&deptno, &pluno);
+			//else scanner_get_mapping_pluno(&deptno, &pluno, &T_wValue, &T_pValue);  //LRE + Tichet   
+			scanner_get_mapping_pluno(&deptno, &pluno, &bar_param, &T_wValue, &T_pValue);   
+#ifdef USE_GERMANY_TARE_SCANNER
+			pluno = bar_param.PluNumber;
+			deptno = bar_param.DeptId;
+			if(!deptno)deptno = status_scale.departmentid;
+			if(bar_param.TareWeight)
+			{
+				keyapp_tare(TARE_TYPE_KEY,bar_param.TareWeight, OFF);
+			} 
+#else
+			if(!deptno || !pluno) return;
+#endif			
+			
+			if (keyapp_pluno(deptno, pluno, OFF))
+			{
+				if (modeScanner == 0)      //PLU 호출 만 함
+				{
+				}
+				else if (modeScanner == 1)	//PLU 호출 후 라벨 인쇄 (일반 모드).짐판위의 weight 적용
+				{
+					
+					if (bar_param.TotalPrice)
+					{
+						status_scale.cur_unitprice = bar_param.TotalPrice;
+						keyapp_fixed_price(0,0);                                                
+					}
+					if(get_global_bparam(GLOBAL_SALERUN_MODE)==1)   // Ticket mode
+					{
+						if (bar_param.Weight)
+						{
+							status_scale.Plu.fixed_weight = bar_param.Weight;                                                      
+						}
+						
+						if (Scan_clerk == 0)	//ticket MODE 일때, 특정 점원을 선택하여 사용함 
+						{
+							HiddenClerkNumber = 0;
+							//PS2_Write(KS_CLERK_CALL);	//입력한 값이 없으면 Clerk을 호출한다. 
+							KEY_Write(keyin_getrawcode_bytype(0, KS_CLERK_CALL), 0, 0);
+							Operation.keyClear = OFF;
+						}
+						else	//입력된 점원에게 상품을 판매한다. 수정필요.
+						{
+							//PS2_Write(Scan_clerk+KS_CLERK_01-1);	//입력된 점원에게 상품을 판매한다. 수정필요.
+							KEY_Write(keyin_getrawcode_bytype(0, Scan_clerk+KS_CLERK_01-1), 0, 0);
+							Operation.keyClear = OFF;
+						}
+					}
+					else	//라벨모드
+					{
+						//PS2_Write(KS_PRINT);  //라벨모드에서 바로 출력함
+						KEY_Write(keyin_getrawcode_bytype(0, KS_PRINT), 0, 0);
+						Operation.keyClear = OFF;
+					}
+				}
+				else if (modeScanner == 2)	//PLU 호출 후 라벨 인쇄	(Prepack).barcode의 weight 적용
+				{
+					if (bar_param.Weight)
+					{
+						status_scale.Plu.fixed_weight = bar_param.Weight;
+						KEY_Write(keyin_getrawcode_bytype(0, KS_PRINT), 0, 0);
+						Operation.keyClear = OFF; 
+						/*
+							status_scale.Weight = T_wValue;
+							
+							sale_calcprice();
+							sale_display_update(0x0fff);
+							sale_display_proc(OFF);
+							
+							SaleInsertLabelData();
+							StartPrintFlag = ON;
+							Prt_PrintStart(PRT_ITEM_NORMAL_MODE, PrtStruct.Mode, 0, OFF, 0, 0);
+							PrintListWaitEnd();
+							SaleAcctLocalAddTransaction(status_scale.Plu.deptid,status_scale.cur_pluid,&Price,0);
+							StartPrintFlag = OFF;
+							
+							sale_pluclear(ON);      
+							sale_display_update(0x0fff);
+							*/
+					}
+				}
+			}
+		} 
+	}
+	//PS2에 KEYBOARD 연결하여 사용시 "PRINT" 키로 사용
+	else PS2_Write(KS_PRINT);  
+}
+
+INT16U LabelNumber = 0;		//임시 라벨 포맷 번호. 
+INT16U BarcodeNumber = 0;	//임시 바코드 포맷 번호. 
+void keyapp_labelformat_change(INT8U keyNum)
+{
+	INT32U addr;
+	INT32U addr_global;
+	CAPTION_STRUCT	cap;	
+	INT8U   common;
+	INT8U	s_flag;
+	INT16S i;
+	char temp[30];
+	
+	//#ifdef USE_TRACE_STANDALONE
+	LABEL_KEY_STRUCT	label;
+	INT8U	strSize;
+	INT8U	common_bar;
+	
+	strSize = sizeof(LABEL_KEY_STRUCT);
+	s_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG9)&0x80;//parameter 725
+	
+	addr_global = DFLASH_BASE;
+	addr_global += FLASH_GLOBAL_AREA;
+	
+	addr = FLASH_LABEL_KEY_TABLE_AREA + DFLASH_BASE;
+	addr += (keyNum-1) * strSize;
+	label.fmtNo = Flash_wread(addr);
+	label.barcodefmtNo = Flash_wread(addr+2);
+	
+	caption_split_by_code(0x2018,&cap,0); //plu label no.
+	if((label.fmtNo < cap.input_min) || (label.fmtNo > cap.input_max) || (label.fmtNo == 0))
+	{
+		BuzOn(2);
+		return;
+	}
+	caption_split_by_code(0x352B,&cap,0); //barcode no.
+	if((label.barcodefmtNo < cap.input_min) || (label.barcodefmtNo > cap.input_max) || (label.barcodefmtNo == 0))
+	{
+		BuzOn(2);
+		return;
+	}
+#ifndef USE_EMART_BACK_LABEL
+	if (s_flag)	//20090416 Added JJANG 라벨 1회 변경
+	{		
+		if (label.fmtNo != 0) LabelNumber = label.fmtNo;
+		if (label.barcodefmtNo != 0) BarcodeNumber = label.barcodefmtNo;
+	}
+	else
+	{
+		if (label.fmtNo != 0)
+		{
+			common = get_global_bparam(GLOBAL_SALE_SETUP_FLAG3)&0x80; //라벨 일괄설정
+			if(common)
+			{
+				for(i=0; i<4; i++)  {
+					addr = addr_global + GLOBAL_LABEL_STANDARD;
+					addr = addr + i*2;
+					if(i==3) addr = addr_global + GLOBAL_LABEL_FSP;
+					Flash_wwrite(addr, label.fmtNo);
+				}			
+			}
+			else  //change standard label only
+			{
+				addr = addr_global + GLOBAL_LABEL_STANDARD;
+				Flash_wwrite(addr, label.fmtNo);	
+			}
+		}
+		
+		if (label.barcodefmtNo != 0)
+		{
+			common_bar = get_global_bparam(GLOBAL_SALE_SETUP_FLAG3)&0x40;//바코드 일괄설정		
+			if (common_bar) 
+			{	
+				for(i = 0; i < 9; i++)  
+				{
+					addr = addr_global + GLOBAL_BARCODE_STD_WID;
+					addr = addr + i;
+					Flash_bwrite(addr, (INT8U)label.barcodefmtNo);
+				}
+			}
+			else 
+			{
+				addr = addr_global + GLOBAL_BARCODE_STD_WID;
+				Flash_bwrite(addr, (INT8U)label.barcodefmtNo);
+#ifdef USE_LOTTEMART_DEFAULT
+				addr = addr_global + GLOBAL_BARCODE_STD_FIX;
+				Flash_bwrite(addr, (INT8U)label.barcodefmtNo);
+#endif
+			}
+		}
+	}
+	
+	sprintf(temp,"L#:%2d, B#:%2d", label.fmtNo, label.barcodefmtNo);
+	DisplayMsg(temp); 
+#else
+	Operation.BackLabeledFlag = Operation.BackLabeledFlag^1;
+	if (Operation.BackLabeledFlag)
+	{
+		if (label.fmtNo != 0) LabelNumber = label.fmtNo;
+		if (label.barcodefmtNo != 0) BarcodeNumber = label.barcodefmtNo;
+		sprintf((char *)temp, "후방라벨");
+		display_message_page_mid((char *)temp);
+	}
+	else
+	{
+		LabelNumber = 0;
+		BarcodeNumber = 0;
+		sprintf((char *)temp, "일반라벨");
+		display_message_page_mid((char *)temp);
+	}
+	sale_display_update(UPDATE_MODE);
+#endif
+	//#else
+	//	INT16U  labelNum;	 	
+	//	s_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG9)&0x80;
+	//
+	//	addr_global = DFLASH_BASE;
+	//	addr_global += FLASH_GLOBAL_AREA;
+	//
+	//	addr = FLASH_LABEL_KEY_TABLE_AREA + DFLASH_BASE;
+	//	addr += (keyNum-1) * 2;
+	//	labelNum = Flash_wread(addr);
+	//
+	//	caption_split_by_code(0x2012,&cap,0); //plu label no.
+	//	if(labelNum<cap.input_min || labelNum > cap.input_max)
+	//	{
+	//		BuzOn(2);
+	//		return;
+	//	}
+	//
+	//	if (s_flag)	//20090416 Added JJANG 라벨 1회 변경
+	//	{
+	//		LabelNumber = labelNum;
+	//		//BarcodeNumber = label.barcodefmtNo;
+	//	}
+	//	else
+	//	{
+	//		common = get_global_bparam(GLOBAL_SALE_SETUP_FLAG3)&0x80;
+	//		if(common)
+	//		{
+	//			for(i=0; i<4; i++)  {
+	//				addr = addr_global + GLOBAL_LABEL_STANDARD;
+	//				addr = addr + i*2;
+	//				if(i==3) addr = addr_global + GLOBAL_LABEL_FSP;
+	//				Flash_wwrite(addr, labelNum);
+	//			}
+	//		}
+	//		else  //change standard label only
+	//		{
+	//			addr = addr_global + GLOBAL_LABEL_STANDARD;
+	//			Flash_wwrite(addr, labelNum);	
+	//		}
+	//	}
+	//
+	//	sprintf(temp,"Label NO: #%d", labelNum);
+	//	DisplayMsg(temp); 
+	//#endif
+}
+
+extern void global_set_pluinhibit(INT8U x, INT8U y);
+void keyapp_apply_global_label_barcode(void)
+{
+	//	CAPTION_STRUCT	cap;	
+	//	INT8U	s_flag;
+	char temp[64];
+	INT8U g_label;
+	
+	//	s_flag = get_global_bparam(GLOBAL_SALE_SETUP_FLAG9)&0x80;
+	
+	//	if (s_flag)	//20090416 Added JJANG 라벨 1회 변경
+	//	{		
+	//		if (label.fmtNo != 0) LabelNumber = label.fmtNo;
+	//		if (label.barcodefmtNo != 0) BarcodeNumber = label.barcodefmtNo;
+	//	}
+	//	else
+	//	{
+	g_label = get_global_bparam(GLOBAL_LABEL_PRIORITY);
+	g_label ^= 1;
+	set_global_bparam(GLOBAL_LABEL_PRIORITY, g_label);	// label priority
+	set_global_bparam(GLOBAL_BARCODE_PRIORITY, g_label);	// barcode priority
+	//	}
+	
+	global_set_pluinhibit(VERIFY_FUNC,0);
+#ifdef USE_TRACE_STANDALONE
+	if (g_label)
+	{
+		sprintf(temp, "공통라벨 사용");
+	}
+	else
+	{
+		sprintf(temp, "공통라벨 해제");
+	}
+	display_message_page_mid(temp);
+#else
+	if (g_label)
+	{
+		sprintf(temp, "Global Label");
+	}
+	else
+	{
+		sprintf(temp, "PLU Label");
+	}
+	DisplayMsg(temp); 
+#endif
+}
+
+#ifdef USE_CHN_CART_SCALE
+#ifdef USE_CHN_IO_BOARD
+void keyapp_usb_save_log(void)
+{
+	INT16U len;
+	INT8U ret;
+	INT8U res_code;
+	INT16U ind_idx;
+	INT8U string_buf[50];
+	
+	POINT disp_p;
+	char old_font;
+	INT8U old_page;
+	COMM_BUF *CBuf;
+	INT32U pluno;
+	INT8U  error;
+	INT16U head, tail;
+	INT16U log_num, temp_tail;
+	
+	CBuf = &CommBufUsbMem;
+	
+	old_font = DspStruct.Id1;
+	old_page = DspStruct.Page;
+	Dsp_SetPage(DSP_ERROR_PAGE);
+	FontSizeChange(FONT_MEDIUM);
+	display_lcd_clear_buf();  // Clear buf PLU Name Area
+	
+	disp_p = point(DSP_PLU_NAME_Y, DSP_PLU_NAME_X);
+	sprintf((char*)string_buf, "USB SAVE LOG");
+	
+	Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
+	Dsp_Diffuse();
+	//display_lcd_diffuse();	// Redraw PLU Name Area
+	
+	tail = get_nvram_wparam(NVRAM_SEND_REMAINDED_TAIL);
+	head = get_nvram_wparam(NVRAM_SEND_REMAINDED_HEAD);
+	
+	//commun_send_cmd(CBuf, RFID_CMD_READ_DATA, NULL);
+	log_num = 0;
+	temp_tail = tail + log_num;
+	temp_tail %= Startup.max_send_buf;
+	usbmem_send_log_to_usb(CBuf, tail, log_num);
+	
+	network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
+	network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
+	
+	Delay_100ms(2);
+	while(1)
+	{
+		if (network_timeout_check(50,NETWORK_TIMEOUT_TIMESYNC)) 
+		{
+			if (network_counter_check(0,NETWORK_TIMEOUT_TIMESYNC)) 
+			{
+				usbmem_send_log_to_usb(CBuf, tail, log_num);
+			} 
+			else 
+			{
+				BuzOn(3);
+				sprintf((char*)string_buf, "FAIL..");
+				display_message_page_mid((char*)string_buf);
+				break;
+			}
+		}
+		ret = usbmem_interpreter(CBuf);
+		// 빠져나가는 조건
+		if (ret == USBMEM_COM_OK)
+		{
+			if (usbmem_RcvCmd[0] == 'N' && usbmem_RcvCmd[1] == 'u')
+			{
+				memcpy((INT8U *)&pluno, usbmem_RcvBuffer, 4);
+				memcpy((INT8U *)&error, &usbmem_RcvBuffer[4], 1);
+				sprintf(string_buf, "[FAIL] LOG=%ld, ERR=%d", pluno, error);
+				display_message_page_mid((char*)string_buf);
+				break;
+			}
+			else if (usbmem_RcvCmd[0] == 'G' && usbmem_RcvCmd[1] == 'u')
+			{
+				memcpy((INT8U *)&pluno, usbmem_RcvBuffer, 4);
+				memcpy((INT8U *)&error, &usbmem_RcvBuffer[4], 1);
+				sprintf(string_buf, "[G%04d] PLU = %5ld", log_num, pluno);
+				//display_message_page_mid((char*)string_buf);
+				Dsp_Write_String(disp_p,(HUGEDATA char*)string_buf);
+				Dsp_Diffuse();
+				
+				// next log
+				log_num++;
+				temp_tail = tail + (log_num - 1);	// log_num=0:file생성, log_num=1:가장오래된log
+				temp_tail %= Startup.max_send_buf;
+				if (temp_tail == head) break;	// complete
+				
+				usbmem_send_log_to_usb(CBuf, tail, log_num);
+				network_timeout_reset(NETWORK_TIMEOUT_TIMESYNC);
+				network_counter_reset(NETWORK_TIMEOUT_TIMESYNC);
+			}
+		}
+		if(KEY_IsKey()) 
+		{
+			KEY_InKey();
+			BuzOn(1);
+			break;
+		}
+	}
+	Dsp_SetPage(old_page);
+	Dsp_Diffuse();
+	DspLoadFont1(old_font);
+}
+#endif
+#endif
+
+#ifdef USE_TRACE_STANDALONE
+//[start]gm 090408
+void keyapp_specialuse(INT16U keyNum)
+{
+	INT16U  specialuseNum;	
+	INT32U	addr;
+	//	INT8U	buf1[52];
+	//	INT8U	buf2[52];
+	
+	specialuseNum = keyNum - KS_SPECIALUSE_01 + 1;
+	if(specialuseNum < 1 || specialuseNum > 100)
+	{
+		BuzOn(2);
+		return;
+	}
+	BuzOn(1);
+	
+	//	memset(buf1, 0, sizeof(TRACE_SPECIALUSE_STRUCT));
+	//	memset(buf2, 0, sizeof(TRACE_SPECIALUSE_STRUCT));
+	
+	addr =  DFLASH_BASE + FLASH_TRACE_SPECIALUSE_AREA;
+	addr += sizeof(TRACE_SPECIALUSE_STRUCT) * (INT32U)(specialuseNum-1);
+	
+	if (Flash_wread(addr) != specialuseNum)
+	{
+		BuzOn(2);
+		return;
+	}
+	//	addr += 2; //index no
+	//
+	//	Flash_sread(addr, (HUGEDATA INT8U *)buf1, sizeof(TRACE_SPECIALUSE_STRUCT)-2);
+	//
+	//	sprintf((char *)buf2, "용도:%s", buf1);
+	//	display_message_page((char *)buf2);
+	
+	CurTraceStatus.meatUse = (INT8U)specialuseNum;
+	sale_display_indivFlag_set(INDIV_DISP_MODE_SPECIALUSE, ON);
+	sale_display_individual();
+}
+//[end]gm 090408
+#endif
+
+void keyapp_weight_reset(void)
+{
+	//	INT8U i;
+	//	POINT p;
+	//	char string_buf[25];
+	//	INT16U x, y;
+	
+	status_run.run_mode = RUN_RESTART; 
+	//for(i = 0; i < 2; i++)
+	{
+		display_allon_primary_indication();
 		VFD7_Diffuse();
 		LCD_Check(0xff,0x00);
-		Delay_100ms(10);
-		//	DspLoadFont1(DSP_PLU_FONT_ID);
-		//sprintf(string_buf, "저울 재시작");
-		//	Dsp_Fill_Buffer(0);
-		//	x = (LCD_X_MARGIN-display_font_get_height())/2;
-		//	y = (LCD_Y_MARGIN-display_font_get_width()*strlen(string_buf))/2;
-		//	p = point((INT8U)x, y);
-		//	Dsp_Write_String(p, string_buf);
-		//	Dsp_Diffuse();
-	}
-	
-	
-	void keyapp_check_production(void)
-	{
+		Delay_100ms(8);
 		display_alloff_primary_indication();
 		VFD7_Diffuse();
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		Report_SendingTransaction();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		sale_display_update(0x0fff);
+		LCD_Check(0x00,0xff);
+		Delay_100ms(8);
 	}
-	
-	void keyapp_delete_production(void)
-	{
-		display_alloff_primary_indication();
-		VFD7_Diffuse();
-		Dsp_ChangeMode(DSP_PGM_MODE);
-		Report_ClearSendingTransaction();
-		Dsp_ChangeMode(DSP_SALE_MODE);
-		sale_display_update(0x0fff);
-	}
+	display_alloff_primary_indication();
+	VFD7_Diffuse();
+	LCD_Check(0xff,0x00);
+	Delay_100ms(10);
+	//	DspLoadFont1(DSP_PLU_FONT_ID);
+	//sprintf(string_buf, "저울 재시작");
+	//	Dsp_Fill_Buffer(0);
+	//	x = (LCD_X_MARGIN-display_font_get_height())/2;
+	//	y = (LCD_Y_MARGIN-display_font_get_width()*strlen(string_buf))/2;
+	//	p = point((INT8U)x, y);
+	//	Dsp_Write_String(p, string_buf);
+	//	Dsp_Diffuse();
+}
+
+
+void keyapp_check_production(void)
+{
+	display_alloff_primary_indication();
+	VFD7_Diffuse();
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	Report_SendingTransaction();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	sale_display_update(0x0fff);
+}
+
+void keyapp_delete_production(void)
+{
+	display_alloff_primary_indication();
+	VFD7_Diffuse();
+	Dsp_ChangeMode(DSP_PGM_MODE);
+	Report_ClearSendingTransaction();
+	Dsp_ChangeMode(DSP_SALE_MODE);
+	sale_display_update(0x0fff);
+}
 
 #ifdef USE_SCALE_POS_PROTOCOL
 ////////////////////////////////
