@@ -732,12 +732,16 @@ void menu_function(INT16U fcode)
 #ifdef USE_QR_ADDTOTAL
 	case 0x1264: barcodefile_QR_cofig();	break;
 #endif
+#ifdef USE_PROHIBIT_PRESET_TARE
+	//// 스리랑카 현지 인증관련 Tare기능 캡션수정 및 Block 처리
+#else //USE_PROHIBIT_PRESET_TARE 
 	case 0x1271: tarefile_create();		break;
 #ifndef DISABLE_LIST_MENU
 	case 0x1272: tarefile_list();		break;
 #endif
 	case 0x1273: tarefile_delete();		break;
 	case 0x1274: tare_key_define();		break;
+#endif //USE_PROHIBIT_PRESET_TARE		
 	case 0x1281: pcsunit_create();		break;
 #ifndef DISABLE_LIST_MENU
 	case 0x1282: pcsunit_list();		break;	

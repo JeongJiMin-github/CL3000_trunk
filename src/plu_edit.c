@@ -1160,9 +1160,9 @@ INT8U plu_input(INT32U key,INT16U deptno,INT32U pluno, INT16S maxid, INT16S *ena
 
 		switch(ptype)
 		{
-#ifndef USE_SRILANKA_CERTI
+#ifndef USE_SRILANKA_CERTI_DEFAULT
 			case PTYPE_PRICE: // Price
-#endif
+#endif //USE_SRILANKA_CERTI_DEFAULT
 			case PTYPE_SPECIAL_PRICE: // SpecialPrice
 #ifdef	USE_PLU_MULTIPLE_PRICE	
 			case PTYPE_LINK2_PLU_NO:	// Second Price

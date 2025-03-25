@@ -217,6 +217,9 @@ START:
 			case 2 : code&=0xfff0;	break;
 			default : code = 0x8000; depth = 0; break;
 		}
+#ifdef USE_HIDE_DATETIME_MENU
+		cur_id = 0;
+#endif			
 		goto START;
 	}
 	addr=caption_search_by_code(list_code);

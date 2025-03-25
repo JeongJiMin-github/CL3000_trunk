@@ -390,6 +390,13 @@ void callback_sale_mode(long num)
 		Dsp_Write_String(disp_p,(HUGEDATA char *)global_message[MSG_INVALID_VALUE]);
   #endif
 #endif
+#ifdef USE_PROHIBIT_PREPACK
+		if (num == 3)		//스리랑카 전용 펌웨어 M1810에서 3을 입력시 prepack 콜백 문구 -> Invalid Value 출력하도록 수정
+		{
+			Dsp_Write_String(disp_p, (HUGEDATA char *)global_message[MSG_INVALID_VALUE]);
+			return;
+		}
+#endif //USE_PROHIBIT_PREPACK
 	} else {
 		caption_split_by_code((0x3F20+num), &cap,0);	  
 #ifdef HEBREW_FONT
@@ -444,6 +451,13 @@ KI_IN:
 
 	if(result == MENU_RET_SAVE)	//Modified by JJANG 20081201  
 	{
+#ifdef USE_PROHIBIT_PREPACK
+		if (sale_mode == 3)		////스리랑카 전용 펌웨어 M1810 Sale Mode에서 3을 입력하고 저장 동작시 부저를 울리며 이전메뉴로 나가짐
+		{
+			BuzOn(3);
+			return;
+		}
+#endif //USE_PROHIBIT_PREPACK				
 		if (!(status_scale.restrict&FUNC_CLERK)) 
 		{
 			if ((sale_mode == 1) || (sale_mode == 4)) 
@@ -1034,7 +1048,10 @@ void scale_parameter_scalesetup(void)
 			uctemp5 &= (~0x01);
 		}
 		if(startAuto) {
-			uctemp5 |= 0x04;   
+			uctemp5 |= 0x04;
+#ifdef	USE_SRILANKA_CERTI
+			uctemp5 &= (~0x04);
+#endif	//USE_SRILANKA_CERTI			 
 		} else {
 			uctemp5 &= (~0x04);
 		}

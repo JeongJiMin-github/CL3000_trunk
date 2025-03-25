@@ -173,7 +173,20 @@ void commun_write(HUGEDATA COMM_BUF *CBuf,INT8U cmd,INT32U number,INT32U nn,INT3
 			 break;
 		case 0x004: ret16=(INT16U)commun_recv_key((INT16S)number,(INT16S)nn,str,(INT16S)length);
 			 break;
-		case 0x005: ret16=(INT16U)commun_recv_caption(CBuf,(INT16S)number,(INT16S)nn,str);
+		case 0x005:
+#ifdef USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
+		/* EXT CAP Block */
+		if(CAL)
+		{
+		   if (nn == 0x18)
+		   {
+			   ret16 = 0;
+			   chk = 0;
+			   break;
+		   }
+		}
+#endif //USE_CHECK_CAL_SW_TO_UPDATE_DATAROM			
+		 ret16=(INT16U)commun_recv_caption(CBuf,(INT16S)number,(INT16S)nn,str);
 			 break;
 		case 0x006: ret16=(INT16U)commun_recv_labelbmp((INT32U)number,(INT16U)nn,str,length);
 			 break;
@@ -1687,7 +1700,20 @@ INT16U commun_recv_block(HUGEDATA COMM_BUF *CBuf,INT16S ipluno,INT16S ideptno,IN
 	r        = 0;
 	r_status = 0;
 	datablock--;
-
+// 스리랑카 전용 펌웨어 데이터롬 업데이트시 CAL 스위치 체크하도록
+#ifdef USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
+	/* CAL SW / Symbol(0x14) / Caption(0x15) / Origin(0x08) / Keypad(0x04) / Font(0x0C) */
+	if(CAL)
+	{
+		if((datatype == 0x14) || (datatype == 0x15)|| (datatype == 0x08) || (datatype == 0x04) || (datatype == 0x0C))
+		{
+			ret = 0;
+			DisplayMsg("CHK CAL Mode");
+			BuzOn(2);
+			return ret;
+		}
+	}
+#endif //USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
 	while (1) {
 		switch (status) {
 			case  0:data_size=0;
@@ -2151,6 +2177,14 @@ END2:
 			break;
 		case 6:	// "W89A000x,06L0005:....." 
 		case 1: 
+#ifdef USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
+		/* Parameter Block */
+		if(CAL)
+		{
+			ret = 0;
+			break;
+		}
+#endif //USE_CHECK_CAL_SW_TO_UPDATE_DATAROM				
 #ifdef USE_INIT_MASK
 			init_mask(INIT_MASK_BACKUP);				
 #endif
@@ -2161,16 +2195,41 @@ END2:
 #endif
 			break; // Parameter
 		case 4: KEY_CopyKeyTable((INT16U)nth_block); break;   // Keypad
-		case 9:	// "W89A0001,09L0005:....." 
+		case 9:	// "W89A0001,09L0005:....."
+#ifdef USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
+		/* Restart Block */
+		if(CAL)
+		{
+			ret = 0;
+			break;
+		}
+#endif //USE_CHECK_CAL_SW_TO_UPDATE_DATAROM		 
 				ret = 1;
 				break;
 			//_SOFTWARE_RESET;
-		case 2:	// "W89A0001,02L0005:T=02.<bcc>" 
+		case 2:	// "W89A0001,02L0005:T=02.<bcc>"
+#ifdef USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
+		/* Scale Type Block */
+		if(CAL)
+		{
+			ret = 0;
+			break;
+		}
+#endif //USE_CHECK_CAL_SW_TO_UPDATE_DATAROM 
 			/* m1731은 1810 등 엮여 있는 부분들이 있어 백업 안하는 것으로 결정 */
 			SetScaleType(scaleType, OFF, ON);
 			ret = 1;
 			break;
 	}
+#ifdef USE_CHECK_CAL_SW_TO_UPDATE_DATAROM
+	/* W89****시 CAL 스위치를 체크 */
+	if(CAL)
+	{
+		DisplayMsg("CHK CAL Mode");
+		BuzOn(1);
+		return ret;
+	}
+#endif // USE_CHECK_CAL_SW_TO_UPDATE_DATAROM	
 	if(data_type != 5){
 		sprintf(temp,"Set [%2d]",(INT16U)nth_block);
 		PutString(DSP_MSG_R_Y, DSP_MSG_R_X, temp, DSP_MSG_R_FONT_ID, DSP_MSG_R_MAGY, DSP_MSG_R_MAGX, MAX_MSG_R_CHAR);

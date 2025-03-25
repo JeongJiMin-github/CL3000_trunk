@@ -1246,16 +1246,16 @@ void plu_inhibit_default_eu(void)
 	plu_inhibit_bycode(PTYPE_GROUP_NO,0);		//Group
 	plu_inhibit_bycode(PTYPE_LABEL_NO,0);		//1st Label ID
 	plu_inhibit_bycode(PTYPE_ORIGIN_NO,0);		//Origin
-#ifndef USE_SRILANKA_CERTI
+#ifndef USE_SRILANKA_CERTI_DEFAULT
 	plu_inhibit_bycode(PTYPE_PLU_PREFIX,0);		//Prefix
 	plu_inhibit_bycode(PTYPE_ITEM_CODE,0);		//ItemCode
-#endif
+#endif //USE_SRILANKA_CERTI_DEFAULT
 	plu_inhibit_bycode(PTYPE_PIECE,0);			//PCS
 	plu_inhibit_bycode(PTYPE_PRICE,0);			//Price
 	plu_inhibit_bycode(PTYPE_TAX_NO,0);			//Tax ID
-#ifndef USE_SRILANKA_CERTI
+#ifndef USE_SRILANKA_CERTI_DEFAULT
 	plu_inhibit_bycode(PTYPE_TARE_VALUE,0);		//Tare
-#endif
+#endif //USE_SRILANKA_CERTI_DEFAULT
 	plu_inhibit_bycode(PTYPE_BARCODE_NO,0);		//Barcode ID
 	plu_inhibit_bycode(PTYPE_PRODUCED_DATE,0);	//ProducedDate
 	plu_inhibit_bycode(PTYPE_PACKCED_DATE,0);	//Packed Date

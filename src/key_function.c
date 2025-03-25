@@ -4296,6 +4296,9 @@ INT16S CheckPrepackAutoLogin(void)
 
 void keyapp_auto(void)
 {
+#ifdef USE_PROHIBIT_AUTO_PRT
+	return; 	/* 스리랑카 요청(인증) - auto 기능 block */
+#endif //USE_PROHIBIT_AUTO_PRT		
 	if (Operation.wAuto && CheckCanadianTareAction()) {
 		MsgCanadianTare();
 		return;
@@ -4422,7 +4425,9 @@ void keyapp_prepack(void)
 {
 	//	INT32U pnt;
 	//	INT16U err;
-	
+#ifdef USE_PROHIBIT_PREPACK
+	return;
+#endif //USE_PROHIBIT_PREPACK			
 	//BuzOn(1);
 	prepack_onoff(0);
 	//sale_prepack_check();
