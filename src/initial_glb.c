@@ -1411,7 +1411,7 @@ ROMDATA PARAMETER_SETTING_TYPE	ParameterSetting[]=
 	{  686, 	 0x4686,	 GLOBAL_SALE_SETUP_FLAG20,	FLASH_GLOBAL_AREA,	1,			4,		 1, 	   1,	COUNTRY_EMPTY},
 	{  687,	     0x4687, 	 GLOBAL_TARE_SETITING,		FLASH_GLOBAL_AREA, 	1,    	    4,	     4,	       1,	COUNTRY_EMPTY},		// Numeric Tare Block 설정	
 	{  688,	     0x4688, 	 GLOBAL_TARE_SETITING,		FLASH_GLOBAL_AREA, 	1,    	    4,	     5,	       1,	COUNTRY_EMPTY},		// Weight Tare Block 설정
-	{  689,      0x4689,     GLOBAL_TARE_SETITING,     	FLASH_GLOBAL_AREA, 	2,          4,       7,	       2,       COUNTRY_EMPTY},	// Set DISP Control Method(CL3000 전용)
+	{  689,      0x4689,     GLOBAL_TARE_SETITING,     	FLASH_GLOBAL_AREA, 	1,          4,       7,	       2,       COUNTRY_EMPTY},	// Set DISP Control Method(CL3000 전용)
 	{  690, 	 0x4690,	 GLOBAL_SALE_SETUP_FLAG15, FLASH_GLOBAL_AREA,		1,			4,		 5, 	   1,		COUNTRY_EMPTY},  //   1
 	{  691,  	 0x4691,	 GLOBAL_REPORT_FLAG2,    	FLASH_GLOBAL_AREA,  1,    	    4,	     2,	       3,	COUNTRY_EMPTY},  //   1 
 // CL5500용

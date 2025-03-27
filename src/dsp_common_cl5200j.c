@@ -65,7 +65,7 @@ void Dsp_InitHardware(void)
 	INT8U chk_use_lcd_ver_with_flag;
 
 	/* 
-	*  P981값 저장 후 값에 의한 DISP IC 제어 방식 선택
+	*  P689값 저장 후 값에 의한 DISP IC 제어 방식 선택
 	*   - 0 : PCB 저항 풀업, 풀다운 체크(PCB 납땜시 ST7522, RW1087 사용가능)
 	*   - 1 : ST7522 전용 사용
 	*   - 2 : RW1087 전용 사용

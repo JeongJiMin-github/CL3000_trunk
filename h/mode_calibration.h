@@ -81,14 +81,11 @@ typedef struct
   // FTL_ERROR_MANAGEMENT_SIZE = 48
   // START_COUNT = 4
   // FWMODE = 1
-  // #ifdef USE_ADM_AUTO_RESTORE
   // ADM INIT ERROR COUNT = 1
   // ADM EEP ROM ERROR COUNT = 1
   // ADM INIT COMPLETE = 1
-  // Reserved = 5
-  // #else
   // Set DISP Control Method = 1
-  // Reserved = 7
+  // Reserved = 4
   //  TOTAL = 332
 
 #define NVRAM_BACKUP_FLAG_HISTORY_WRITTEN 0x52011234

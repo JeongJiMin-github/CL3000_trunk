@@ -555,7 +555,7 @@ void history_flash2ram(HUGEDATA INT8U *buf)
 
 	ram += 1;
 #endif
-	// Set DISP Control Method(FLASH_GLOBAL_AREA의 499번지 1byte)
+	// Set DISP Control Method
 	addr = base_addr + FLASH_GLOBAL_AREA + GLOBAL_TARE_SETITING;
 	Flash_sread(addr, ram, 1);
 
@@ -657,7 +657,7 @@ void history_ram2flash(HUGEDATA INT8U *buf)
 
  	ram += 1;
  #endif	
-	// Set DISP Control Method(FLASH_GLOBAL_AREA의 499번지 1byte)
+	// Set DISP Control Method
 	addr = base_addr + FLASH_GLOBAL_AREA + GLOBAL_TARE_SETITING;
 	Flash_swrite(addr, ram, 1);
 
