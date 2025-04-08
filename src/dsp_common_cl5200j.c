@@ -73,17 +73,18 @@ void Dsp_InitHardware(void)
 	flag_lcd_ver = get_global_bparam(GLOBAL_TARE_SETITING);
 	chk_use_lcd_ver_with_flag = ((flag_lcd_ver >> 6) & 0x03);
 
-	if(chk_use_lcd_ver_with_flag == 0)
+	switch (chk_use_lcd_ver_with_flag)
 	{
-		Disp_control_ic_select = DISP_IC_VER_CHK1;
-	}
-	else if(chk_use_lcd_ver_with_flag == 1)
-	{
+	case 1:
 		Disp_control_ic_select = USE_ST7522_DISP_IC;
-	}
-	else if(chk_use_lcd_ver_with_flag == 2)
-	{
+		break;
+	case 2:
 		Disp_control_ic_select = USE_RW1087_DISP_IC;
+		break;
+	case 0:
+	default:
+		Disp_control_ic_select = DISP_IC_VER_CHK1;
+		break;
 	}
 #ifdef CL5200J_BP
 	// 해당 변수는 CL3000 LCD Control 전용 변수이므로 CL5200J에서는 0으로 초기화
