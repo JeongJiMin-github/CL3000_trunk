@@ -26,7 +26,7 @@
 * 			                   < Model Type >
 ********************************************************************************
 */
-#define CL3000_BP      //CL3000-BP
+//#define CL3000_BP      //CL3000-BP
 //#define CL5200J_BP     //CL5200J-BP
 /********************************************************************************/
 
@@ -558,8 +558,6 @@
 //////////////////////////////////////////////////////////////////////////////////
 /*							< 유럽(티켓 기능 X) 사용 펌웨어 >							*/
 #ifdef USE_EUROPE_WITHOUT_TICKET
-	#include "./Nation/UN_function.h"
-
 /*					< 유럽(티켓 기능 X) 특정 국가(Country) 선택 >						*/
 //#define COUNTRY_EASTERN_EUROPE	// 동유럽 CodePage1250 동유럽공용일 경우 사용합니다(국가코드 "EU").
 //#define COUNTRY_FRANCE			// 프랑스
@@ -587,6 +585,8 @@
 	#elif defined COUNTRY_EASTERN_EUROPE
 		#include "./Nation/EASTERN_EUR_u.h"
 	#endif
+
+	#include "./Nation/UN_function.h"
 #endif // USE_EUROPE_WITHOUT_TICKET
 //////////////////////////////////////////////////////////////////////////////////
 
