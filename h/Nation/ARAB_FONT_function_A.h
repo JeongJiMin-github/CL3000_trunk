@@ -8,8 +8,10 @@
 #define	ARAB_FONT_function_A_H
 
 //----------   국가 Default  ----------//
- #define COUNTRY_STR "  "
  #define DEALER_VER_STRING	"(A)"
+  #ifndef COUNTRY_STR
+	#define COUNTRY_STR "  "
+  #endif
 //----------   국가 전용 기능  ----------//
  //#define USE_TRACE_STANDALONE   	// 축산 이력기능
  //#define USE_GSMART_PLU         	// Use GSMart PLU Structure(Kor)

@@ -522,8 +522,6 @@
 //////////////////////////////////////////////////////////////////////////////////
 /*								< 러시아 펌웨어 >								*/
 #ifdef USE_RUSSIA
-	#include "./Nation/RUS_function.h"
-
 /*						< 러시아 버전 특정 국가(Country) 선택 >						*/
 #define COUNTRY_RUSSIA // Default
 //#define COUNTRY_ARMENIA
@@ -538,6 +536,8 @@
   #else
   	#define FONT_CODEPAGE CODEPAGE_1251
   #endif
+
+	#include "./Nation/RUS_function.h"
 #endif
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -545,12 +545,10 @@
 //////////////////////////////////////////////////////////////////////////////////
 /*							< 아랍 폰트 사용 펌웨어 >							*/
 #ifdef USE_ARAB
-	#include "./Nation/ARAB_FONT_function_A.h"
-
 /*						< 아랍 폰트 특정 국가(Country) 선택 >						*/
 //#deifne COUNTRY_LEBANON			// 현재 CL3000, Cl5200J는 레바논에 펌웨어 파생 X(24년 6월 기준)
 
-
+	#include "./Nation/ARAB_FONT_function_A.h"
 #endif
 //////////////////////////////////////////////////////////////////////////////////
 

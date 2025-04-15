@@ -9,6 +9,9 @@
 
 //----------   국가 Default  ----------//
  #define DEALER_VER_STRING	"(R)"
+  #ifndef COUNTRY_STR
+    #define COUNTRY_STR "  "
+  #endif
  #define USE_RUSSIA_DEFAULT			        // default set for russia 
 //----------   국가 전용 기능  ----------//
  #define USE_NUTRITION_FACT			        // Use Nutrition Fact
